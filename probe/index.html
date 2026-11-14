@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#000000" />
+    <title>Alidade Probe</title>
+  </head>
+  <body>
+    <video id="video" autoplay playsinline muted></video>
+
+    <div id="crosshair" aria-hidden="true">
+      <span class="ring"></span>
+      <span class="h"></span>
+      <span class="v"></span>
+    </div>
+
+    <div id="hud">
+      <div id="readout">
+        <div id="gpsBig" class="gpsbig">GPS ±<span id="v_gpsAccBig">—</span> m</div>
+        <div class="line"><span class="label">meas</span> azA <span id="v_azA">—</span>°  azB <span id="v_azB">—</span>°  alt <span id="v_alt">—</span>°</div>
+        <div class="line"><span class="label">sun </span> az <span id="v_sunAz">—</span>°  alt <span id="v_sunAlt">—</span>°</div>
+        <div class="line"><span class="label">Δ   </span> A <span id="v_errA">—</span>°  B <span id="v_errB">—</span>°  alt <span id="v_errAlt">—</span>°</div>
+        <div class="line"><span class="label">α   </span> <span id="v_alpha">—</span>° <span id="v_source" class="src">—</span>  abs:<span id="v_abs">—</span></div>
+        <div class="line"><span class="label">βγ  </span> <span id="v_beta">—</span>° <span id="v_gamma">—</span>°  rawα <span id="v_rawAlpha">—</span>°</div>
+        <div class="line"><span class="label">comp</span> <span id="v_comp">—</span>°  acc <span id="v_compAcc">—</span>°</div>
+        <div class="line"><span class="label">gps </span> <span id="v_lat">—</span> <span id="v_lon">—</span>  ±<span id="v_gpsAcc">—</span>m</div>
+        <div class="line"><span class="label">scr </span> <span id="v_scr">—</span>°  n=<span id="v_n">0</span></div>
+        <div class="line"><span class="label">vid </span> <span id="v_videoRes">—</span>  <span id="v_videoFps">—</span>fps  rate <span id="v_orientRate">—</span>/s</div>
+      </div>
+    </div>
+
+    <div id="controls">
+      <button id="startBtn" type="button">Start</button>
+      <button id="zoomBtn" type="button" disabled>Zoom 1×</button>
+      <button id="captureBtn" type="button" disabled>Capture</button>
+      <button id="toggleBtn" type="button" disabled>Samples</button>
+      <button id="copyBtn" type="button" disabled>Copy CSV</button>
+      <button id="clearBtn" type="button" disabled>Clear</button>
+    </div>
+
+    <div id="samples">
+      <div id="summary">No samples yet.</div>
+      <div id="tablewrap">
+        <table id="samplesTable"></table>
+      </div>
+    </div>
+
+    <div id="toast"></div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,15 @@
+# Dependencies and build output
+node_modules/
+dist/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Logs and OS files
+*.log
+.DS_Store
+
+# Private working notes and raw measurement data (not part of the project)
+/notes/
