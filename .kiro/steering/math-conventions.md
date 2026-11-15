@@ -50,7 +50,19 @@ Every numeric name carries its unit as a suffix. Names such as `bearing`, `angle
   up    = -(cos β · cos γ)
   ```
 
-  Camera azimuth is `atan2(east, north)` and camera altitude is `asin(up)`. Compute both from the full rotation; never read heading from `alpha` alone. This formula must be confirmed against recorded phone data before the sensors package relies on it, because iOS does not report an absolute `alpha`.
+  Camera azimuth is `atan2(east, north)` and camera altitude is `asin(up)`. Compute both from the full rotation; never read heading from `alpha` alone.
+
+### What the sensor probe established (2026-11-15, `/probe`)
+
+Measured on an iPhone 13 (Safari) and a Xiaomi (Chrome) by sighting landmarks and the Sun.
+
+- **Never use `alpha` or `gamma` on their own.** With the phone upright (`beta` near 90°) the Euler angles are in gimbal lock: raw `alpha` swung across 170° between captures of the same target while the camera azimuth from the full rotation stayed within about 1°.
+- **Android:** `deviceorientationabsolute` plus the formula above gives a stable camera azimuth (repeatability about 0.4° over a minute, drift of a few degrees over several minutes).
+- **iOS: do not derive an absolute `alpha` from `webkitCompassHeading`.** Both `alpha = 360 - heading` and "heading minus top-edge azimuth" gave azimuths scattered over 35° to 80° with the phone upright. The data shows that with the phone upright, `webkitCompassHeading` is already the heading of the rear-camera direction, not of the top edge. Its behaviour at steep tilts (camera altitude above about 30°) and with the phone flat is not yet measured.
+- **iOS relative frame:** the camera azimuth computed from the event's own raw `alpha`, `beta`, `gamma` is only relative, but it is the most repeatable signal measured (0.3° to 0.6°), better than the compass (0.75° to 1.7°, with occasional jumps of 4°). The relative frame's zero can change when the page loses focus.
+- **Compass headings are magnetic.** Sighting the Sun, the iOS heading read 4.1° ± 0.9° above the Sun's true azimuth at the place of the measurements, consistent with the local declination there of about 4° west. Declination must be applied from a geomagnetic model, or removed by calibrating on the Sun.
+- **Design consequence:** use the compass (or a Sun sighting) only to fix the yaw reference, and the gyro-based relative frame for precision.
+- **Open:** camera altitude read 3.3° ± 0.5° low against the Sun on iOS. The cause is not established (aim at the Sun's glare, crosshair not on the optical axis, or the sensor). Do not rely on absolute altitude until this is resolved.
 
 ## Celestial
 
