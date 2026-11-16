@@ -1,0 +1,6 @@
+node_modules/
+dist/
+probe/
+notes/
+.kiro/
+pnpm-lock.yaml

@@ -1,0 +1,21 @@
+{
+  "name": "@alidade/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Pure math for Alidade: angles, spherical geodesy, observations, solver and uncertainty.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "fast-check": "4.10.2",
+    "typescript": "6.0.3",
+    "vite": "8.3.8",
+    "vitest": "5.1.0"
+  }
+}

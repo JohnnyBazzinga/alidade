@@ -34,8 +34,8 @@ Package: `skeleton/core` (`@alidade/core`). Source of truth: `requirements.md` a
 
 ## Tasks
 
-- [ ] 1. Scaffold the workspace and the core package
-  - [ ] 1.1 Create the root workspace
+- [x] 1. Scaffold the workspace and the core package
+  - [x] 1.1 Create the root workspace
     - Add `pnpm-workspace.yaml` (`skeleton/*`, `apps/*`), a root `package.json` with the
       scripts `test`, `typecheck` and `lint` from `tech.md`, a base strict `tsconfig`,
       ESLint (`no-explicit-any` and `no-non-null-assertion` as errors, applied to source and test
@@ -43,13 +43,13 @@ Package: `skeleton/core` (`@alidade/core`). Source of truth: `requirements.md` a
       and Prettier. Leave the existing `probe/` project outside the workspace.
     - Pin every dependency to an exact version.
     - _Requirements: 11.5_
-  - [ ] 1.2 Create `skeleton/core` (`@alidade/core`)
+  - [x] 1.2 Create `skeleton/core` (`@alidade/core`)
     - `package.json` with an empty `dependencies` object (dev dependencies: Vitest,
       `fast-check`, TypeScript), a package `tsconfig`, a Vitest config that runs once and
       excludes `src/test-support` from coverage of public API, and an empty `src/index.ts`.
     - Set the `fast-check` default to at least 200 runs per property in one shared place.
     - _Requirements: 11.1, 11.3, 11.5_
-  - [ ] 1.3 Add test support: seeded random source
+  - [x] 1.3 Add test support: seeded random source
     - `src/test-support/seeded-random.ts`: a small seeded PRNG that takes a seed argument
       and offers uniform and Gaussian draws. It is test code; `core` sources never import
       it.
