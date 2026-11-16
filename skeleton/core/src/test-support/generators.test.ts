@@ -11,11 +11,19 @@ import {
   EARTH_RADIUS_M,
   MAX_SUPPORTED_LAT_RAD,
   greatCircleDistanceM,
+  initialAzimuthRad,
   isSupportedPosition,
 } from '../position';
 import { unwrapOk } from './result-helpers';
 import {
   TARGET_LIMIT_MARGIN_M,
+  crossingAngleBetweenRad,
+  directionSpanRad,
+  largestCrossingAngleRad,
+  meridianSet,
+  noisySolvableSet,
+  outlierSet,
+  solvableSet,
   azimuth,
   bearingGeometry,
   clusteredAngles,
@@ -173,5 +181,124 @@ describe('bearingGeometry', () => {
     expect(shareOf(offsetsM, (offsetM) => offsetM === 0)).toBeGreaterThan(0.15);
     expect(shareOf(offsetsM, (offsetM) => offsetM > 0 && offsetM < 1e-3)).toBeGreaterThan(0.15);
     expect(shareOf(offsetsM, (offsetM) => offsetM >= 1e-3)).toBeGreaterThan(0.35);
+  });
+});
+
+describe('solver scenario generators', () => {
+  const DEG = Math.PI / 180;
+  const rangeOf = (
+    observer: { latRad: number; lonRad: number },
+    target: { latRad: number; lonRad: number },
+  ) => unwrapOk(greatCircleDistanceM(observer, target));
+  const trueAzimuth = (
+    observer: { latRad: number; lonRad: number },
+    target: { latRad: number; lonRad: number },
+  ) => unwrapOk(initialAzimuthRad(observer, target));
+  const angleGap = (aRad: number, bRad: number): number =>
+    Math.abs(Math.atan2(Math.sin(aRad - bRad), Math.cos(aRad - bRad)));
+
+  it('crossingAngleBetweenRad and directionSpanRad give known values', () => {
+    expect(crossingAngleBetweenRad(0, 170 * DEG)).toBeCloseTo(10 * DEG, 12);
+    expect(crossingAngleBetweenRad(350 * DEG, 10 * DEG)).toBeCloseTo(20 * DEG, 12);
+    expect(crossingAngleBetweenRad(0, 90 * DEG)).toBeCloseTo(90 * DEG, 12);
+    expect(directionSpanRad([0, 90 * DEG])).toBeCloseTo(90 * DEG, 12);
+    expect(directionSpanRad([350 * DEG, 10 * DEG])).toBeCloseTo(20 * DEG, 12);
+    expect(directionSpanRad([0, 120 * DEG, 240 * DEG])).toBeCloseTo(240 * DEG, 12);
+  });
+
+  it('solvableSet meets exactly the Req 7.4 conditions, noise-free, with every count 2 to 12', () => {
+    const scenarios = sampleOf(solvableSet, 600);
+    const counts = new Set<number>();
+    for (const { target, observations } of scenarios) {
+      counts.add(observations.length);
+      expect(observations.length).toBeGreaterThanOrEqual(2);
+      expect(observations.length).toBeLessThanOrEqual(12);
+      expect(new Set(observations.map((observation) => observation.id)).size).toBe(
+        observations.length,
+      );
+      expect(largestCrossingAngleRad(observations)).toBeGreaterThanOrEqual(10 * DEG);
+      for (const observation of observations) {
+        expect(validateBearing(observation).ok).toBe(true);
+        const rangeM = rangeOf(observation.observer, target);
+        expect(rangeM).toBeGreaterThan(500 - 1e-3);
+        expect(rangeM).toBeLessThan(1e5 + 1e-3);
+        expect(angleGap(observation.azimuthRad, trueAzimuth(observation.observer, target))).toBe(0);
+      }
+    }
+    expect(counts.size).toBe(11);
+  });
+
+  it('solvableSet spreads sigma and accuracy over their whole valid ranges', () => {
+    const observations = sampleOf(solvableSet, 600).flatMap((scenario) => scenario.observations);
+    const sigmas = observations.map((observation) => observation.azimuthSigmaRad);
+    const accuracies = observations.map((observation) => observation.positionAccuracyM);
+    expect(shareOf(sigmas, (sigmaRad) => sigmaRad > 20 * DEG)).toBeGreaterThan(0.2);
+    expect(shareOf(sigmas, (sigmaRad) => sigmaRad < 1 * DEG)).toBeGreaterThan(0.02);
+    expect(shareOf(accuracies, (accuracyM) => accuracyM > 5000)).toBeGreaterThan(0.2);
+    expect(shareOf(accuracies, (accuracyM) => accuracyM < 10)).toBeGreaterThan(0.02);
+  });
+
+  it('noisySolvableSet keeps the geometry and adds noise on the scale of each sigma', () => {
+    const normalisedErrors: number[] = [];
+    for (const { target, observations } of sampleOf(noisySolvableSet, 400)) {
+      for (const observation of observations) {
+        expect(validateBearing(observation).ok).toBe(true);
+        const errorRad = Math.atan2(
+          Math.sin(observation.azimuthRad - trueAzimuth(observation.observer, target)),
+          Math.cos(observation.azimuthRad - trueAzimuth(observation.observer, target)),
+        );
+        normalisedErrors.push(errorRad / observation.azimuthSigmaRad);
+      }
+    }
+    // Noise of one sigma: about 68% of the errors within one sigma, and not all of them zero.
+    const withinOne = shareOf(normalisedErrors, (value) => Math.abs(value) < 1);
+    expect(withinOne).toBeGreaterThan(0.6);
+    expect(withinOne).toBeLessThan(0.76);
+  });
+
+  it('meridianSet has observers on both sides of the ±180° meridian', () => {
+    for (const { target, observations } of sampleOf(meridianSet, 300)) {
+      expect(Math.abs(Math.abs(target.lonRad) - Math.PI)).toBeLessThanOrEqual(1 * DEG + 1e-12);
+      expect(observations.some((observation) => observation.observer.lonRad > Math.PI / 2)).toBe(
+        true,
+      );
+      expect(observations.some((observation) => observation.observer.lonRad < -Math.PI / 2)).toBe(
+        true,
+      );
+      expect(largestCrossingAngleRad(observations)).toBeGreaterThanOrEqual(10 * DEG);
+    }
+  });
+
+  it('outlierSet matches Req 10.5: 8 to 12 good observers spanning 120° or more, one bad by 30° to 80°', () => {
+    for (const { target, observations, badId } of sampleOf(outlierSet, 300)) {
+      const good = observations.filter((observation) => observation.id !== badId);
+      const bad = observations.filter((observation) => observation.id === badId);
+      expect(bad).toHaveLength(1);
+      expect(good.length).toBeGreaterThanOrEqual(8);
+      expect(good.length).toBeLessThanOrEqual(12);
+      expect(new Set(observations.map((observation) => observation.id)).size).toBe(
+        observations.length,
+      );
+      const directionsRad = good.map((observation) => trueAzimuth(target, observation.observer));
+      expect(directionSpanRad(directionsRad)).toBeGreaterThanOrEqual(120 * DEG - 1e-9);
+      for (const observation of observations) {
+        expect(observation.azimuthSigmaRad).toBeCloseTo(2 * DEG, 15);
+        expect(observation.positionAccuracyM).toBe(0);
+        const rangeM = rangeOf(observation.observer, target);
+        expect(rangeM).toBeGreaterThan(5000 - 1e-3);
+        expect(rangeM).toBeLessThan(7000 + 1e-3);
+      }
+      for (const observation of good) {
+        expect(angleGap(observation.azimuthRad, trueAzimuth(observation.observer, target))).toBe(0);
+      }
+      const [badObservation] = bad;
+      if (badObservation === undefined) throw new Error('no bad observation');
+      const badErrorRad = angleGap(
+        badObservation.azimuthRad,
+        trueAzimuth(badObservation.observer, target),
+      );
+      expect(badErrorRad).toBeGreaterThanOrEqual(30 * DEG - 1e-9);
+      expect(badErrorRad).toBeLessThanOrEqual(80 * DEG + 1e-9);
+    }
   });
 });

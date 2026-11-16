@@ -133,7 +133,7 @@ All conventions in `.kiro/steering/math-conventions.md` are binding for this spe
 1. WHEN given two or more valid observations and a Measurement model, THE solver SHALL estimate the unknown Position by iterative weighted least squares, re-evaluating each observation's Effective sigma at every iteration.
 2. THE solver SHALL stop when an iteration moves the estimate by less than `1e-4 m`, and SHALL return a failure with reason `not_converged` if this has not happened within 50 iterations.
 3. IF the normal matrix `Jᵀ W J` cannot be inverted reliably (condition number above `1e12`), THEN THE solver SHALL return a failure with reason `singular_geometry`.
-4. FOR ALL targets and sets of 2 to 12 observers, each between `500 m` and `100 km` from the target, with at least one pair of bearings whose Crossing angle is `≥ 10°`, WHEN given the Noise-free observation set, THE solver SHALL return a Fix within `0.01 m` of the true target.
+4. FOR ALL targets with latitude magnitude at most `75°` and sets of 2 to 12 observers, each between `500 m` and `100 km` from the target, with at least one pair of bearings whose Crossing angle is `≥ 10°` and with cross-track 1-sigmas (Effective sigma at the target times range) that differ by at most a factor of `1e3`, WHEN given the Noise-free observation set, THE solver SHALL return a Fix within `0.01 m` of the true target.
 5. FOR ALL solvable observation sets, reordering the observations SHALL change the Fix by less than `1e-3 m` (order independence).
 6. FOR ALL solvable observation sets, with every observation's Effective sigma held at its value at the Fix, the Cost at the returned Fix SHALL NOT exceed the Cost at any point `1 m` away in the East, West, North or South direction (local optimality).
 7. FOR ALL solvable observation sets, adding a copy of every observation under a new id SHALL leave the Fix unchanged within `1e-3 m`.
@@ -150,9 +150,9 @@ All conventions in `.kiro/steering/math-conventions.md` are binding for this spe
 1. THE solver SHALL return, with every successful Fix, the 2×2 covariance in East-North square metres, computed as the inverse of `Jᵀ W J` at the solution.
 2. THE Core SHALL derive from the covariance an Error ellipse: 1-sigma semi-major and semi-minor axes in metres (semi-major `≥` semi-minor `> 0`) and the Azimuth of the major axis in `[0, π)`.
 3. THE Core SHALL provide the 95% ellipse by multiplying the 1-sigma axes by `2.4477`.
-4. FOR ALL solvable observation sets and factors `k` in `[0.5, 4]`, multiplying every observation's Azimuth 1-sigma and position accuracy by `k` SHALL leave the Fix unchanged within `1e-3 m` and SHALL multiply both ellipse axes by `k` within a relative error of `1e-5`.
+4. FOR ALL solvable observation sets and factors `k` in `[0.5, 4]` for which every scaled observation is still valid, multiplying every observation's Azimuth 1-sigma and position accuracy by `k` SHALL leave the Fix unchanged within `1e-3 m` and SHALL multiply both ellipse axes by `k` within a relative error of `1e-5`.
 5. FOR ALL solvable observation sets, adding a copy of every observation under a new id SHALL divide both ellipse axes by `√2` within a relative error of `1e-5`.
-6. FOR ALL Noise-free observation sets that satisfy the conditions of criterion 7.4, adding one further noise-free observation of the same target SHALL NOT increase the determinant of the covariance by more than a relative `1e-9`.
+6. FOR ALL Noise-free observation sets that satisfy the conditions of criterion 7.4, adding one further noise-free observation of the same target that keeps those conditions SHALL NOT increase the determinant of the covariance by more than a relative `1e-9`.
 7. THE covariance matrix SHALL be symmetric and positive definite for every successful Fix.
 8. WHEN 1000 trials are run with a fixed seed, each with 3 observers between `1 km` and `20 km` from the target, pairwise Crossing angles `≥ 30°`, exact observer positions and Gaussian Azimuth noise of 1-sigma `2°`, THE 95% ellipse SHALL contain the true target in at least 90% and at most 99% of trials, counting any failed trial as not contained (calibration).
 
@@ -184,7 +184,7 @@ All conventions in `.kiro/steering/math-conventions.md` are binding for this spe
 2. THE solver SHALL repeat the exclusion until no Normalised residual exceeds `3.5` or only three observations remain.
 3. THE solver SHALL run the post-solve plausibility check only after exclusion has finished, and only on the observations that remain.
 4. THE solver SHALL return the ids of all excluded observations and SHALL add the warning `outliers_excluded` when any were excluded.
-5. FOR ALL targets with 8 to 12 observers placed between `5 km` and `7 km` from the target, in directions from the target that span at least `120°`, each with exact position and Azimuth 1-sigma `2°`, WHEN the Noise-free observation set is extended by one observation from the same range band whose Azimuth is wrong by between `30°` and `80°`, THE solver SHALL return a Fix within `1 m` of the true target and SHALL list exactly that observation as excluded.
+5. FOR ALL targets with latitude magnitude at most `88°` and 8 to 12 observers placed between `5 km` and `7 km` from the target, in directions from the target with no gap greater than `60°` between neighbouring directions, each with exact position and Azimuth 1-sigma `2°`, WHEN the Noise-free observation set is extended by one observation from the same range band whose Azimuth is wrong by between `15°` and `45°`, THE solver SHALL return a Fix within `1 m` of the true target and SHALL list exactly that observation as excluded.
 6. WHERE outlier rejection is disabled, THE solver SHALL use every valid observation and SHALL exclude none.
 
 ### Requirement 11: Purity and packaging

@@ -27,3 +27,4 @@ export type {
   SolverOptions,
 } from './measurement-model';
 export { BearingModel } from './bearing-model';
+export { solve } from './solver';

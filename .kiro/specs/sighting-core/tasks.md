@@ -298,20 +298,20 @@ Package: `skeleton/core` (`@alidade/core`). Source of truth: `requirements.md` a
     failing property with the code / property / requirement classification.
 
 - [ ] 12. Fix solver
-  - [ ] 12.1 Add the stub model for generic-behaviour tests
+  - [x] 12.1 Add the stub model for generic-behaviour tests
     - `src/test-support/stub-model.ts`: a configurable `MeasurementModel` whose
       `evaluate`, `geometryCheck` and `startEstimate` can be scripted (fail beyond a
       distance, fail everywhere, return a `NaN` normal matrix, count calls). It is used to
       prove the solver depends only on the interface.
     - _Requirements: 5.4, 5.6_
-  - [ ] 12.2 Implement the pre-solve steps of `src/solver.ts` (§7.5 steps 0–5)
+  - [x] 12.2 Implement the pre-solve steps of `src/solver.ts` (§7.5 steps 0–5)
     - Options (defaults; `maxIterations` must be an integer in `[1, 50]`, otherwise
       `invalid_number` with field `maxIterations`); canonicalise by `model.idOf` and reject
       duplicate ids; `model.validate` on every observation; fewer than two gives
       `insufficient_observations`; `geometryCheck` before `origin` and `startEstimate`.
       The file imports nothing bearing-specific.
     - _Requirements: 5.4, 5.7, 7.2, 9.1, 9.9, 9.10_
-  - [ ] 12.3 Implement the solve loop (§7.5 step 6)
+  - [x] 12.3 Implement the solve loop (§7.5 step 6)
     - Weighted Gauss-Newton on the Local plane with sigmas re-evaluated each iteration; the
       eigenvalue gate written as "unless `λ1 > 0` and `λ2 > 0`, `singular_geometry`", then
       `λ1/λ2 > 1e12`; step control with up to 8 halvings against the cost at this
@@ -321,7 +321,7 @@ Package: `skeleton/core` (`@alidade/core`). Source of truth: `requirements.md` a
       result with a non-finite number or an effective sigma not greater than zero gives
       `invalid_number` (D17).
     - _Requirements: 7.1, 7.2, 7.3, 7.8_
-  - [ ] 12.4 Implement fix assembly and the post-solve check (§7.5 steps 8–11)
+  - [x] 12.4 Implement fix assembly and the post-solve check (§7.5 steps 8–11)
     - Post-exclusion `geometryCheck` taking the `poor_geometry` warning (D5);
       covariance as the inverse of `JᵀWJ`, the ellipse, per-observation residuals and
       normalised residuals, `iterations`, `warnings` and `excludedIds`; then
@@ -329,13 +329,13 @@ Package: `skeleton/core` (`@alidade/core`). Source of truth: `requirements.md` a
       returns a `Result`; return its failure if it fails. Check that every number in the
       assembled `Fix` is finite, otherwise return `invalid_number` (D17).
     - _Requirements: 7.9, 8.1, 8.2, 9.4, 9.5, 9.6, 9.11, 10.3_
-  - [ ] 12.5 Implement outlier rejection (§7.5 step 7)
+  - [x] 12.5 Implement outlier rejection (§7.5 step 7)
     - Enabled only by option and with four or more observations; exclude the largest
       `|normalised residual|` above `3.5` (ties by id), re-solve with a warm start, stop
       when none exceeds `3.5` or three remain; add `outliers_excluded`; evaluate the final
       candidate before computing residuals and return an evaluation failure if there is one.
     - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.6_
-  - [ ] 12.6 Add solver generators
+  - [x] 12.6 Add solver generators
     - In `generators.ts`: `solvableSet` with only the conditions of Req 7.4 (every position
       Supported; 2–12 observers `500 m–100 km` from the target; one pair crossing at
       `≥ 10°`; noise-free; unique ids). It never calls `solve` and does not filter on solver
@@ -345,7 +345,7 @@ Package: `skeleton/core` (`@alidade/core`). Source of truth: `requirements.md` a
       of Req 10.5 (8–12 observers `5–7 km` from the target spanning `≥ 120°`, sigma `2°`,
       plus one bad observation off by `30°–80°`). Document each domain and exclusion.
     - _Requirements: 7.4, 7.5, 7.6, 7.7, 8.4, 8.5, 8.6, 8.7, 9.7, 10.5_
-  - [ ] 12.7 Example tests for each solver failure and warning in `src/solver.test.ts`
+  - [x] 12.7 Example tests for each solver failure and warning in `src/solver.test.ts`
     - `insufficient_observations`; `invalid_observation` naming id and field;
       `invalid_observation` with field `id` for duplicates (Req 9.10); `invalid_number`
       with field `maxIterations` for `NaN`, `±Infinity`, `0`, a negative, a fraction and
@@ -353,7 +353,10 @@ Package: `skeleton/core` (`@alidade/core`). Source of truth: `requirements.md` a
       bearings, with the counting stub proving `startEstimate` is not called (step 4);
       `colocated_observers`; `diverging_bearings`; `out_of_range`; `poor_geometry`
       including the exclusion cases of Req 9.11 (poor before, good after, and the
-      converse); `outliers_excluded`; outlier rejection disabled excludes nothing; the
+      converse; with BearingModel only "good before, poor after" can occur, because removing
+      observations cannot raise the largest crossing angle, so "poor before, good after" is
+      shown with the stub model); `outliers_excluded`; outlier rejection disabled excludes
+      nothing; the
       D15 cases (two observers `A` and `B` on the same meridian, `B` sighting `A` at azimuth `0`
       and `A` sighting `45°`: the origin lies on that meridian, so the plane intersection
       lands on `A` within `1e-3 m` and `solve` gives `coincident_positions`; observers near

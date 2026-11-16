@@ -275,7 +275,7 @@ external):
 
 ```
 index.ts -> * (re-export only)
-solver.ts -> measurement-model.ts, ellipse.ts, result.ts
+solver.ts -> measurement-model.ts, ellipse.ts, local-plane.ts (to unproject the fix), result.ts
 bearing-model.ts -> measurement-model.ts, position.ts, local-plane.ts, angle.ts, observation.ts, result.ts
 local-plane.ts -> position.ts, angle.ts
 observation.ts -> position.ts, result.ts

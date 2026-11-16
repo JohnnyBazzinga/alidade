@@ -9,7 +9,7 @@
 // over the real domain. `generators.test.ts` checks the spread.
 
 import fc from 'fast-check';
-import { TWO_PI_RAD } from '../angle';
+import { TWO_PI_RAD, _wrapPi, _wrapTwoPi } from '../angle';
 import {
   MAX_AZIMUTH_SIGMA_RAD,
   MAX_POSITION_ACCURACY_M,
@@ -20,6 +20,7 @@ import {
   EARTH_RADIUS_M,
   MAX_SUPPORTED_LAT_RAD,
   destinationPosition,
+  initialAzimuthRad,
   isSupportedPosition,
   type Position,
 } from '../position';
@@ -199,8 +200,10 @@ const targetNearLimit: fc.Arbitrary<Position> = fc
  *
  * Excludes, by discarding the draw:
  * - targets less than 10 m inside the 89° latitude limit (Req 6.5, 6.6). Within that band the
- *   1 m finite-difference step, or the rounding of the plane round trip (about 1e-7 m there),
- *   can leave the Supported region, where the model must fail. Example tests in
+ *   1 m finite-difference step can leave the Supported region, where the model must fail. The
+ *   plane round trip is not the concern: with the atan2 destination latitude it moves a target
+ *   near the limit by at most about 1.4e-9 m (measured over 258 000 targets 1e-6 m to 10 km
+ *   inside it, none of which left the Supported region). Example tests in
  *   `bearing-model.test.ts` cover the excluded band: `evaluate` returns `unsupported_position`;
  * - observers or origins that are not Supported positions. The 10 m margin applies to the target
  *   only, so an observer may lie anywhere up to the limit; observers within 1 km of it are drawn
@@ -231,3 +234,285 @@ export const bearingGeometry: fc.Arbitrary<BearingGeometry> = fc
     origin: unwrapOk(destinationPosition(target, originAzimuthRad, originOffsetM)),
   }))
   .filter(({ observer, origin }) => isSupportedPosition(observer) && isSupportedPosition(origin));
+
+// ---------------------------------------------------------------------------------------------
+// Solver scenarios (task 12.6). None of these generators calls the solver, and none filters on
+// whether the solver succeeds: a property that uses them treats a solve failure as a test
+// failure (design §8). They filter only on the geometric conditions they state.
+// ---------------------------------------------------------------------------------------------
+
+const DEG = Math.PI / 180;
+
+/** A set of bearings that all sight `target`. */
+export interface SolverScenario {
+  readonly target: Position;
+  readonly observations: readonly Bearing[];
+}
+
+/** A `SolverScenario` with one deliberately wrong observation (Req 10.5). */
+export interface OutlierScenario extends SolverScenario {
+  readonly badId: string;
+}
+
+/**
+ * The acute angle between two bearing lines (the Crossing angle of the glossary), computed here
+ * without the bearing model so that a generator does not depend on the code under test.
+ */
+export function crossingAngleBetweenRad(firstAzimuthRad: number, secondAzimuthRad: number): number {
+  const differenceRad = Math.abs(_wrapPi(firstAzimuthRad - secondAzimuthRad));
+  return Math.min(differenceRad, Math.PI - differenceRad);
+}
+
+/** The largest Crossing angle over all pairs of `observations`. */
+export function largestCrossingAngleRad(observations: readonly Bearing[]): number {
+  let largestRad = 0;
+  for (let i = 0; i < observations.length; i += 1) {
+    for (let j = i + 1; j < observations.length; j += 1) {
+      largestRad = Math.max(
+        largestRad,
+        crossingAngleBetweenRad(
+          (observations[i] as Bearing).azimuthRad,
+          (observations[j] as Bearing).azimuthRad,
+        ),
+      );
+    }
+  }
+  return largestRad;
+}
+
+/** The noise-free bearing of `target` from an observer `rangeM` away along `fromTargetRad`. */
+function noiseFreeBearing(
+  target: Position,
+  fromTargetRad: number,
+  rangeM: number,
+  fields: { id: string; azimuthSigmaRad: number; positionAccuracyM: number; timeUtcMs: number },
+): Bearing | undefined {
+  const observer = unwrapOk(destinationPosition(target, fromTargetRad, rangeM));
+  if (!isSupportedPosition(observer)) return undefined;
+  const azimuthRad = initialAzimuthRad(observer, target);
+  if (!azimuthRad.ok) return undefined;
+  return { ...fields, observer, azimuthRad: azimuthRad.value };
+}
+
+/** An azimuth 1-sigma in [0.01°, 45°]: edge-biased (both ends drawn) and unbiased uniform. */
+const azimuthSigmaRad: fc.Arbitrary<number> = fc.oneof(
+  fc.double({ min: MIN_AZIMUTH_SIGMA_RAD, max: MAX_AZIMUTH_SIGMA_RAD, noNaN: true }),
+  uniformBetween(MIN_AZIMUTH_SIGMA_RAD, MAX_AZIMUTH_SIGMA_RAD),
+);
+
+/** A position accuracy in [0, 10 000] m: edge-biased (both ends drawn) and unbiased uniform. */
+const positionAccuracyM: fc.Arbitrary<number> = fc.oneof(
+  fc.double({ min: 0, max: MAX_POSITION_ACCURACY_M, noNaN: true }),
+  uniformBetween(0, MAX_POSITION_ACCURACY_M),
+);
+
+/** Noise-free scenarios around targets drawn from `targets` (the Req 7.4 conditions). */
+function noiseFreeScenarios(targets: fc.Arbitrary<Position>): fc.Arbitrary<SolverScenario> {
+  return fc
+    .tuple(targets, fc.integer({ min: 2, max: 12 }))
+    .chain(([target, count]) =>
+      fc
+        .tuple(
+          fc.uniqueArray(fc.string({ minLength: 1, maxLength: 8 }), {
+            minLength: count,
+            maxLength: count,
+          }),
+          fc.array(
+            fc.tuple(
+              azimuth,
+              logUniformBetween(500, 1e5),
+              azimuthSigmaRad,
+              positionAccuracyM,
+              fc.integer({ min: 0, max: 4_102_444_800_000 }),
+            ),
+            { minLength: count, maxLength: count },
+          ),
+        )
+        .map(([ids, placements]) => {
+          const observations = placements.map(
+            ([fromTargetRad, rangeM, sigmaRad, accuracyM, timeUtcMs], index) =>
+              noiseFreeBearing(target, fromTargetRad, rangeM, {
+                id: ids[index] as string,
+                azimuthSigmaRad: sigmaRad,
+                positionAccuracyM: accuracyM,
+                timeUtcMs,
+              }),
+          );
+          return { target, observations };
+        }),
+    )
+    .filter(
+      (draft) =>
+        draft.observations.every((observation) => observation !== undefined) &&
+        largestCrossingAngleRad(draft.observations as Bearing[]) >= 10 * DEG,
+    )
+    .map((draft) => ({ target: draft.target, observations: draft.observations as Bearing[] }));
+}
+
+/**
+ * A noise-free observation set satisfying exactly the conditions of Req 7.4, and nothing else.
+ *
+ * Draws: a `supportedPosition` target; 2 to 12 observers, each reached from the target along an
+ * `azimuth` at a distance drawn log-uniformly from 500 m to 100 km; ids that are distinct
+ * strings of 1 to 8 characters; an azimuth 1-sigma anywhere in [0.01°, 45°] and a position
+ * accuracy anywhere in [0, 10 000] m (validation's full ranges); times from 1970 to about 2100.
+ * Each observer's azimuth is the exact initial azimuth from the observer to the target.
+ * Excludes, by discarding: sets with an observer that is not a Supported position, and sets
+ * whose largest Crossing angle is below 10° (Req 7.4). It never calls the solver.
+ */
+export const solvableSet: fc.Arbitrary<SolverScenario> = noiseFreeScenarios(supportedPosition);
+
+/** A standard normal draw, by Box-Muller from two unbiased fractions. */
+const standardNormal: fc.Arbitrary<number> = fc
+  .tuple(unitFraction, unitFraction)
+  .map(
+    ([radiusFraction, phaseFraction]) =>
+      Math.sqrt(-2 * Math.log(1 - radiusFraction)) * Math.cos(2 * Math.PI * phaseFraction),
+  );
+
+/**
+ * A `solvableSet` whose azimuths carry Gaussian noise: each azimuth plus its own
+ * `azimuthSigmaRad` times a standard normal draw, wrapped to [0, 2π). It is the only solver
+ * generator whose properties may discard sets the solver does not solve (design §8); a property
+ * that does so says so and counts the discards.
+ */
+export const noisySolvableSet: fc.Arbitrary<SolverScenario> = solvableSet.chain((scenario) =>
+  fc
+    .array(standardNormal, {
+      minLength: scenario.observations.length,
+      maxLength: scenario.observations.length,
+    })
+    .map((noise) => ({
+      target: scenario.target,
+      observations: scenario.observations.map((observation, index) => ({
+        ...observation,
+        azimuthRad: _wrapTwoPi(
+          observation.azimuthRad + observation.azimuthSigmaRad * (noise[index] as number),
+        ),
+      })),
+    })),
+);
+
+/**
+ * A noise-free `solvableSet` around a target within 1° of longitude of the ±180° meridian, kept
+ * only if it has observers on both sides of the meridian (Req 9.7).
+ *
+ * Draws: the target's latitude as `supportedPosition` does; its longitude 180° plus an offset
+ * drawn uniformly from [-1°, 1°], normalised to (-π, π]; the observers as for `solvableSet`.
+ * Excludes, by discarding: sets with no observer east of the meridian (longitude below -90°) or
+ * none west of it (longitude above 90°), besides the exclusions of `solvableSet`.
+ */
+export const meridianSet: fc.Arbitrary<SolverScenario> = noiseFreeScenarios(
+  fc.tuple(supportedPosition, uniformBetween(-1 * DEG, 1 * DEG)).map(([position, offsetRad]) => ({
+    latRad: position.latRad,
+    lonRad: _wrapPi(Math.PI + offsetRad),
+  })),
+).filter(
+  (scenario) =>
+    scenario.observations.some((observation) => observation.observer.lonRad > Math.PI / 2) &&
+    scenario.observations.some((observation) => observation.observer.lonRad < -Math.PI / 2),
+);
+
+/** The smallest arc of directions that contains every one of `directionsRad`. */
+export function directionSpanRad(directionsRad: readonly number[]): number {
+  const sorted = directionsRad
+    .map((directionRad) => _wrapTwoPi(directionRad))
+    .sort((a, b) => a - b);
+  let largestGapRad = TWO_PI_RAD - ((sorted[sorted.length - 1] as number) - (sorted[0] as number));
+  for (let index = 1; index < sorted.length; index += 1) {
+    largestGapRad = Math.max(
+      largestGapRad,
+      (sorted[index] as number) - (sorted[index - 1] as number),
+    );
+  }
+  return TWO_PI_RAD - largestGapRad;
+}
+
+/**
+ * The outlier scenario of Req 10.5.
+ *
+ * Draws: a `supportedPosition` target; 8 to 12 good observers at distances drawn uniformly from
+ * 5 km to 7 km, in directions from the target that run from a base `azimuth` across a span drawn
+ * uniformly from 120° to 360° (the first and last at its ends, the others uniform inside it);
+ * one more observer, the bad one, in any direction and in the same range band; every observer
+ * exact (position accuracy 0) with an azimuth 1-sigma of 2°. The good azimuths are noise-free;
+ * the bad one is noise-free plus or minus an error drawn uniformly from 30° to 80°. Ids are
+ * distinct strings of 1 to 8 characters; `badId` names the bad observation.
+ * Excludes, by discarding: scenarios with an observer that is not a Supported position, and
+ * scenarios whose good directions span less than 120° as the smallest containing arc (which can
+ * happen when the drawn span is near 360°).
+ */
+export const outlierSet: fc.Arbitrary<OutlierScenario> = fc
+  .tuple(supportedPosition, fc.integer({ min: 8, max: 12 }))
+  .chain(([target, goodCount]) =>
+    fc
+      .tuple(
+        fc.uniqueArray(fc.string({ minLength: 1, maxLength: 8 }), {
+          minLength: goodCount + 1,
+          maxLength: goodCount + 1,
+        }),
+        azimuth,
+        uniformBetween(120 * DEG, TWO_PI_RAD),
+        fc.array(uniformBetween(0, 1), { minLength: goodCount - 2, maxLength: goodCount - 2 }),
+        fc.array(uniformBetween(5000, 7000), { minLength: goodCount, maxLength: goodCount }),
+        fc.tuple(
+          azimuth,
+          uniformBetween(5000, 7000),
+          uniformBetween(30 * DEG, 80 * DEG),
+          fc.boolean(),
+        ),
+      )
+      .map(
+        ([
+          ids,
+          baseRad,
+          spanRad,
+          insideFractions,
+          rangesM,
+          [badFromTargetRad, badRangeM, badErrorRad, badErrorPositive],
+        ]) => {
+          const directionsRad = [
+            baseRad,
+            baseRad + spanRad,
+            ...insideFractions.map((fraction) => baseRad + spanRad * fraction),
+          ];
+          const fields = (id: string) => ({
+            id,
+            azimuthSigmaRad: 2 * DEG,
+            positionAccuracyM: 0,
+            timeUtcMs: 1_763_193_600_000,
+          });
+          const good = directionsRad.map((directionRad, index) =>
+            noiseFreeBearing(
+              target,
+              directionRad,
+              rangesM[index] as number,
+              fields(ids[index] as string),
+            ),
+          );
+          const badId = ids[goodCount] as string;
+          const badTruth = noiseFreeBearing(target, badFromTargetRad, badRangeM, fields(badId));
+          const bad =
+            badTruth === undefined
+              ? undefined
+              : {
+                  ...badTruth,
+                  azimuthRad: _wrapTwoPi(
+                    badTruth.azimuthRad + (badErrorPositive ? 1 : -1) * badErrorRad,
+                  ),
+                };
+          return { target, good, bad, badId, directionsRad };
+        },
+      ),
+  )
+  .filter(
+    ({ good, bad, directionsRad }) =>
+      good.every((observation) => observation !== undefined) &&
+      bad !== undefined &&
+      directionSpanRad(directionsRad) >= 120 * DEG,
+  )
+  .map(({ target, good, bad, badId }) => ({
+    target,
+    observations: [...(good as Bearing[]), bad as Bearing],
+    badId,
+  }));
