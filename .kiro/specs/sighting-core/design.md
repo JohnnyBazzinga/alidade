@@ -176,7 +176,9 @@ below. Each is recorded here for review; none contradicts a requirement.
   construction (a sum of `wᵢ Jᵢᵀ Jᵢ`), but the solver does not rely on that: unless
   `λ1 > 0` **and** `λ2 > 0` it returns `singular_geometry`, so a `NaN` eigenvalue (for which
   every comparison is false) cannot pass the gate. After that, the condition-number gate
-  `λ1/λ2 > 1e12` also returns `singular_geometry` (Req 7.3).
+  `λ1/λ2 > 1e12` also returns `singular_geometry` (Req 7.3). The same gate is applied to JᵀWJ at
+  the Fix (§7.5 step 9), so a normal matrix that is singular at the solution is reported as
+  `singular_geometry` there too, not as a failure of the ellipse.
 
 - **D15 — `evaluate` can fail, and the solver handles each place it can fail.**
   `MeasurementModel.evaluate` returns a `Result`. The bearing model propagates the
@@ -232,6 +234,37 @@ below. Each is recorded here for review; none contradicts a requirement.
     `Fix` is finite. A violation returns `invalid_number`. A well-behaved model never
     triggers either check; they exist so that a type-correct but faulty model cannot push a
     `NaN` out of the solver.
+
+- **D18 — Bearing lines on the plane follow meridian convergence.** `startEstimate` draws
+  each of its two bearings as a line on the Local plane. The first version used the raw
+  azimuth as the line's direction, `(sin az, cos az)`. That direction is measured from the
+  observer's own meridian, which on the plane of an origin elsewhere is turned by the
+  convergence of the meridians between them, so the line pointed the wrong way. On 100 000
+  `solvableSet` cases that gave 38 `singular_geometry` and 19 `not_converged` failures, and
+  starts up to 93 km from the target. Each line's direction is now taken from two projected
+  points: the observer and `destinationPosition(observer, azimuth, 100 m)`. If that point is
+  not Supported or does not project, the point 100 m behind the observer is used and the
+  direction reversed; if both fail, that failure is returned. Measured with the fix: no such
+  failures, starts at most 6.2 m from the target, at most 6 iterations. The crossing angle
+  that selects the pair, and the `0.5°` test, are still taken from the azimuths (Req 6.4,
+  9.3).
+
+- **D19 — The covariance is in East and North at the Fix.** Req 8.1 takes East and North at
+  the Fix itself. Step 9 therefore evaluates the remaining observations on the Local plane
+  whose origin is the Fix, at its centre `(0, 0)`, where that plane's axes are true east and
+  true north (and the partials take the tangent-plane limit of D16). The covariance, the
+  ellipse and the step 9 eigenvalue gate are built from that evaluation; `postSolveCheck` still
+  receives the solve origin (D7, Req 9.6). The first version built them on the solve origin's
+  plane, whose axes at the Fix are turned by meridian convergence and stretched by the
+  projection's scale, about `1 + d²/(6R²)` across the line from the origin. Two consequences
+  showed: over 50 000 solves the ellipse azimuth differed from true north at the Fix by up to
+  `2.05°` (latitude `73°`, origin `73 km` from the Fix); and because adding an observation moves
+  the centroid, P-8.6 failed in about `0.1 %` of cases (46 in 40 000, worst `+2.9e-6`), with
+  none in the Fix's frame. The residuals and Normalised residuals are unchanged: the Fix's own
+  plane maps `(0, 0)` to the Fix position exactly, which is the same position the solve origin's
+  plane gives, so every prediction, residual and Effective sigma is the same number. The step
+  relies on Req 5.2's contract that a candidate is a point on the plane of the `origin` it is
+  passed with: a model must describe the same position, whatever the origin.
 
 ## 4. Module layout
 
@@ -375,7 +408,9 @@ export interface MeasurementModel<O> {
   geometryCheck(observations: readonly O[]):
     Result<{ warnings: Warning[] }>;   // failure: colocated_observers / singular_geometry
 
-  // Req 5.2 — per candidate (local plane) and observation. Returns a Result: the model
+  // Req 5.2 — per candidate (local plane) and observation. The candidate is a point on the
+  // Local plane of `origin`: a model must describe the same position whatever the origin, which
+  // step 9 relies on when it evaluates on the Fix's own plane (D19). Returns a Result: the model
   // fails when the candidate is not a valid state for this observation (D15). For the
   // bearing model: unsupported_position (candidate unprojects to a non-Supported position)
   // or coincident_positions (candidate within 1e-3 m of the observer).
@@ -590,9 +625,12 @@ doubles and `degToRad(radToDeg(x))` round-trips to rounding (Req 1.5), far insid
   `min(|Δ|, π - |Δ|)` where `Δ = wrapPi(az_i - az_j)`. Select the pair with the largest
   crossing angle (ties broken by the `id`-pair, D4). If that largest crossing angle is
   below `0.5°`, the two lines are parallel or nearly so and do not intersect reliably:
-  return `singular_geometry` (D17). Otherwise compute the intersection of the two bearing
-  lines in the plane: each line is `(E_i + t·sin az_i, N_i + t·cos az_i)`; solve the 2×2
-  system for the intersection. Return it as `{ eastM, northM }`.
+  return `singular_geometry` (D17). Otherwise draw each bearing as a line on the plane
+  (D18): its point is the projected observer `P_i`, and its unit direction `d_i` runs from
+  `P_i` to the projection of the point 100 m along the bearing (or from the point 100 m
+  behind it, reversed, if the point ahead is not Supported). Solve `P_1 + t·d_1 = P_2 + s·d_2`
+  for the intersection and return it as `{ eastM, northM }`; if it is not finite (the plane
+  directions are parallel), return `singular_geometry`.
 
 - `geometryCheck(observations)` — Req 9.2, 9.3, 9.4, 9.11. If the maximum pairwise observer
   distance is `< 1 m`, return `colocated_observers` (D5). Otherwise compute the largest
@@ -702,11 +740,15 @@ doubles and `degToRad(radToDeg(x))` round-trips to rounding (Req 1.5), far insid
    On failure (singular/colocated among the remaining) return the reason. Otherwise take
    `gpost`'s `poor_geometry` warning (if any) as the fix's geometry warning. When nothing
    was excluded, `remaining` is the full set, so this is the same geometry as step 4.
-9. **Uncertainty and Fix assembly** (Section 7.6): build the covariance and ellipse from
-   `JᵀWJ` at the solution with the converged weights, and assemble the `Fix` with
-   `position` (unprojected from the local plane), `covariance`, `ellipse`, `residuals`
-   (one per remaining observation, Req 7.9), `iterations` of the final solve (D10), and
-   `excludedIds`. `ellipseFromCovariance` is a `Result`; if it fails, return its failure.
+9. **Uncertainty and Fix assembly** (Section 7.6; D19): unproject the solution to the Fix
+   `position`. Evaluate every remaining observation with that position as the origin and the
+   candidate `(0, 0)`, so that East and North are taken at the Fix (Req 8.1), and build JᵀWJ,
+   the covariance and the ellipse from that evaluation, with its weights. Assemble the `Fix`
+   with `position`, `covariance`, `ellipse`, `residuals` (one per remaining observation, from
+   the same evaluation, Req 7.9), `iterations` of the final solve (D10), and `excludedIds`.
+   That JᵀWJ goes through the same eigenvalue gate as step 6: unless
+   both eigenvalues are greater than zero, or if the condition number exceeds `1e12`, return
+   `singular_geometry`. `ellipseFromCovariance` is a `Result`; if it fails, return its failure.
    Check that every number in the assembled `Fix` is finite; otherwise return
    `invalid_number` (D17). Its `warnings` so far are the `poor_geometry` warning from step 8
    and the `outliers_excluded` warning from step 7.
@@ -722,7 +764,8 @@ deterministic (Req 7.8) and invariant under input reordering (Req 7.5) to the la
 
 ### 7.6 Uncertainty (`ellipse.ts`)
 
-`covariance = (JᵀWJ)⁻¹` at the solution, with the converged weights (Req 8.1). For the 2×2
+`covariance = (JᵀWJ)⁻¹` at the solution, with East and North taken at the Fix (Req 8.1, D19:
+JᵀWJ comes from the evaluation on the Fix's own Local plane, at its centre). For the 2×2
 system the inverse is closed-form; `JᵀWJ` is symmetric positive definite for a successful
 fix (the eigenvalue/condition-number gate at step 6 rejects the rest), so the covariance is
 symmetric positive definite (Req 8.7).
@@ -784,24 +827,50 @@ Shared generators (domains documented here, reused across properties):
 - **`validBearing`** — a `Bearing` with non-empty `id`, Supported observer,
   `positionAccuracyM ∈ [0, 10000]`, finite `timeUtcMs`, `azimuthRad ∈ [0, 2π)`,
   `azimuthSigmaRad ∈ [0.01°, 45°]`. Used by 4.6.
-- **`solvableSet`** — exactly the conditions of Req 7.4 and nothing else: a target
-  (Supported position), `n ∈ [2, 12]` observers at `500 m–100 km` from the target (every
-  observer a Supported position), at least one pair with crossing angle `≥ 10°`, noise-free
-  bearings (exact azimuths to the target), unique `id`s. The generator **does not filter
-  on solver success**: it never calls `solve`. In every property that uses it, a solve
-  failure is a test failure. If P-7.4 finds a qualifying set the solver cannot solve, the
-  work stops and the set is reported (testing.md rule 1: decide whether the code, the
-  property or the requirement is wrong); the generator is not narrowed to hide it. Used by
-  7.4, 7.5, 7.6, 7.7, 8.4, 8.5, 8.6, 8.7. The outlier set of Req 10.5 is a separate
-  generator with the domain stated in P-10.5.
-- **`noisySolvableSet`** — a `solvableSet` whose azimuths carry small Gaussian noise
-  (1-sigma at most the stated `azimuthSigmaRad`). Only noisy variants may discard sets the
-  solver does not solve (noise can legitimately produce `diverging_bearings`,
-  `not_converged` and similar); each property that does so says so in its comment and
-  counts the discards. Used by the noisy variant of 7.5.
-- **`meridianSet`** — a `solvableSet` with observers placed on both sides of the ±180°
-  meridian (longitudes straddling `±π`), noise-free. Same rule: a solve failure is a test
-  failure. Used by 9.7.
+- **`solvableSet`** — exactly the conditions of Req 7.4 and nothing else, built by
+  construction where possible. The target's latitude is drawn from `[-75°, 75°]` (both ends
+  drawn) and its longitude from `(-π, π]`. There are `n ∈ [2, 12]` observers, each reached
+  from the target along a drawn azimuth at a distance drawn log-uniformly from `500 m` to
+  `100 km`; every observer is then a Supported position. Ids are unique. Azimuth sigmas and
+  position accuracies are built so that the cross-track 1-sigmas `hypot(σ·r, a)` lie within a
+  factor of `1e3`: a common lower bound `W` is drawn log-uniformly over the values for which
+  `[W, 1e3·W]` meets every observer's feasible range `[σ_min·r, hypot(σ_max·r, a_max)]` (never
+  empty here), each observer's cross-track sigma is drawn from its part of that window, and it
+  is split between `σ·r` and `a` over the split that keeps both valid. The ends of `W`, of
+  each window and of each split are drawn as well, so `σ_min`, `σ_max`, `a = 0` and `a_max` all
+  occur. The window is built `1` part in `1e9` narrower than `1e3` so that the rounding of the
+  realised ranges cannot carry a ratio over it. The bearings are noise-free. The one filtered
+  condition is the largest Crossing angle `≥ 10°`, which discards 2.1 % of draws (measured on
+  20 000). The generator **does not filter on solver success**: it never calls `solve`. In
+  every property that uses it, a solve failure is a test failure; if P-7.4 finds a qualifying
+  set the solver cannot solve, the work stops and the set is reported. Used by 7.4, 7.5, 7.6,
+  7.7, 7.8, 8.5, 8.7.
+- **`solvableSetWithScale`** — a `solvableSet` and a factor `k` drawn uniformly (ends included)
+  from `[0.5, 4]` intersected with the factors that keep every scaled observation valid
+  (Req 8.4). That range always contains `1`; its bounds are stepped inward by single ulps until
+  every product is valid, because `σ·(σ_max/σ)` can round one ulp over `σ_max`. Built by
+  construction. Used by 8.4.
+- **`solvableSetWithExtra`** — a `solvableSet` of `3` to `12` observers whose last observer is
+  held out as the extra noise-free observation of Req 8.6. The full set meets Req 7.4; the
+  smaller one keeps the cross-track ratio and is filtered on its largest Crossing angle
+  `≥ 10°` (1.7 % of draws discarded, plus 0.4 % by the full set's own crossing filter).
+  Used by 8.6.
+- **`noisySolvableSet`** — a `solvableSet` whose azimuths carry Gaussian noise of one
+  `azimuthSigmaRad`. Only noisy variants may discard sets the solver does not solve (noise can
+  legitimately produce `diverging_bearings`, `not_converged` and similar); each property that
+  does so says so in its comment and counts the discards. Used by the noisy variant of 7.5.
+- **`meridianSet`** — a `solvableSet` (latitude within `75°`) around a target within `1°` of
+  longitude of the ±180° meridian, kept only if it has observers on both sides. That filter
+  discards 73.4 % of draws (measured on 20 000); it is cheap and is left as a filter because
+  whether a set straddles the meridian depends on every observer's direction and range. Same
+  rule: a solve failure is a test failure. Used by 9.7.
+- **`outlierSet`** — the scenario of Req 10.5, built by construction: target latitude in
+  `[-88°, 88°]`; `8` to `12` good observers `5–7 km` away with azimuth sigma `2°` and exact
+  positions; their directions from the target have no gap over `60°` around the full circle,
+  built by blending a uniform simplex draw of the gaps with even spacing (the largest gap then
+  ranges from even spacing up to the `60°` limit, and every arrangement can be drawn); one bad
+  observer in any direction in the same range band, `15°` to `45°` wrong in either direction.
+  A guard filter on the `60°` rule discards nothing (0 of 20 000). Used by 10.5.
 - **`hostileInput`** — arbitrary type-correct inputs to every exported function and to the
   `BearingModel` methods called directly (D17): malformed observations, `NaN`/`±Infinity`
   fields, out-of-range sigmas, non-object wire payloads, empty `id`s, duplicate `id`s,
@@ -829,18 +898,18 @@ Shared generators (domains documented here, reused across properties):
 | P-4.6 | 4.6 (round-trip) | `validBearing` `b` | `serialiseBearing(b)` and then `parseBearing` both succeed; angles equal `b` within `1e-12 rad`; other fields identical |
 | P-6.5 | 6.5 | `bearingGeometry`: observer and candidate `50 m–200 km` apart, the candidate at least `10 m` inside the 89° latitude limit; the origin at the candidate, within `1e-9`–`1e-3 m` of it (the D16 tangent-plane branch) or farther | model partials match central finite differences of `predicted` (step `1 m`) within relative `1e-2` or absolute `1e-10 rad/m` |
 | P-6.6 | 6.6 | `bearingGeometry`, as for P-6.5: the target at least `10 m` inside the 89° latitude limit | a noise-free bearing has `|residualRad| < 1e-9 rad` at the true target |
-| P-7.4 | 7.4 | `solvableSet` (2–12 observers, `500 m–100 km`, a pair with crossing angle `≥ 10°`, unique ids; no filter on solver success) | `solve` succeeds (a failure fails the test) and `greatCircleDistanceM(fix.position, target) < 0.01 m` |
+| P-7.4 | 7.4 | `solvableSet`: target latitude within `75°`; 2–12 observers `500 m–100 km` away; a pair crossing at `≥ 10°`; cross-track 1-sigmas within a factor `1e3`; unique ids; no filter on solver success | `solve` succeeds (a failure fails the test) and `greatCircleDistanceM(fix.position, target) < 0.01 m` |
 | P-7.5 | 7.5 | `solvableSet`, two random input orderings; and `noisySolvableSet`, which may discard unsolved sets (documented, discards counted) | both solves succeed on the noise-free set (a failure fails the test); `greatCircleDistanceM(fix1.position, fix2.position) < 1e-3 m` |
 | P-7.6 | 7.6 | `solvableSet` | with effective sigmas frozen at the fix, `Cost(fix) ≤ Cost(fix ± 1 m E/W/N/S)` |
 | P-7.7 | 7.7 | `solvableSet`; add a copy of every observation under a fresh unique `id` | `greatCircleDistanceM(fixCopied.position, fix.position) < 1e-3 m` |
 | P-7.8 | 7.8 | `solvableSet` | two calls on identical input produce identical `Fix` (deep equality, including `iterations`, `warnings`, `excludedIds`) |
-| P-8.4 | 8.4 | `solvableSet`; `k ∈ [0.5, 4]` | scaling all sigmas/accuracies by `k`: fix unchanged within `1e-3 m`; both ellipse axes scaled by `k` within relative `1e-5` |
+| P-8.4 | 8.4 | `solvableSetWithScale`: a `solvableSet` and `k ∈ [0.5, 4]` restricted to factors that keep every scaled observation valid | scaling all sigmas/accuracies by `k`: fix unchanged within `1e-3 m`; both ellipse axes scaled by `k` within relative `1e-5` |
 | P-8.5 | 8.5 | `solvableSet`; add a copy of every observation under a fresh unique `id` | both ellipse axes divided by `√2` within relative `1e-5` |
-| P-8.6 | 8.6 | `solvableSet` (satisfying 7.4) plus one more noise-free bearing of the same target | `det(covariance') ≤ det(covariance) · (1 + 1e-9)` (determinant does not increase by more than relative `1e-9`) |
+| P-8.6 | 8.6 | `solvableSetWithExtra`: a set meeting Req 7.4 and one more noise-free bearing of the same target that keeps those conditions | `det(covariance') ≤ det(covariance) · (1 + 1e-9)` (determinant does not increase by more than relative `1e-9`) |
 | P-8.7 | 8.7 | `solvableSet` | `covariance` symmetric within `1e-12` and positive definite (both eigenvalues `> 0`) |
 | P-9.7 | 9.7 | `meridianSet`; the same configuration shifted `90°` in longitude | the fix from the shifted config, shifted back `90°`, equals the original fix within `0.01 m` |
 | P-9.8 | 9.8 | `hostileInput` to every exported function, including each `BearingModel` method called directly and `ellipseFromCovariance`/`ellipse95` | no call throws; every call returns a failure or a success whose numbers are all finite (D17) |
-| P-10.5 | 10.5 | 8–12 observers `5–7 km` from a target, directions spanning `≥ 120°`, exact positions, `azimuthSigmaRad = 2°`; one extra bearing wrong by `30°–80°` | `greatCircleDistanceM(fix.position, target) < 1 m` and `excludedIds` is exactly the bad observation's `id` |
+| P-10.5 | 10.5 | `outlierSet`: target latitude within `88°`; 8–12 good observers `5–7 km` away with no gap over `60°` between their directions, exact positions, `azimuthSigmaRad = 2°`; one extra bearing wrong by `15°–45°` | `greatCircleDistanceM(fix.position, target) < 1 m` and `excludedIds` is exactly the bad observation's `id` |
 
 Notes on the properties:
 
@@ -972,6 +1041,22 @@ deterministic.
   target, so the target is exactly the observers' centroid and the Local-plane origin. The
   partials at the origin (the tangent-plane limit) match central finite differences, and
   `solve` returns a Fix within `0.01 m` of the target.
+- **Outside the property domains (Req 7.4, 10.5):** a solve at `86°` of latitude succeeds
+  within `0.01 m`; two Supported observers at `88.95°` on opposite meridians have their centroid
+  at the pole, so `solve` returns `unsupported_position`; and, as a documented known limit, a
+  `79°` outlier among eight good observers is not rejected: the least-squares minimum lies
+  `4.9 km` away, a good observation has the largest residual, and rejection removes good
+  observations instead.
+- **Start estimate (D18):** two observers at `57.6°S`, `49 km` apart, which failed with
+  `singular_geometry` when the lines used the raw azimuths, now start within `10 m` and solve
+  within `0.01 m`.
+- **Ellipse azimuth at the Fix (D19):** a target at `70°N` and two observers `100 km` from it at
+  `60°` and `120°`, symmetric about the great circle due east of the target, whose centroid is
+  `87 km` east. The major axis points due east to `1e-9 rad`; on the solve origin's plane it
+  would read `92.14°`. Reverting step 9 to the solve origin fails this example, as does the
+  shrunk P-8.6 counterexample (which is kept).
+- **Eigenvalue gate at the Fix:** a JᵀWJ that is singular, or whose condition number is above
+  `1e12`, only at the solution returns `singular_geometry`.
 - **Normal-matrix gate (D14):** a stub model whose finite partials are all parallel
   (`JᵀWJ` has rank one, so `λ2 = 0`) makes `solve` return `singular_geometry`; so does a
   stub whose finite partials are so large (`1e200`) that `JᵀWJ` overflows and its

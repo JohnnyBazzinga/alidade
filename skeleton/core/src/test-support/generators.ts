@@ -20,6 +20,7 @@ import {
   EARTH_RADIUS_M,
   MAX_SUPPORTED_LAT_RAD,
   destinationPosition,
+  greatCircleDistanceM,
   initialAzimuthRad,
   isSupportedPosition,
   type Position,
@@ -236,12 +237,37 @@ export const bearingGeometry: fc.Arbitrary<BearingGeometry> = fc
   .filter(({ observer, origin }) => isSupportedPosition(observer) && isSupportedPosition(origin));
 
 // ---------------------------------------------------------------------------------------------
-// Solver scenarios (task 12.6). None of these generators calls the solver, and none filters on
-// whether the solver succeeds: a property that uses them treats a solve failure as a test
-// failure (design §8). They filter only on the geometric conditions they state.
+// Solver scenarios (tasks 12.6, 12.8 to 12.18). None of these generators calls the solver, and
+// none filters on whether the solver succeeds: a property that uses them treats a solve failure
+// as a test failure (design §8). Their domains are built by construction where possible; the few
+// conditions that are filtered say so, and `generators.test.ts` measures their discard rates.
 // ---------------------------------------------------------------------------------------------
 
 const DEG = Math.PI / 180;
+
+/**
+ * How many draws each filter of the solver generators has seen and kept, for measuring discard
+ * rates. Sampling a generator updates them; nothing else reads them.
+ */
+export const filterCounts = {
+  crossingAngle: { seen: 0, kept: 0 },
+  meridianSides: { seen: 0, kept: 0 },
+  extraCrossingAngle: { seen: 0, kept: 0 },
+  outlierDirectionGap: { seen: 0, kept: 0 },
+};
+
+/** A filter predicate that also counts what it sees and keeps. */
+function counted<T>(
+  counts: { seen: number; kept: number },
+  predicate: (value: T) => boolean,
+): (value: T) => boolean {
+  return (value) => {
+    counts.seen += 1;
+    const keep = predicate(value);
+    if (keep) counts.kept += 1;
+    return keep;
+  };
+}
 
 /** A set of bearings that all sight `target`. */
 export interface SolverScenario {
@@ -252,6 +278,11 @@ export interface SolverScenario {
 /** A `SolverScenario` with one deliberately wrong observation (Req 10.5). */
 export interface OutlierScenario extends SolverScenario {
   readonly badId: string;
+}
+
+/** A `SolverScenario` and one more noise-free observation of the same target (Req 8.6). */
+export interface ExtendedScenario extends SolverScenario {
+  readonly extra: Bearing;
 }
 
 /**
@@ -280,36 +311,180 @@ export function largestCrossingAngleRad(observations: readonly Bearing[]): numbe
   return largestRad;
 }
 
-/** The noise-free bearing of `target` from an observer `rangeM` away along `fromTargetRad`. */
-function noiseFreeBearing(
-  target: Position,
-  fromTargetRad: number,
-  rangeM: number,
-  fields: { id: string; azimuthSigmaRad: number; positionAccuracyM: number; timeUtcMs: number },
-): Bearing | undefined {
-  const observer = unwrapOk(destinationPosition(target, fromTargetRad, rangeM));
-  if (!isSupportedPosition(observer)) return undefined;
-  const azimuthRad = initialAzimuthRad(observer, target);
-  if (!azimuthRad.ok) return undefined;
-  return { ...fields, observer, azimuthRad: azimuthRad.value };
+/**
+ * The cross-track 1-sigma of an observation in metres (Req 7.4): its Effective sigma at the
+ * target times the range, `hypot(sigma · range, accuracy)`, the range floored at 1 m as in the
+ * Effective sigma. Computed here, not by the bearing model.
+ */
+export function crossTrackSigmaM(observation: Bearing, target: Position): number {
+  const rangeM = Math.max(unwrapOk(greatCircleDistanceM(observation.observer, target)), 1);
+  return Math.hypot(observation.azimuthSigmaRad * rangeM, observation.positionAccuracyM);
 }
 
-/** An azimuth 1-sigma in [0.01°, 45°]: edge-biased (both ends drawn) and unbiased uniform. */
-const azimuthSigmaRad: fc.Arbitrary<number> = fc.oneof(
-  fc.double({ min: MIN_AZIMUTH_SIGMA_RAD, max: MAX_AZIMUTH_SIGMA_RAD, noNaN: true }),
-  uniformBetween(MIN_AZIMUTH_SIGMA_RAD, MAX_AZIMUTH_SIGMA_RAD),
+/** The largest over the smallest cross-track 1-sigma of `observations` (Req 7.4). */
+export function crossTrackSigmaRatio(observations: readonly Bearing[], target: Position): number {
+  const sigmasM = observations.map((observation) => crossTrackSigmaM(observation, target));
+  return Math.max(...sigmasM) / Math.min(...sigmasM);
+}
+
+/** The largest gap between neighbouring directions around the full circle. */
+export function largestDirectionGapRad(directionsRad: readonly number[]): number {
+  const sorted = directionsRad
+    .map((directionRad) => _wrapTwoPi(directionRad))
+    .sort((a, b) => a - b);
+  let largestGapRad = TWO_PI_RAD - ((sorted[sorted.length - 1] as number) - (sorted[0] as number));
+  for (let index = 1; index < sorted.length; index += 1) {
+    largestGapRad = Math.max(
+      largestGapRad,
+      (sorted[index] as number) - (sorted[index - 1] as number),
+    );
+  }
+  return largestGapRad;
+}
+
+/** A fraction in [0, 1]: exactly 0 or 1 (weight 1 each) or unbiased in between (weight 4). */
+const edgeFraction: fc.Arbitrary<number> = fc.oneof(
+  { weight: 1, arbitrary: fc.constant(0) },
+  { weight: 1, arbitrary: fc.constant(1) },
+  { weight: 4, arbitrary: unitFraction },
 );
 
-/** A position accuracy in [0, 10 000] m: edge-biased (both ends drawn) and unbiased uniform. */
-const positionAccuracyM: fc.Arbitrary<number> = fc.oneof(
-  fc.double({ min: 0, max: MAX_POSITION_ACCURACY_M, noNaN: true }),
-  uniformBetween(0, MAX_POSITION_ACCURACY_M),
+/** The point a fraction `fraction` of the way from `lower` to `upper` on a logarithmic scale. */
+function logInterpolate(lower: number, upper: number, fraction: number): number {
+  if (fraction <= 0) return lower;
+  if (fraction >= 1) return upper;
+  return lower * (upper / lower) ** fraction;
+}
+
+/** A latitude in [-limit, limit]: edge-biased (both limits and 0 drawn) and unbiased uniform. */
+function latitudeUpTo(limitRad: number): fc.Arbitrary<number> {
+  return fc.oneof(
+    fc.double({ min: -limitRad, max: limitRad, noNaN: true }),
+    uniformBetween(-limitRad, limitRad),
+    uniformBetween(-limitRad, limitRad),
+  );
+}
+
+/** A longitude in (-π, π]: edge-biased (π drawn) and unbiased uniform. */
+const longitude: fc.Arbitrary<number> = fc.oneof(
+  fc.double({ min: -Math.PI, max: Math.PI, minExcluded: true, noNaN: true }),
+  uniformBetween(0, TWO_PI_RAD).map((offsetRad) => Math.PI - offsetRad),
+  uniformBetween(0, TWO_PI_RAD).map((offsetRad) => Math.PI - offsetRad),
 );
 
-/** Noise-free scenarios around targets drawn from `targets` (the Req 7.4 conditions). */
-function noiseFreeScenarios(targets: fc.Arbitrary<Position>): fc.Arbitrary<SolverScenario> {
+/** The largest target latitude of Req 7.4: 75°. */
+export const SOLVABLE_MAX_LAT_RAD = 75 * DEG;
+/** The largest ratio of cross-track 1-sigmas within a set (Req 7.4). */
+export const MAX_CROSS_TRACK_RATIO = 1e3;
+/**
+ * The window of cross-track 1-sigmas is built 1 part in 1e9 narrower than 1e3, so that the
+ * rounding of the realised ranges cannot carry a ratio drawn at the edge just over 1e3.
+ */
+const CROSS_TRACK_WINDOW_RATIO = MAX_CROSS_TRACK_RATIO * (1 - 1e-9);
+
+/** The noise-free bearing of `target` from `observer`. */
+function noiseFreeBearingFrom(
+  observer: Position,
+  target: Position,
+  fields: { id: string; azimuthSigmaRad: number; positionAccuracyM: number; timeUtcMs: number },
+): Bearing {
+  return { ...fields, observer, azimuthRad: unwrapOk(initialAzimuthRad(observer, target)) };
+}
+
+interface Placement {
+  readonly fromTargetRad: number;
+  readonly rangeM: number;
+  /** Where the observer's cross-track 1-sigma falls inside its window (see below). */
+  readonly crossTrackFraction: number;
+  /** How the cross-track 1-sigma is split between the azimuth sigma and the accuracy. */
+  readonly splitFraction: number;
+  readonly timeUtcMs: number;
+}
+
+const placement: fc.Arbitrary<Placement> = fc.record({
+  fromTargetRad: azimuth,
+  rangeM: logUniformBetween(500, 1e5),
+  crossTrackFraction: edgeFraction,
+  splitFraction: edgeFraction,
+  timeUtcMs: fc.integer({ min: 0, max: 4_102_444_800_000 }),
+});
+
+/**
+ * Observers placed around `target` whose cross-track 1-sigmas lie within a factor of 1e3, by
+ * construction (Req 7.4).
+ *
+ * An observer at range r can have any cross-track 1-sigma c = hypot(σ·r, a) from σ_min·r to
+ * hypot(σ_max·r, a_max), with σ in [0.01°, 45°] and a in [0, 10 000] m. A common lower bound W
+ * is drawn log-uniformly over the values for which [W, 1e3·W] meets every observer's range;
+ * that set is never empty here, because σ_min·r ≤ 17.5 m and hypot(σ_max·r, a_max) ≥ 10 km for
+ * r in [500 m, 100 km]. Each c is then drawn log-uniformly from its observer's part of the
+ * window, and split between σ·r and a, again log-uniformly over the split that keeps both valid.
+ * Fractions of exactly 0 and 1 are drawn too, so W, c and the split reach their ends (σ_min,
+ * σ_max, a = 0 and a = a_max all occur). Every set with a ratio up to 1e3 can be drawn.
+ */
+function observersAround(
+  target: Position,
+  ids: readonly string[],
+  placements: readonly Placement[],
+  windowFraction: number,
+): Bearing[] {
+  const observers = placements.map((entry) =>
+    unwrapOk(destinationPosition(target, entry.fromTargetRad, entry.rangeM)),
+  );
+  const lowerBounds = placements.map((entry) => MIN_AZIMUTH_SIGMA_RAD * entry.rangeM);
+  const upperBounds = placements.map((entry) =>
+    Math.hypot(MAX_AZIMUTH_SIGMA_RAD * entry.rangeM, MAX_POSITION_ACCURACY_M),
+  );
+  const windowLow = Math.max(
+    Math.min(...lowerBounds),
+    Math.max(...lowerBounds) / CROSS_TRACK_WINDOW_RATIO,
+  );
+  const windowHigh = Math.min(...upperBounds);
+  const window = logInterpolate(windowLow, windowHigh, windowFraction);
+
+  return placements.map((entry, index) => {
+    const crossTrackM = logInterpolate(
+      Math.max(window, lowerBounds[index] as number),
+      Math.min(window * CROSS_TRACK_WINDOW_RATIO, upperBounds[index] as number),
+      entry.crossTrackFraction,
+    );
+    // σ·r ranges over [max(σ_min·r, sqrt(c² - a_max²)), min(σ_max·r, c)]; a follows.
+    const angularPartM = logInterpolate(
+      Math.max(
+        MIN_AZIMUTH_SIGMA_RAD * entry.rangeM,
+        Math.sqrt(Math.max(0, crossTrackM ** 2 - MAX_POSITION_ACCURACY_M ** 2)),
+      ),
+      Math.min(MAX_AZIMUTH_SIGMA_RAD * entry.rangeM, crossTrackM),
+      entry.splitFraction,
+    );
+    const azimuthSigma = Math.min(
+      Math.max(angularPartM / entry.rangeM, MIN_AZIMUTH_SIGMA_RAD),
+      MAX_AZIMUTH_SIGMA_RAD,
+    );
+    const accuracyM = Math.min(
+      Math.sqrt(Math.max(0, crossTrackM ** 2 - angularPartM ** 2)),
+      MAX_POSITION_ACCURACY_M,
+    );
+    return noiseFreeBearingFrom(observers[index] as Position, target, {
+      id: ids[index] as string,
+      azimuthSigmaRad: azimuthSigma,
+      positionAccuracyM: accuracyM,
+      timeUtcMs: entry.timeUtcMs,
+    });
+  });
+}
+
+/**
+ * Noise-free scenarios around targets from `targets`, with `minCount` to `maxCount` observers
+ * (the Req 7.4 conditions). Filters only on the largest Crossing angle being at least 10°.
+ */
+function noiseFreeScenarios(
+  targets: fc.Arbitrary<Position>,
+  minCount: number,
+  maxCount: number,
+): fc.Arbitrary<SolverScenario> {
   return fc
-    .tuple(targets, fc.integer({ min: 2, max: 12 }))
+    .tuple(targets, fc.integer({ min: minCount, max: maxCount }))
     .chain(([target, count]) =>
       fc
         .tuple(
@@ -317,50 +492,42 @@ function noiseFreeScenarios(targets: fc.Arbitrary<Position>): fc.Arbitrary<Solve
             minLength: count,
             maxLength: count,
           }),
-          fc.array(
-            fc.tuple(
-              azimuth,
-              logUniformBetween(500, 1e5),
-              azimuthSigmaRad,
-              positionAccuracyM,
-              fc.integer({ min: 0, max: 4_102_444_800_000 }),
-            ),
-            { minLength: count, maxLength: count },
-          ),
+          fc.array(placement, { minLength: count, maxLength: count }),
+          edgeFraction,
         )
-        .map(([ids, placements]) => {
-          const observations = placements.map(
-            ([fromTargetRad, rangeM, sigmaRad, accuracyM, timeUtcMs], index) =>
-              noiseFreeBearing(target, fromTargetRad, rangeM, {
-                id: ids[index] as string,
-                azimuthSigmaRad: sigmaRad,
-                positionAccuracyM: accuracyM,
-                timeUtcMs,
-              }),
-          );
-          return { target, observations };
-        }),
+        .map(([ids, placements, windowFraction]) => ({
+          target,
+          observations: observersAround(target, ids, placements, windowFraction),
+        })),
     )
     .filter(
-      (draft) =>
-        draft.observations.every((observation) => observation !== undefined) &&
-        largestCrossingAngleRad(draft.observations as Bearing[]) >= 10 * DEG,
-    )
-    .map((draft) => ({ target: draft.target, observations: draft.observations as Bearing[] }));
+      counted(
+        filterCounts.crossingAngle,
+        (scenario: SolverScenario) => largestCrossingAngleRad(scenario.observations) >= 10 * DEG,
+      ),
+    );
 }
 
+/** A target as Req 7.4 allows: latitude within 75° of the equator, any longitude. */
+const solvableTarget: fc.Arbitrary<Position> = fc.record({
+  latRad: latitudeUpTo(SOLVABLE_MAX_LAT_RAD),
+  lonRad: longitude,
+});
+
 /**
- * A noise-free observation set satisfying exactly the conditions of Req 7.4, and nothing else.
+ * A noise-free observation set satisfying exactly the conditions of Req 7.4.
  *
- * Draws: a `supportedPosition` target; 2 to 12 observers, each reached from the target along an
- * `azimuth` at a distance drawn log-uniformly from 500 m to 100 km; ids that are distinct
- * strings of 1 to 8 characters; an azimuth 1-sigma anywhere in [0.01°, 45°] and a position
- * accuracy anywhere in [0, 10 000] m (validation's full ranges); times from 1970 to about 2100.
- * Each observer's azimuth is the exact initial azimuth from the observer to the target.
- * Excludes, by discarding: sets with an observer that is not a Supported position, and sets
- * whose largest Crossing angle is below 10° (Req 7.4). It never calls the solver.
+ * Built by construction: a target with latitude in [-75°, 75°] and any longitude (edge-biased,
+ * so ±75°, 0 and π are drawn); 2 to 12 observers, each reached from the target along an
+ * `azimuth` at a distance drawn log-uniformly from 500 m to 100 km; distinct ids of 1 to 8
+ * characters; azimuth sigmas and position accuracies whose cross-track 1-sigmas lie within a
+ * factor of 1e3 (see `observersAround`); times from 1970 to about 2100; each azimuth the exact
+ * initial azimuth from the observer to the target. Every observer is a Supported position by
+ * construction (at most 75.9° from the equator).
+ * Filtered: sets whose largest Crossing angle is below 10° are discarded. It never calls the
+ * solver.
  */
-export const solvableSet: fc.Arbitrary<SolverScenario> = noiseFreeScenarios(supportedPosition);
+export const solvableSet: fc.Arbitrary<SolverScenario> = noiseFreeScenarios(solvableTarget, 2, 12);
 
 /** A standard normal draw, by Box-Muller from two unbiased fractions. */
 const standardNormal: fc.Arbitrary<number> = fc
@@ -394,56 +561,171 @@ export const noisySolvableSet: fc.Arbitrary<SolverScenario> = solvableSet.chain(
 );
 
 /**
- * A noise-free `solvableSet` around a target within 1° of longitude of the ±180° meridian, kept
- * only if it has observers on both sides of the meridian (Req 9.7).
+ * A `solvableSet` around a target within 1° of longitude of the ±180° meridian, kept only if it
+ * has observers on both sides of the meridian (Req 9.7).
  *
- * Draws: the target's latitude as `supportedPosition` does; its longitude 180° plus an offset
- * drawn uniformly from [-1°, 1°], normalised to (-π, π]; the observers as for `solvableSet`.
- * Excludes, by discarding: sets with no observer east of the meridian (longitude below -90°) or
- * none west of it (longitude above 90°), besides the exclusions of `solvableSet`.
+ * Built by construction: the target's latitude as for `solvableSet` (within 75°); its longitude
+ * 180° plus an offset drawn uniformly from [-1°, 1°], normalised to (-π, π]; the observers as
+ * for `solvableSet`. Filtered: sets with no observer east of the meridian (longitude below -90°)
+ * or none west of it (above 90°) are discarded, as well as those `solvableSet` discards.
  */
 export const meridianSet: fc.Arbitrary<SolverScenario> = noiseFreeScenarios(
-  fc.tuple(supportedPosition, uniformBetween(-1 * DEG, 1 * DEG)).map(([position, offsetRad]) => ({
-    latRad: position.latRad,
-    lonRad: _wrapPi(Math.PI + offsetRad),
-  })),
+  fc
+    .tuple(latitudeUpTo(SOLVABLE_MAX_LAT_RAD), uniformBetween(-1 * DEG, 1 * DEG))
+    .map(([latRad, offsetRad]) => ({ latRad, lonRad: _wrapPi(Math.PI + offsetRad) })),
+  2,
+  12,
 ).filter(
-  (scenario) =>
-    scenario.observations.some((observation) => observation.observer.lonRad > Math.PI / 2) &&
-    scenario.observations.some((observation) => observation.observer.lonRad < -Math.PI / 2),
+  counted(
+    filterCounts.meridianSides,
+    (scenario: SolverScenario) =>
+      scenario.observations.some((observation) => observation.observer.lonRad > Math.PI / 2) &&
+      scenario.observations.some((observation) => observation.observer.lonRad < -Math.PI / 2),
+  ),
 );
 
-/** The smallest arc of directions that contains every one of `directionsRad`. */
-export function directionSpanRad(directionsRad: readonly number[]): number {
-  const sorted = directionsRad
-    .map((directionRad) => _wrapTwoPi(directionRad))
-    .sort((a, b) => a - b);
-  let largestGapRad = TWO_PI_RAD - ((sorted[sorted.length - 1] as number) - (sorted[0] as number));
-  for (let index = 1; index < sorted.length; index += 1) {
-    largestGapRad = Math.max(
-      largestGapRad,
-      (sorted[index] as number) - (sorted[index - 1] as number),
-    );
+/**
+ * A `solvableSet` and one more noise-free observation of the same target that keeps the Req 7.4
+ * conditions (Req 8.6).
+ *
+ * Built as a `solvableSet` of 3 to 12 observers, from which the last one drawn is held out as
+ * the extra. The full set meets Req 7.4, and so does the extended set the property solves. The
+ * cross-track ratio of the smaller set is at most that of the full set.
+ * Filtered: draws whose smaller set has a largest Crossing angle below 10° are discarded.
+ */
+export const solvableSetWithExtra: fc.Arbitrary<ExtendedScenario> = noiseFreeScenarios(
+  solvableTarget,
+  3,
+  12,
+)
+  .map((scenario) => ({
+    target: scenario.target,
+    observations: scenario.observations.slice(0, -1),
+    extra: scenario.observations[scenario.observations.length - 1] as Bearing,
+  }))
+  .filter(
+    counted(
+      filterCounts.extraCrossingAngle,
+      (scenario: ExtendedScenario) => largestCrossingAngleRad(scenario.observations) >= 10 * DEG,
+    ),
+  );
+
+/**
+ * The factors k in [0.5, 4] for which every observation of `observations`, with its azimuth
+ * sigma and position accuracy multiplied by k, is still valid (Req 8.4). The range always
+ * contains 1.
+ */
+export function validScaleRange(observations: readonly Bearing[]): {
+  readonly lowest: number;
+  readonly highest: number;
+} {
+  let lowest = 0.5;
+  let highest = 4;
+  for (const observation of observations) {
+    lowest = Math.max(lowest, MIN_AZIMUTH_SIGMA_RAD / observation.azimuthSigmaRad);
+    highest = Math.min(highest, MAX_AZIMUTH_SIGMA_RAD / observation.azimuthSigmaRad);
+    if (observation.positionAccuracyM > 0) {
+      highest = Math.min(highest, MAX_POSITION_ACCURACY_M / observation.positionAccuracyM);
+    }
   }
-  return TWO_PI_RAD - largestGapRad;
+  // A bound from a division can be one rounding step too far: σ · (σ_max / σ) may exceed σ_max
+  // by one ulp. Step each bound inward by one ulp at a time until every product is valid.
+  const scaledIsValid = (scale: number): boolean =>
+    observations.every(
+      (observation) =>
+        observation.azimuthSigmaRad * scale >= MIN_AZIMUTH_SIGMA_RAD &&
+        observation.azimuthSigmaRad * scale <= MAX_AZIMUTH_SIGMA_RAD &&
+        observation.positionAccuracyM * scale <= MAX_POSITION_ACCURACY_M,
+    );
+  while (!scaledIsValid(highest)) highest *= 1 - Number.EPSILON;
+  while (!scaledIsValid(lowest)) lowest *= 1 + Number.EPSILON;
+  return { lowest, highest };
+}
+
+/**
+ * A `solvableSet` and a factor k drawn from the factors that keep every scaled observation
+ * valid (Req 8.4): uniform over that range, with both of its ends drawn too. Built by
+ * construction; nothing is discarded beyond what `solvableSet` discards.
+ */
+export const solvableSetWithScale: fc.Arbitrary<{
+  readonly scenario: SolverScenario;
+  readonly scale: number;
+}> = solvableSet.chain((scenario) => {
+  const { lowest, highest } = validScaleRange(scenario.observations);
+  return edgeFraction.map((fraction) => ({
+    scenario,
+    // The product keeps k within the range even at its ends.
+    scale: Math.min(Math.max(lowest + (highest - lowest) * fraction, lowest), highest),
+  }));
+});
+
+/** The largest target latitude of Req 10.5: 88°. */
+export const OUTLIER_MAX_LAT_RAD = 88 * DEG;
+/** The largest gap between neighbouring directions of Req 10.5: 60°. */
+export const OUTLIER_MAX_DIRECTION_GAP_RAD = 60 * DEG;
+
+/**
+ * Directions for `count` observers around a point, with no gap greater than 60° between
+ * neighbours around the full circle, by construction (Req 10.5).
+ *
+ * The gaps start as a uniform draw from the simplex of gap vectors that sum to 360°
+ * (d_i = 360° · u_i / Σu), which reaches every arrangement. They are then blended with even
+ * spacing, g = λ · 360°/count + (1 - λ) · d, which keeps the sum at 360°. The largest gap is
+ * λ · 360°/count + (1 - λ) · max(d), at most 60° exactly when λ ≥ λ_min =
+ * max(0, (max(d) - 60°) / (max(d) - 360°/count)); λ is drawn uniformly from [λ_min, 1], with
+ * both ends drawn, so the largest gap ranges from even spacing (30° to 45°) up to the 60° limit,
+ * and an arrangement that already fits can be drawn unchanged (λ = 0). The 60° is taken 1 part
+ * in 1e12 smaller so that rounding cannot carry a gap over it. The first direction is a uniform
+ * base. Nothing is discarded.
+ */
+function directionsFor(count: number): fc.Arbitrary<number[]> {
+  const evenGapRad = TWO_PI_RAD / count;
+  const maxGapRad = OUTLIER_MAX_DIRECTION_GAP_RAD * (1 - 1e-12);
+  return fc
+    .tuple(
+      azimuth,
+      // 1 - u is in (0, 1], so the gaps cannot all be zero.
+      fc.array(
+        unitFraction.map((fraction) => 1 - fraction),
+        { minLength: count, maxLength: count },
+      ),
+      edgeFraction,
+    )
+    .map(([baseRad, weights, blendFraction]) => {
+      const total = weights.reduce((sum, weight) => sum + weight, 0);
+      const simplexGapsRad = weights.map((weight) => (TWO_PI_RAD * weight) / total);
+      const largestRad = Math.max(...simplexGapsRad);
+      const lowestBlend =
+        largestRad > maxGapRad ? (largestRad - maxGapRad) / (largestRad - evenGapRad) : 0;
+      const blend = lowestBlend + (1 - lowestBlend) * blendFraction;
+      const directionsRad: number[] = [];
+      let directionRad = baseRad;
+      for (const simplexGapRad of simplexGapsRad) {
+        directionsRad.push(directionRad);
+        directionRad += blend * evenGapRad + (1 - blend) * simplexGapRad;
+      }
+      return directionsRad;
+    });
 }
 
 /**
  * The outlier scenario of Req 10.5.
  *
- * Draws: a `supportedPosition` target; 8 to 12 good observers at distances drawn uniformly from
- * 5 km to 7 km, in directions from the target that run from a base `azimuth` across a span drawn
- * uniformly from 120° to 360° (the first and last at its ends, the others uniform inside it);
+ * Built by construction: a target with latitude in [-88°, 88°] and any longitude; 8 to 12 good
+ * observers at distances drawn uniformly from 5 km to 7 km, in directions from `directionsFor`
+ * (no gap over 60°);
  * one more observer, the bad one, in any direction and in the same range band; every observer
  * exact (position accuracy 0) with an azimuth 1-sigma of 2°. The good azimuths are noise-free;
- * the bad one is noise-free plus or minus an error drawn uniformly from 30° to 80°. Ids are
- * distinct strings of 1 to 8 characters; `badId` names the bad observation.
- * Excludes, by discarding: scenarios with an observer that is not a Supported position, and
- * scenarios whose good directions span less than 120° as the smallest containing arc (which can
- * happen when the drawn span is near 360°).
+ * the bad one is noise-free plus or minus an error drawn uniformly from 15° to 45°. Ids are
+ * distinct strings of 1 to 8 characters; `badId` names the bad observation. Every observer is a
+ * Supported position by construction (at most 88.07° from the equator). Nothing is discarded,
+ * except the rare draw that rounding leaves with a gap a hair over 60°.
  */
 export const outlierSet: fc.Arbitrary<OutlierScenario> = fc
-  .tuple(supportedPosition, fc.integer({ min: 8, max: 12 }))
+  .tuple(
+    fc.record({ latRad: latitudeUpTo(OUTLIER_MAX_LAT_RAD), lonRad: longitude }),
+    fc.integer({ min: 8, max: 12 }),
+  )
   .chain(([target, goodCount]) =>
     fc
       .tuple(
@@ -451,31 +733,24 @@ export const outlierSet: fc.Arbitrary<OutlierScenario> = fc
           minLength: goodCount + 1,
           maxLength: goodCount + 1,
         }),
-        azimuth,
-        uniformBetween(120 * DEG, TWO_PI_RAD),
-        fc.array(uniformBetween(0, 1), { minLength: goodCount - 2, maxLength: goodCount - 2 }),
+        directionsFor(goodCount),
         fc.array(uniformBetween(5000, 7000), { minLength: goodCount, maxLength: goodCount }),
         fc.tuple(
           azimuth,
           uniformBetween(5000, 7000),
-          uniformBetween(30 * DEG, 80 * DEG),
+          uniformBetween(15 * DEG, 45 * DEG),
           fc.boolean(),
         ),
       )
+      .filter(
+        counted(
+          filterCounts.outlierDirectionGap,
+          ([, directionsRad]: readonly [unknown, number[], ...unknown[]]) =>
+            largestDirectionGapRad(directionsRad) <= OUTLIER_MAX_DIRECTION_GAP_RAD,
+        ),
+      )
       .map(
-        ([
-          ids,
-          baseRad,
-          spanRad,
-          insideFractions,
-          rangesM,
-          [badFromTargetRad, badRangeM, badErrorRad, badErrorPositive],
-        ]) => {
-          const directionsRad = [
-            baseRad,
-            baseRad + spanRad,
-            ...insideFractions.map((fraction) => baseRad + spanRad * fraction),
-          ];
+        ([ids, directionsRad, rangesM, [badFromTargetRad, badRangeM, badErrorRad, positive]]) => {
           const fields = (id: string) => ({
             id,
             azimuthSigmaRad: 2 * DEG,
@@ -483,36 +758,23 @@ export const outlierSet: fc.Arbitrary<OutlierScenario> = fc
             timeUtcMs: 1_763_193_600_000,
           });
           const good = directionsRad.map((directionRad, index) =>
-            noiseFreeBearing(
+            noiseFreeBearingFrom(
+              unwrapOk(destinationPosition(target, directionRad, rangesM[index] as number)),
               target,
-              directionRad,
-              rangesM[index] as number,
               fields(ids[index] as string),
             ),
           );
           const badId = ids[goodCount] as string;
-          const badTruth = noiseFreeBearing(target, badFromTargetRad, badRangeM, fields(badId));
-          const bad =
-            badTruth === undefined
-              ? undefined
-              : {
-                  ...badTruth,
-                  azimuthRad: _wrapTwoPi(
-                    badTruth.azimuthRad + (badErrorPositive ? 1 : -1) * badErrorRad,
-                  ),
-                };
-          return { target, good, bad, badId, directionsRad };
+          const badTruth = noiseFreeBearingFrom(
+            unwrapOk(destinationPosition(target, badFromTargetRad, badRangeM)),
+            target,
+            fields(badId),
+          );
+          const bad = {
+            ...badTruth,
+            azimuthRad: _wrapTwoPi(badTruth.azimuthRad + (positive ? 1 : -1) * badErrorRad),
+          };
+          return { target, observations: [...good, bad], badId };
         },
       ),
-  )
-  .filter(
-    ({ good, bad, directionsRad }) =>
-      good.every((observation) => observation !== undefined) &&
-      bad !== undefined &&
-      directionSpanRad(directionsRad) >= 120 * DEG,
-  )
-  .map(({ target, good, bad, badId }) => ({
-    target,
-    observations: [...(good as Bearing[]), bad as Bearing],
-    badId,
-  }));
+  );

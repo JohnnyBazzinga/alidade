@@ -1,10 +1,16 @@
 // A configurable MeasurementModel for testing the solver's generic behaviour (task 12.1). Its
-// observations are linear: an observation predicts `partialEastRadPerM·eastM +
-// partialNorthRadPerM·northM` radians, so a solve has a known answer, and every other part of
+// observations are linear in the East and North of a fixed reference plane, the Local plane of
+// the stub's own origin: an observation predicts `partialEastRadPerM·eastM +
+// partialNorthRadPerM·northM` radians there, so a solve has a known answer. Every other part of
 // the model can be scripted to fail, warn, lie or count calls. It proves the solver reaches
 // observations only through the MeasurementModel interface (Req 5.4, 5.6).
+//
+// Like any model, it describes positions, not plane coordinates (Req 5.2): a candidate on the
+// plane of another origin, such as the Fix of design D19, is unprojected to its position and
+// re-projected onto the reference plane, and the partials are carried across by the Jacobian
+// between the two planes.
 
-import type { LocalPoint } from '../local-plane';
+import { projectToLocalPlane, unprojectToLocalPlane, type LocalPoint } from '../local-plane';
 import type { Evaluation, Fix, MeasurementModel } from '../measurement-model';
 import type { Position } from '../position';
 import { err, ok, type Failure, type Result, type Warning } from '../result';
@@ -59,7 +65,10 @@ export interface StubModelOptions {
    * step is 1/factor times too long: 0.4 overshoots to 2.5 times the step.
    */
   readonly reportedPartialScale?: number;
-  /** A failure to return for `evaluate` at this candidate, or undefined to evaluate normally. */
+  /**
+   * A failure to return for `evaluate` at this point of the reference plane, or undefined to
+   * evaluate normally.
+   */
   readonly failAt?: (candidate: LocalPoint) => Failure | undefined;
   /** Replaces the evaluation with arbitrary, possibly hostile, numbers. */
   readonly overrideEvaluation?: (
@@ -83,8 +92,10 @@ export interface StubCalls {
     origin: Position;
     observationIds: readonly string[];
   }[];
-  /** The candidates `evaluate` was called with, in order. */
+  /** The candidates `evaluate` was called with, in order, as given (on the plane of `origin`). */
   readonly evaluatedCandidates: LocalPoint[];
+  /** The origins `evaluate` was called with, in order. */
+  readonly evaluatedOrigins: Position[];
 }
 
 export interface StubModel extends MeasurementModel<StubObservation> {
@@ -102,8 +113,55 @@ export function createStubModel(options: StubModelOptions = {}): StubModel {
     postSolveCheck: 0,
     postSolveArguments: [],
     evaluatedCandidates: [],
+    evaluatedOrigins: [],
   };
   const reportedPartialScale = options.reportedPartialScale ?? 1;
+  const referenceOrigin: Result<Position> = options.origin ?? ok({ latRad: 0, lonRad: 0 });
+
+  /** The point of the reference plane at `candidate` on the plane of `origin`. */
+  const toReference = (candidate: LocalPoint, origin: Position): Result<LocalPoint> => {
+    if (!referenceOrigin.ok || origin === referenceOrigin.value) return ok(candidate);
+    const position = unprojectToLocalPlane(origin, candidate);
+    if (!position.ok) return position;
+    return projectToLocalPlane(referenceOrigin.value, position.value);
+  };
+
+  /**
+   * ∂(reference east, north)/∂(east, north) on the plane of `origin`, by central differences
+   * with a 1 m step: the identity when `origin` is the reference itself. The map between two
+   * Local planes is nearly linear (its curvature is of order 1/R), so a 1 m step has a
+   * truncation error near (1 m / R)² ≈ 2.5e-14 and a rounding error near 1e-14.
+   */
+  const jacobianToReference = (
+    candidate: LocalPoint,
+    origin: Position,
+  ): Result<readonly [number, number, number, number]> => {
+    if (!referenceOrigin.ok || origin === referenceOrigin.value) return ok([1, 0, 0, 1]);
+    const stepM = 1;
+    const at = (eastM: number, northM: number) => toReference({ eastM, northM }, origin);
+    const east = [
+      at(candidate.eastM + stepM, candidate.northM),
+      at(candidate.eastM - stepM, candidate.northM),
+    ];
+    const north = [
+      at(candidate.eastM, candidate.northM + stepM),
+      at(candidate.eastM, candidate.northM - stepM),
+    ];
+    for (const point of [...east, ...north]) if (!point.ok) return point;
+    const [eastPlus, eastMinus] = east.map((point) => (point as { value: LocalPoint }).value) as [
+      LocalPoint,
+      LocalPoint,
+    ];
+    const [northPlus, northMinus] = north.map(
+      (point) => (point as { value: LocalPoint }).value,
+    ) as [LocalPoint, LocalPoint];
+    return ok([
+      (eastPlus.eastM - eastMinus.eastM) / (2 * stepM),
+      (northPlus.eastM - northMinus.eastM) / (2 * stepM),
+      (eastPlus.northM - eastMinus.northM) / (2 * stepM),
+      (northPlus.northM - northMinus.northM) / (2 * stepM),
+    ]);
+  };
 
   return {
     calls,
@@ -120,7 +178,7 @@ export function createStubModel(options: StubModelOptions = {}): StubModel {
     },
     origin() {
       calls.origin += 1;
-      return options.origin ?? ok({ latRad: 0, lonRad: 0 });
+      return referenceOrigin;
     },
     startEstimate() {
       calls.startEstimate += 1;
@@ -132,20 +190,32 @@ export function createStubModel(options: StubModelOptions = {}): StubModel {
         ? options.geometryCheck(observations, calls.geometryCheck)
         : ok({ warnings: [] });
     },
-    evaluate(observation, candidate) {
+    evaluate(observation, candidate, origin) {
       calls.evaluate += 1;
       calls.evaluatedCandidates.push(candidate);
-      const failure = options.failAt?.(candidate);
+      calls.evaluatedOrigins.push(origin);
+      const point = toReference(candidate, origin);
+      if (!point.ok) return point;
+      const failure = options.failAt?.(point.value);
       if (failure) return failure;
+      const jacobian = jacobianToReference(candidate, origin);
+      if (!jacobian.ok) return jacobian;
+      const [eastFromEast, eastFromNorth, northFromEast, northFromNorth] = jacobian.value;
       const predictedRad =
-        observation.partialEastRadPerM * candidate.eastM +
-        observation.partialNorthRadPerM * candidate.northM;
+        observation.partialEastRadPerM * point.value.eastM +
+        observation.partialNorthRadPerM * point.value.northM;
       const normal: Evaluation = {
         predictedRad,
         residualRad: observation.measuredRad - predictedRad,
         effectiveSigmaRad: observation.sigmaRad,
-        partialEastRadPerM: observation.partialEastRadPerM * reportedPartialScale,
-        partialNorthRadPerM: observation.partialNorthRadPerM * reportedPartialScale,
+        partialEastRadPerM:
+          (observation.partialEastRadPerM * eastFromEast +
+            observation.partialNorthRadPerM * northFromEast) *
+          reportedPartialScale,
+        partialNorthRadPerM:
+          (observation.partialEastRadPerM * eastFromNorth +
+            observation.partialNorthRadPerM * northFromNorth) *
+          reportedPartialScale,
       };
       return ok(options.overrideEvaluation?.(observation, candidate, normal) ?? normal);
     },

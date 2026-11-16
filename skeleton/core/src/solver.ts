@@ -32,6 +32,9 @@ export const OUTLIER_NORMALISED_RESIDUAL = 3.5;
 /** Outlier exclusion runs only while at least this many observations remain (Req 10.1, 10.2). */
 const MIN_OBSERVATIONS_FOR_EXCLUSION = 4;
 
+/** The centre of the Local plane whose origin is the Fix (design D19). */
+const FIX_CENTRE: LocalPoint = { eastM: 0, northM: 0 };
+
 /** Every evaluation at one candidate, and the weighted normal equations built from them. */
 interface Linearisation {
   readonly evaluations: readonly Evaluation[];
@@ -115,6 +118,24 @@ function trialCost<O>(
   return ok(cost);
 }
 
+/**
+ * The eigenvalue gate on JᵀWJ, used in the solve loop (§7.5 step 6) and at the Fix (step 9):
+ * `singular_geometry` unless both eigenvalues are greater than zero (a positive test, so that a
+ * NaN fails it; design D14), then if the condition number exceeds 1e12 (Req 7.3).
+ */
+function eigenvalueGate(linearisation: Linearisation): Result<void> {
+  const { largestEigenvalue, smallestEigenvalue } = _symmetricEigenvalues(
+    linearisation.eastEast,
+    linearisation.eastNorth,
+    linearisation.northNorth,
+  );
+  if (!(largestEigenvalue > 0 && smallestEigenvalue > 0)) return err('singular_geometry');
+  if (largestEigenvalue / smallestEigenvalue > MAX_CONDITION_NUMBER) {
+    return err('singular_geometry');
+  }
+  return ok(undefined);
+}
+
 interface Solution {
   readonly candidate: LocalPoint;
   readonly iterations: number;
@@ -135,17 +156,8 @@ function solveLoop<O>(
     const { eastEast, eastNorth, northNorth, gradientEast, gradientNorth, cost } =
       linearisation.value;
 
-    // The eigenvalue gate, written as a positive test so that a NaN fails it (design D14), then
-    // the condition number (Req 7.3).
-    const { largestEigenvalue, smallestEigenvalue } = _symmetricEigenvalues(
-      eastEast,
-      eastNorth,
-      northNorth,
-    );
-    if (!(largestEigenvalue > 0 && smallestEigenvalue > 0)) return err('singular_geometry');
-    if (largestEigenvalue / smallestEigenvalue > MAX_CONDITION_NUMBER) {
-      return err('singular_geometry');
-    }
+    const gate = eigenvalueGate(linearisation.value);
+    if (!gate.ok) return gate;
 
     // Δ = (JᵀWJ)⁻¹ JᵀW r, closed form for the symmetric 2×2 matrix.
     const determinant = eastEast * northNorth - eastNorth * eastNorth;
@@ -311,9 +323,17 @@ export function solve<O>(
   const postExclusionGeometry = model.geometryCheck(remainingObservations);
   if (!postExclusionGeometry.ok) return postExclusionGeometry;
 
-  // Step 9: uncertainty and Fix assembly, at the solution.
-  const atFix = linearise(model, remainingObservations, solution.value.candidate, origin.value);
+  // Step 9: uncertainty and Fix assembly, at the solution. The covariance is expressed in East
+  // and North at the Fix itself (Req 8.1, design D19): the observations are evaluated on the
+  // Local plane whose origin is the Fix, at its centre (0, 0), where that plane's axes are true
+  // east and true north. The solve origin's plane is turned and stretched at the Fix by meridian
+  // convergence and by the projection's scale, so its JᵀWJ would not be in those axes.
+  const position = unprojectToLocalPlane(origin.value, solution.value.candidate);
+  if (!position.ok) return position;
+  const atFix = linearise(model, remainingObservations, FIX_CENTRE, position.value);
   if (!atFix.ok) return atFix;
+  const gateAtFix = eigenvalueGate(atFix.value);
+  if (!gateAtFix.ok) return gateAtFix;
   const { eastEast, eastNorth, northNorth, evaluations } = atFix.value;
   const determinant = eastEast * northNorth - eastNorth * eastNorth;
   const covariance: CovarianceEnM2 = {
@@ -323,8 +343,6 @@ export function solve<O>(
   };
   const ellipse = ellipseFromCovariance(covariance);
   if (!ellipse.ok) return ellipse;
-  const position = unprojectToLocalPlane(origin.value, solution.value.candidate);
-  if (!position.ok) return position;
   const residuals: ObservationResidual[] = evaluations.map((evaluation, index) => ({
     id: (remaining[index] as { id: string }).id,
     residualRad: evaluation.residualRad,

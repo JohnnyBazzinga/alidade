@@ -35,6 +35,8 @@ const twoAxes = (target: LocalPoint = truth): StubObservation[] => [
   stubObservation('north', 0, 1e-3, target),
 ];
 const stubOrigin = position(0, 0);
+/** The stub's origin itself, where the stub's axes are East and North at the Fix. */
+const atStubOrigin: LocalPoint = { eastM: 0, northM: 0 };
 const at = (origin: Position, point: LocalPoint): Position =>
   unwrapOk(unprojectToLocalPlane(origin, point));
 
@@ -206,11 +208,13 @@ describe('solve: the Fix (steps 9 to 11)', () => {
 
   it('returns the covariance as the inverse of JᵀWJ, off-diagonal sign included', () => {
     // JᵀWJ = Σ J Jᵀ / σ² with J = (1e-3, 0), (0, 1e-3) at σ = 0.01, 0.02 and (1e-3, 1e-3) at 0.01:
-    // [[0.02, 0.01], [0.01, 0.0125]] in 1/m². Its inverse has a negative off-diagonal.
+    // [[0.02, 0.01], [0.01, 0.0125]] in 1/m². Its inverse has a negative off-diagonal. The truth
+    // is the stub's origin, so East and North at the Fix (design D19) are the stub's own axes;
+    // 100 m away they would differ by about 1e-10, the effect D19 exists for.
     const observations = [
-      stubObservation('a', 1e-3, 0, truth, 0.01),
-      stubObservation('b', 0, 1e-3, truth, 0.02),
-      stubObservation('c', 1e-3, 1e-3, truth, 0.01),
+      stubObservation('a', 1e-3, 0, atStubOrigin, 0.01),
+      stubObservation('b', 0, 1e-3, atStubOrigin, 0.02),
+      stubObservation('c', 1e-3, 1e-3, atStubOrigin, 0.01),
     ];
     const { covariance } = unwrapOk(solve(createStubModel(), observations));
     const normal = [
@@ -235,9 +239,10 @@ describe('solve: the Fix (steps 9 to 11)', () => {
   });
 
   it('derives the ellipse from the covariance: σ 10 m east and 20 m north', () => {
+    // The truth is the stub's origin, as in the test above.
     const observations = [
-      stubObservation('a', 1e-3, 0, truth, 0.01),
-      stubObservation('b', 0, 1e-3, truth, 0.02),
+      stubObservation('a', 1e-3, 0, atStubOrigin, 0.01),
+      stubObservation('b', 0, 1e-3, atStubOrigin, 0.02),
     ];
     const fix = unwrapOk(solve(createStubModel(), observations));
     expect(fix.covariance.varEastM2).toBeCloseTo(100, 8);
@@ -274,9 +279,10 @@ describe('solve: the Fix (steps 9 to 11)', () => {
     ]);
   });
 
-  it('returns invalid_number from the ellipse when JᵀWJ at the Fix is not positive definite', () => {
-    // The gate in the loop sees good partials; at the Fix the stub reports parallel ones. The
-    // design gates JᵀWJ only inside the loop; at the Fix the failure comes from the ellipse.
+  it('returns singular_geometry when JᵀWJ at the Fix is not positive definite', () => {
+    // The gate in the loop sees good partials; at the Fix the stub reports parallel ones. Step 9
+    // applies the same eigenvalue gate as step 6, so this is singular_geometry, not a failure of
+    // the ellipse.
     let fixEvaluations = false;
     const model = createStubModel({
       postSolveCheck: () => ok({ warnings: [] }),
@@ -289,7 +295,25 @@ describe('solve: the Fix (steps 9 to 11)', () => {
         return ok({ warnings: [] });
       },
     });
-    expect(solve(model, twoAxes())).toStrictEqual(failure('invalid_number'));
+    expect(solve(model, twoAxes())).toStrictEqual(failure('singular_geometry'));
+  });
+});
+
+describe('solve: the eigenvalue gate at the Fix (step 9)', () => {
+  it('returns singular_geometry above a condition number of 1e12 at the Fix', () => {
+    // As above, but at the Fix the north partial drops so that the condition number is 1.1e12.
+    let fixEvaluations = false;
+    const model = createStubModel({
+      overrideEvaluation: (observation, _candidate, normal) =>
+        fixEvaluations && observation.id === 'north'
+          ? { ...normal, partialNorthRadPerM: 1e-3 / Math.sqrt(1.1e12) }
+          : normal,
+      geometryCheck: (_observations, call) => {
+        if (call === 2) fixEvaluations = true;
+        return ok({ warnings: [] });
+      },
+    });
+    expect(solve(model, twoAxes())).toStrictEqual(failure('singular_geometry'));
   });
 });
 
@@ -614,6 +638,42 @@ describe('solve with BearingModel: noise-free fixes', () => {
   });
 });
 
+describe('solve with BearingModel: the start estimate follows meridian convergence (design D18)', () => {
+  // Regression from 140 000 generated scenarios: two observers at 57.6°S, 49 km apart, nearly
+  // east-west. Drawn on the plane with their raw azimuths, the bearing lines ignore the
+  // convergence of the meridians between the observers and the origin, and they met so far
+  // from the target that the solve failed with singular_geometry. Each line's direction now
+  // comes from two projected points.
+  const target: Position = { latRad: -1.0050832956953741, lonRad: 1.0946470648736772 };
+  const observations = [
+    makeBearing({
+      id: 'a',
+      observer: { latRad: -1.0051221063611917, lonRad: 1.0947977555076247 },
+      azimuthRad: 5.160256514817649,
+      azimuthSigmaRad: 0.0036312973522640104,
+      positionAccuracyM: 0,
+    }),
+    makeBearing({
+      id: 'b',
+      observer: { latRad: -1.004243940417662, lonRad: 1.0804206074613882 },
+      azimuthRad: 1.6863550176079036,
+      azimuthSigmaRad: 0.7011019052854864,
+      positionAccuracyM: 0,
+    }),
+  ];
+
+  it('starts within 10 m of the target', () => {
+    const origin = unwrapOk(bearingModel.origin(observations));
+    const start = unwrapOk(bearingModel.startEstimate(observations, origin));
+    expect(distanceM(at(origin, start), target)).toBeLessThan(10);
+  });
+
+  it('solves to within 0.01 m of the target', () => {
+    const fix = unwrapOk(solve(bearingModel, observations));
+    expect(distanceM(fix.position, target)).toBeLessThan(0.01);
+  });
+});
+
 describe('solve with BearingModel: geometry failures', () => {
   /** BearingModel with counted calls to origin and startEstimate. */
   function countingBearingModel(): MeasurementModel<Bearing> & {
@@ -772,6 +832,135 @@ describe('solve with BearingModel: outliers', () => {
     expect(fix.excludedIds).toStrictEqual(['wrong']);
     expect(fix.warnings).toStrictEqual(['poor_geometry', 'outliers_excluded']);
     expect(distanceM(fix.position, fanTarget)).toBeLessThan(0.01);
+  });
+});
+
+// Cases the solver properties no longer cover, since Req 7.4 and 10.5 now stop at 75° and 88°
+// of latitude and at outliers of 15° to 45°.
+describe('solve with BearingModel: outside the property domains', () => {
+  it('solves at 86° of latitude, within 0.01 m', () => {
+    // Req 7.4 covers targets up to 75°. Near the pole the solve still works: three observers
+    // 5 km away and 120° apart around a target at 86°N.
+    const target = position(86, -40);
+    const observations = [0, 120, 240].map((fromDeg, index) =>
+      sighting(`o${index}`, placed(target, fromDeg, 5000), target),
+    );
+    const fix = unwrapOk(solve(bearingModel, observations));
+    expect(distanceM(fix.position, target)).toBeLessThan(0.01);
+  });
+
+  it('returns unsupported_position when the observers’ centroid lies beyond 89°', () => {
+    // Two Supported observers at 88.95°N on opposite meridians: their centroid is at the pole,
+    // so there is no Supported Local plane origin. This is one reason Req 7.4 stops at 75°.
+    const observations = [
+      makeBearing({ id: 'a', observer: position(88.95, 0), azimuthRad: rad(0) }),
+      makeBearing({ id: 'b', observer: position(88.95, 180), azimuthRad: rad(90) }),
+    ];
+    expect(unwrapOk(bearingModel.geometryCheck(observations)).warnings).toStrictEqual([]);
+    expect(solve(bearingModel, observations)).toStrictEqual(failure('unsupported_position'));
+  });
+
+  it('known limit: a 79° outlier is not rejected, and good observations are excluded instead', () => {
+    // Req 10.5 covers outliers of 15° to 45°. Here eight good observers 5 to 7 km around the
+    // target, with no gap over 58° between their directions, and one observer 5 km away at 32°
+    // whose azimuth is 79° wrong. The least-squares minimum with every observation lies 4.9 km
+    // from the target, where a good observation (g4, -29.0) has the largest normalised residual
+    // rather than the bad one. Rejection then removes good observations one by one and ends
+    // 5 km from the target. This documents current behaviour, not a requirement: outlier
+    // rejection by largest residual cannot recover from an error this large.
+    const target = position(4, 160);
+    const directionsDeg = [149, 218, 261, 335, 91, 33, 292, 193];
+    const rangesM = [5300, 6600, 5600, 6700, 5300, 6300, 6100, 5200];
+    const good = directionsDeg.map((fromDeg, index) =>
+      sighting(`g${index}`, placed(target, fromDeg, rangesM[index] as number), target, {
+        positionAccuracyM: 0,
+      }),
+    );
+    const bad = sighting('bad', placed(target, 32, 5000), target, {
+      positionAccuracyM: 0,
+      errorDeg: -79,
+    });
+    const plain = unwrapOk(solve(bearingModel, [...good, bad]));
+    expect(distanceM(plain.position, target)).toBeGreaterThan(4000);
+    const largest = [...plain.residuals].sort(
+      (left, right) => Math.abs(right.normalisedResidual) - Math.abs(left.normalisedResidual),
+    )[0];
+    expect(largest?.id).not.toBe('bad');
+
+    const rejected = unwrapOk(solve(bearingModel, [...good, bad], { outlierRejection: true }));
+    expect(rejected.excludedIds).not.toContain('bad');
+    expect(rejected.excludedIds.length).toBeGreaterThan(1);
+    expect(distanceM(rejected.position, target)).toBeGreaterThan(4000);
+  });
+});
+
+describe('solve with BearingModel: the ellipse is in East and North at the Fix (design D19)', () => {
+  it('points the major axis due east, to 1e-9 rad, for a configuration symmetric about east', () => {
+    // A target at 70°N and two observers 100 km from it, at 60° and 120°, with equal sigmas. The
+    // configuration is its own mirror image across the great circle that leaves the target due
+    // east, so at the Fix the covariance has no East-North term and its axes point exactly
+    // north and east. The lines cross at 60°, so range (east-west) is the weak direction: the
+    // major axis is due east, 90° true. Their centroid, the solve origin, is 87 km east of the
+    // target, where the Local plane's north is turned 2.1° from north at the target by meridian
+    // convergence: measured in that plane, the azimuth would read 92.14°.
+    const target = position(70, 20);
+    const observations = [60, 120].map((fromDeg, index) =>
+      sighting(`o${index}`, placed(target, fromDeg, 100_000), target, { positionAccuracyM: 0 }),
+    );
+    expect(distanceM(unwrapOk(bearingModel.origin(observations)), target)).toBeGreaterThan(80_000);
+    const fix = unwrapOk(solve(bearingModel, observations));
+    expect(distanceM(fix.position, target)).toBeLessThan(0.01);
+    expect(fix.ellipse.semiMajorM).toBeGreaterThan(1.5 * fix.ellipse.semiMinorM);
+    expect(Math.abs(fix.ellipse.azimuthRad - Math.PI / 2)).toBeLessThan(1e-9);
+  });
+});
+
+describe('solve with BearingModel: the covariance frame (P-8.6 counterexample)', () => {
+  // Shrunk counterexample of P-8.6 (task 12.15), kept as an example (testing.md rule 5). Nine
+  // observers 500 m to 1.2 km due north of the target and one crossing them at about 30°; the
+  // extra observation is 29 km due north, on the same meridian, with an 87 m accuracy. It adds
+  // a little east-west information, so the covariance determinant must fall, by about 1.4e-7.
+  // But adding an observer moves the centroid, so the Local plane origin moves from 2.3 km to
+  // 4.8 km from the fix, and the covariance is expressed on that plane, whose tangential scale at
+  // distance d is about 1 + d²/(6R²). That changes the determinant by about +1.4e-7 and the net
+  // is +1.0e-9, over the tolerance of Req 8.6. This fails until the covariance frame is decided:
+  // see the task 12 report.
+  const lat = -0.08556910753561014;
+  const lon = -0.004045604839908901;
+  const near = (id: string, latRad = lat): Bearing =>
+    makeBearing({
+      id,
+      observer: { latRad, lonRad: lon },
+      azimuthRad: Math.PI,
+      azimuthSigmaRad: 0.00017453292519943296,
+      positionAccuracyM: 0,
+    });
+  const observations: Bearing[] = [
+    ...[' ', '!', 'O', '"', '#', '$', ' !'].map((id) => near(id)),
+    near('%', -0.08533749585476154),
+    near('  ', -0.0846388654515735),
+    makeBearing({
+      id: '&',
+      observer: { latRad: -0.0839093126131721, lonRad: -0.003021655131884776 },
+      azimuthRad: 3.6723143557166713,
+      azimuthSigmaRad: 0.000174532925199433,
+      positionAccuracyM: 0,
+    }),
+  ];
+  const extra = makeBearing({
+    id: "'",
+    observer: { latRad: -0.08102827184146354, lonRad: lon },
+    azimuthRad: Math.PI,
+    azimuthSigmaRad: 0.00017453292519943296,
+    positionAccuracyM: 87.11516708720474,
+  });
+  const determinant = (fix: Fix): number =>
+    fix.covariance.varEastM2 * fix.covariance.varNorthM2 - fix.covariance.covEastNorthM2 ** 2;
+
+  it('does not raise det(covariance) by more than 1e-9 when a noise-free observation is added', () => {
+    const before = determinant(unwrapOk(solve(bearingModel, observations)));
+    const after = determinant(unwrapOk(solve(bearingModel, [...observations, extra])));
+    expect(after).toBeLessThanOrEqual(before * (1 + 1e-9));
   });
 });
 

@@ -19,6 +19,7 @@ import { validateBearing, type Bearing } from './observation';
 import {
   EARTH_RADIUS_M,
   _distanceM,
+  destinationPosition,
   greatCircleDistanceM,
   initialAzimuthRad,
   isSupportedPosition,
@@ -38,6 +39,8 @@ export const DIVERGING_RESIDUAL_RAD = Math.PI / 2;
 export const MAX_FIX_RANGE_M = 500_000;
 /** The range used in the Effective sigma is never below this (Req 6.3). */
 export const MIN_SIGMA_RANGE_M = 1;
+/** How far along each bearing the second point of its plane direction is taken (design D18). */
+export const LINE_DIRECTION_STEP_M = 100;
 /** The mean of the observer unit vectors must be longer than this for a centroid to exist. */
 const MIN_CENTROID_LENGTH = 1e-9;
 
@@ -204,6 +207,51 @@ function azimuthGradient(
   };
 }
 
+interface PlaneLine {
+  /** The observer, projected onto the Local plane. */
+  readonly point: LocalPoint;
+  /** Unit direction of the bearing on the plane. */
+  readonly directionEast: number;
+  readonly directionNorth: number;
+}
+
+/**
+ * A bearing as a line on the Local plane of `origin` (design D18).
+ *
+ * The raw azimuth is measured from the observer's meridian, which on the plane is turned by the
+ * convergence of the meridians between the observer and the origin. So the direction is taken
+ * from two projected points instead: the observer and the point 100 m along the bearing. If that
+ * point is not Supported or does not project, the point 100 m behind the observer is used and the
+ * direction reversed; if that fails too, its failure is returned.
+ */
+function planeLine(observation: Bearing, origin: Position): Result<PlaneLine> {
+  const point = projectToLocalPlane(origin, observation.observer);
+  if (!point.ok) return point;
+
+  const along = (azimuthRad: number): Result<LocalPoint> => {
+    const reached = destinationPosition(observation.observer, azimuthRad, LINE_DIRECTION_STEP_M);
+    if (!reached.ok) return reached;
+    if (!isSupportedPosition(reached.value)) return err('unsupported_position');
+    return projectToLocalPlane(origin, reached.value);
+  };
+  let sign = 1;
+  let ahead = along(observation.azimuthRad);
+  if (!ahead.ok) {
+    ahead = along(observation.azimuthRad + Math.PI);
+    if (!ahead.ok) return ahead;
+    sign = -1;
+  }
+  const eastM = sign * (ahead.value.eastM - point.value.eastM);
+  const northM = sign * (ahead.value.northM - point.value.northM);
+  const lengthM = Math.hypot(eastM, northM);
+  if (!(lengthM > 0)) return err('singular_geometry');
+  return ok({
+    point: point.value,
+    directionEast: eastM / lengthM,
+    directionNorth: northM / lengthM,
+  });
+}
+
 export class BearingModel implements MeasurementModel<Bearing> {
   validate(observation: Bearing): Result<void> {
     return validateBearing(observation);
@@ -253,24 +301,22 @@ export class BearingModel implements MeasurementModel<Bearing> {
 
     const pair = largestCrossingPair(observations);
     if (pair.crossingRad < MIN_CROSSING_ANGLE_RAD) return err('singular_geometry');
-    const firstPoint = projectToLocalPlane(origin, pair.first.observer);
-    if (!firstPoint.ok) return firstPoint;
-    const secondPoint = projectToLocalPlane(origin, pair.second.observer);
-    if (!secondPoint.ok) return secondPoint;
+    const firstLine = planeLine(pair.first, origin);
+    if (!firstLine.ok) return firstLine;
+    const secondLine = planeLine(pair.second, origin);
+    if (!secondLine.ok) return secondLine;
 
-    // Lines P_k + t_k (sin az_k, cos az_k). Crossing the equation P1 + t d1 = P2 + s d2 with d2
-    // gives t = ((P2 - P1) × d2) / (d1 × d2), where a × b = a.x b.y - a.y b.x.
-    const sinFirst = Math.sin(pair.first.azimuthRad);
-    const cosFirst = Math.cos(pair.first.azimuthRad);
-    const sinSecond = Math.sin(pair.second.azimuthRad);
-    const cosSecond = Math.cos(pair.second.azimuthRad);
-    const directionsCross = sinFirst * cosSecond - cosFirst * sinSecond;
-    const gapEastM = secondPoint.value.eastM - firstPoint.value.eastM;
-    const gapNorthM = secondPoint.value.northM - firstPoint.value.northM;
-    const alongFirstM = (gapEastM * cosSecond - gapNorthM * sinSecond) / directionsCross;
+    // Lines P_k + t_k d_k. Crossing the equation P1 + t d1 = P2 + s d2 with d2 gives
+    // t = ((P2 - P1) × d2) / (d1 × d2), where a × b = a.east b.north - a.north b.east.
+    const { point: first, directionEast: e1, directionNorth: n1 } = firstLine.value;
+    const { point: second, directionEast: e2, directionNorth: n2 } = secondLine.value;
+    const directionsCross = e1 * n2 - n1 * e2;
+    const gapEastM = second.eastM - first.eastM;
+    const gapNorthM = second.northM - first.northM;
+    const alongFirstM = (gapEastM * n2 - gapNorthM * e2) / directionsCross;
 
-    const eastM = firstPoint.value.eastM + alongFirstM * sinFirst;
-    const northM = firstPoint.value.northM + alongFirstM * cosFirst;
+    const eastM = first.eastM + alongFirstM * e1;
+    const northM = first.northM + alongFirstM * n1;
     if (!Number.isFinite(eastM) || !Number.isFinite(northM)) return err('singular_geometry');
     return ok({ eastM, northM });
   }

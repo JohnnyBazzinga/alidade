@@ -297,7 +297,7 @@ Package: `skeleton/core` (`@alidade/core`). Source of truth: `requirements.md` a
   - Run `pnpm --filter @alidade/core test`, `pnpm typecheck` and `pnpm lint`. Report any
     failing property with the code / property / requirement classification.
 
-- [ ] 12. Fix solver
+- [x] 12. Fix solver
   - [x] 12.1 Add the stub model for generic-behaviour tests
     - `src/test-support/stub-model.ts`: a configurable `MeasurementModel` whose
       `evaluate`, `geometryCheck` and `startEstimate` can be scripted (fail beyond a
@@ -323,7 +323,9 @@ Package: `skeleton/core` (`@alidade/core`). Source of truth: `requirements.md` a
     - _Requirements: 7.1, 7.2, 7.3, 7.8_
   - [x] 12.4 Implement fix assembly and the post-solve check (§7.5 steps 8–11)
     - Post-exclusion `geometryCheck` taking the `poor_geometry` warning (D5);
-      covariance as the inverse of `JᵀWJ`, the ellipse, per-observation residuals and
+      covariance as the inverse of `JᵀWJ` evaluated on the Fix's own Local plane at its
+      centre, so in East and North at the Fix (D19, Req 8.1), the same eigenvalue gate as
+      step 6, the ellipse, per-observation residuals and
       normalised residuals, `iterations`, `warnings` and `excludedIds`; then
       `postSolveCheck(fix, origin, remaining)` with the assembled `Fix`. `ellipseFromCovariance`
       returns a `Result`; return its failure if it fails. Check that every number in the
@@ -336,14 +338,16 @@ Package: `skeleton/core` (`@alidade/core`). Source of truth: `requirements.md` a
       candidate before computing residuals and return an evaluation failure if there is one.
     - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.6_
   - [x] 12.6 Add solver generators
-    - In `generators.ts`: `solvableSet` with only the conditions of Req 7.4 (every position
-      Supported; 2–12 observers `500 m–100 km` from the target; one pair crossing at
-      `≥ 10°`; noise-free; unique ids). It never calls `solve` and does not filter on solver
-      success. Also `noisySolvableSet` (the same, with small Gaussian azimuth noise; the only
-      generator whose properties may discard unsolved sets), `meridianSet` (a
-      noise-free `solvableSet` with observers on both sides of `±180°`), and the outlier set
-      of Req 10.5 (8–12 observers `5–7 km` from the target spanning `≥ 120°`, sigma `2°`,
-      plus one bad observation off by `30°–80°`). Document each domain and exclusion.
+    - In `generators.ts`, built by construction where possible: `solvableSet` with only the
+      conditions of Req 7.4 (target latitude within `75°`; 2–12 observers `500 m–100 km` from
+      the target; one pair crossing at `≥ 10°`, the only filter, 2.1 % discarded; cross-track
+      1-sigmas within a factor `1e3`, by construction; noise-free; unique ids). It never calls
+      `solve` and does not filter on solver success. Also `noisySolvableSet` (the only
+      generator whose properties may discard unsolved sets), `meridianSet` (observers on both
+      sides of `±180°`, 73.4 % discarded by that filter), `solvableSetWithExtra` (Req 8.6),
+      `solvableSetWithScale` (Req 8.4), and `outlierSet` (Req 10.5: latitude within `88°`,
+      8–12 observers `5–7 km` away with no gap over `60°`, by construction, sigma `2°`, one
+      bad observation off by `15°–45°`). Document each domain and exclusion.
     - _Requirements: 7.4, 7.5, 7.6, 7.7, 8.4, 8.5, 8.6, 8.7, 9.7, 10.5_
   - [x] 12.7 Example tests for each solver failure and warning in `src/solver.test.ts`
     - `insufficient_observations`; `invalid_observation` naming id and field;
@@ -368,54 +372,59 @@ Package: `skeleton/core` (`@alidade/core`). Source of truth: `requirements.md` a
       gives `invalid_number`); the three-observer
       centroid case (target at the origin) returns a Fix within `0.01 m`.
     - _Requirements: 7.2, 7.3, 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.8, 9.9, 9.10, 9.11, 10.4, 10.6_
-  - [ ] 12.8 Property P-7.4: noise-free recovery
+  - [x] 12.8 Property P-7.4: noise-free recovery
     - For `solvableSet`, `solve` succeeds and the Fix is within `0.01 m` of the true
       target. A solve failure is a test failure. If this property finds a set that meets
       the Req 7.4 conditions and the solver cannot solve, stop and report the shrunk set;
       do not narrow the generator and do not add a filter.
     - _Requirements: 7.4_
-  - [ ] 12.9 Property P-7.5: order independence
+  - [x] 12.9 Property P-7.5: order independence
     - Two random orderings of the same set give Fixes less than `1e-3 m` apart. On the
       noise-free `solvableSet` a solve failure is a test failure. On `noisySolvableSet` the
       property may discard sets the solver does not solve; its comment says so, and the
       test counts the discards and also asserts that both orderings give the same outcome.
     - _Requirements: 7.5_
-  - [ ] 12.10 Property P-7.6: local optimality
+  - [x] 12.10 Property P-7.6: local optimality
     - With each effective sigma held at its value at the Fix, the cost at the Fix does not
       exceed the cost at any point `1 m` away to the east, west, north or south.
     - _Requirements: 7.6_
-  - [ ] 12.11 Property P-7.7: copies under new ids leave the Fix unchanged
+  - [x] 12.11 Property P-7.7: copies under new ids leave the Fix unchanged
     - Adding a copy of every observation under a fresh unique id moves the Fix by less than
       `1e-3 m`.
     - _Requirements: 7.7_
-  - [ ] 12.12 Property P-7.8: determinism
+  - [x] 12.12 Property P-7.8: determinism
     - Two calls with identical input return deeply equal results, including `iterations`,
       `warnings` and `excludedIds`.
     - _Requirements: 7.8_
-  - [ ] 12.13 Property P-8.4: uncertainty scales with the input sigmas
-    - Multiplying every azimuth sigma and position accuracy by `k ∈ [0.5, 4]` leaves the
-      Fix unchanged within `1e-3 m` and multiplies both ellipse axes by `k` within relative
-      `1e-5`.
+  - [x] 12.13 Property P-8.4: uncertainty scales with the input sigmas
+    - Multiplying every azimuth sigma and position accuracy by `k ∈ [0.5, 4]`, restricted to
+      the factors for which every scaled observation is still valid (`solvableSetWithScale`),
+      leaves the Fix unchanged within `1e-3 m` and multiplies both ellipse axes by `k` within
+      relative `1e-5`.
     - _Requirements: 8.4_
-  - [ ] 12.14 Property P-8.5: copies under new ids shrink the ellipse by √2
+  - [x] 12.14 Property P-8.5: copies under new ids shrink the ellipse by √2
     - Adding a copy of every observation under a fresh unique id divides both ellipse axes
       by `√2` within relative `1e-5`.
     - _Requirements: 8.5_
-  - [ ] 12.15 Property P-8.6: an extra noise-free observation does not grow the covariance
+  - [x] 12.15 Property P-8.6: an extra noise-free observation does not grow the covariance
     - For sets satisfying Req 7.4, adding one more noise-free observation of the same
-      target does not raise the covariance determinant by more than a relative `1e-9`.
+      target that keeps those conditions (`solvableSetWithExtra`) does not raise the
+      covariance determinant by more than a relative `1e-9`.
+    - Resolved by design D19 (covariance in East and North at the Fix, Req 8.1 as amended):
+      the determinant no longer depends on where the centroid falls.
     - _Requirements: 8.6_
-  - [ ] 12.16 Property P-8.7: covariance is symmetric positive definite
+  - [x] 12.16 Property P-8.7: covariance is symmetric positive definite
     - Symmetric within `1e-12`; both eigenvalues greater than zero, for every successful
       Fix.
     - _Requirements: 8.7_
-  - [ ] 12.17 Property P-9.7: the ±180° meridian does not matter
+  - [x] 12.17 Property P-9.7: the ±180° meridian does not matter
     - For `meridianSet`, the Fix equals the Fix of the same configuration shifted `90°` in
       longitude and shifted back, within `0.01 m`.
     - _Requirements: 9.7_
-  - [ ] 12.18 Property P-10.5: one wrong observation is excluded
-    - For the outlier set, with outlier rejection enabled, the Fix is within `1 m` of the
-      target and `excludedIds` is exactly the wrong observation's id.
+  - [x] 12.18 Property P-10.5: one wrong observation is excluded
+    - For `outlierSet` (Req 10.5 as amended: latitude within `88°`, no gap over `60°`, error
+      `15°–45°`), with outlier rejection enabled, the Fix is within `1 m` of the target and
+      `excludedIds` is exactly the wrong observation's id.
     - _Requirements: 10.5_
 
 - [ ] 13. Statistical and performance tests

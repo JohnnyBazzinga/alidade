@@ -95,6 +95,10 @@ export interface MeasurementModel<O> {
    * What `observation` should read at `candidate` on the Local plane of `origin`, how far the
    * measurement is from that, its Effective sigma and the partial derivatives (Req 5.2). Fails
    * when the candidate is not a valid state for this observation (design D15).
+   *
+   * The candidate is a point on the plane of `origin`, so a model must describe the same
+   * position whatever the origin: the solver evaluates on the solve origin's plane during the
+   * solve, and on the Fix's own plane at the Fix, where its axes are East and North (design D19).
    */
   evaluate(observation: O, candidate: LocalPoint, origin: Position): Result<Evaluation>;
 

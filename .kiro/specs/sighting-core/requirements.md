@@ -147,7 +147,7 @@ All conventions in `.kiro/steering/math-conventions.md` are binding for this spe
 
 #### Acceptance Criteria
 
-1. THE solver SHALL return, with every successful Fix, the 2×2 covariance in East-North square metres, computed as the inverse of `Jᵀ W J` at the solution.
+1. THE solver SHALL return, with every successful Fix, the 2×2 covariance in East-North square metres, with East and North taken at the Fix itself (true north at the Fix, not the Local plane's north), computed as the inverse of `Jᵀ W J` at the solution.
 2. THE Core SHALL derive from the covariance an Error ellipse: 1-sigma semi-major and semi-minor axes in metres (semi-major `≥` semi-minor `> 0`) and the Azimuth of the major axis in `[0, π)`.
 3. THE Core SHALL provide the 95% ellipse by multiplying the 1-sigma axes by `2.4477`.
 4. FOR ALL solvable observation sets and factors `k` in `[0.5, 4]` for which every scaled observation is still valid, multiplying every observation's Azimuth 1-sigma and position accuracy by `k` SHALL leave the Fix unchanged within `1e-3 m` and SHALL multiply both ellipse axes by `k` within a relative error of `1e-5`.

@@ -443,8 +443,11 @@ describe('BearingModel.startEstimate', () => {
   });
 
   it('breaks a tie between equal crossing angles by id, whatever the input order', () => {
-    // a sights north along E = 0. b (line N = 1000) and c (line N = -1000) both cross it at
-    // 90°. The tie goes to the pair (a, b), whose intersection is (0, 1000).
+    // a sights north along E = 0. b (heading east from N = 1000) and c (heading west from
+    // N = -1000) both cross it at 90°. The tie goes to the pair (a, b), which meets near
+    // (0, 1000); the pair (a, c) would meet near (0, -1000), 2 km away. The lines follow the
+    // great circles (design D18), so b's line bends slightly and the meeting point is about
+    // 2e-4 m from (0, 1000).
     const a = place('a', 0, -5000, 0);
     const b = place('b', -5000, 1000, 90);
     const c = place('c', 5000, -1000, 270);
@@ -458,8 +461,8 @@ describe('BearingModel.startEstimate', () => {
     ];
     for (const order of orders) {
       const start = startOf(order);
-      expect(Math.abs(start.eastM)).toBeLessThan(1e-6);
-      expect(Math.abs(start.northM - 1000)).toBeLessThan(1e-6);
+      expect(Math.abs(start.eastM)).toBeLessThan(0.01);
+      expect(Math.abs(start.northM - 1000)).toBeLessThan(0.01);
     }
   });
 
