@@ -428,7 +428,7 @@ Package: `skeleton/core` (`@alidade/core`). Source of truth: `requirements.md` a
     - _Requirements: 10.5_
 
 - [ ] 13. Statistical and performance tests
-  - [ ] 13.1 Calibration test in `src/calibration.test.ts`
+  - [x] 13.1 Calibration test in `src/calibration.test.ts`
     - 1000 trials from a fixed seed passed as an argument: 3 observers `1–20 km` from the
       target, pairwise crossing angles `≥ 30°`, exact observer positions, Gaussian azimuth
       noise `2°` (1-sigma). A failed solve counts as not contained. The 95% ellipse
@@ -439,10 +439,15 @@ Package: `skeleton/core` (`@alidade/core`). Source of truth: `requirements.md` a
     - Solve 200 valid bearings on a well-conditioned target and assert a wall-clock time
       under `50 ms` (the clock is read by the test only, never by `core`). Warm up once
       before timing.
+    - DECISION NEEDED: implemented exactly as written, and the solver meets the bound in steady
+      state (median about 11 ms here, about 3 ms on the reference laptop), but on this shared
+      machine (load average about 4.6 on 8 cores) the single timed solve sometimes stalls to
+      70 to 143 ms, so the test fails in about 1 run in 5. The first solve in a fresh process
+      takes 54 to 69 ms. See the task 16 report.
     - _Requirements: 7.10_
 
-- [ ] 14. Hostile input
-  - [ ] 14.1 Add the `hostileInput` generator
+- [x] 14. Hostile input
+  - [x] 14.1 Add the `hostileInput` generator
     - In `generators.ts`: malformed and non-finite observations, out-of-range sigmas,
       non-object wire payloads, empty and duplicate ids, hostile `SolverOptions`
       (`maxIterations` as `NaN`, `±Infinity`, `0`, negative, fractional, above `50`),
@@ -452,22 +457,22 @@ Package: `skeleton/core` (`@alidade/core`). Source of truth: `requirements.md` a
       latitude limit with bearings crossing beyond `89°`; two observers on the same
       meridian where one sights the other).
     - _Requirements: 9.8_
-  - [ ] 14.2 Property P-9.8: no throw, no NaN, no infinity
+  - [x] 14.2 Property P-9.8: no throw, no NaN, no infinity
     - Feed `hostileInput` to every exported function and to each `BearingModel` method
       called directly (`origin`, `startEstimate`, `geometryCheck`, `postSolveCheck`,
       `evaluate`, `validate`, `idOf`), plus `ellipseFromCovariance` and `ellipse95`: none
       throws, and every call returns a failure or a success whose numbers are all finite.
     - _Requirements: 9.8, 1.9_
 
-- [ ] 15. Packaging and purity
-  - [ ] 15.1 Finalise `src/index.ts`
+- [x] 15. Packaging and purity
+  - [x] 15.1 Finalise `src/index.ts`
     - Export the public API only: the angle, position and local-plane functions, `Bearing`
       with `validateBearing`, `serialiseBearing`, `parseBearing`, `BearingModel`, `solve`,
       `ellipseFromCovariance`, `ellipse95`, and the types (`Result`, `Reason`, `Warning`,
       `Fix`, `Ellipse`, `SolverOptions`, `MeasurementModel`, ...). Nothing from
       `test-support`.
     - _Requirements: 11.3, 11.4_
-  - [ ] 15.2 Purity test in `src/purity.test.ts`
+  - [x] 15.2 Purity test in `src/purity.test.ts`
     - Scan every non-test source file under `src/` (excluding `test-support`): no clock
       (`Date`, `performance`), no randomness (`Math.random`, `crypto`), no I/O or
       environment (`fs`, `process`, `fetch`, `window`, `document`, `globalThis` access to
@@ -477,12 +482,12 @@ Package: `skeleton/core` (`@alidade/core`). Source of truth: `requirements.md` a
     - `any` and `!` are not scanned here; the ESLint rules from task 1.1 enforce them. Run
       `pnpm lint` in this task and confirm it passes on `skeleton/core`.
     - _Requirements: 11.1, 11.2, 11.5_
-  - [ ] 15.3 Dependency-direction check
+  - [x] 15.3 Dependency-direction check
     - Verify that `solver.ts` and `measurement-model.ts` import nothing from
       `bearing-model.ts` or `observation.ts`, as part of the purity test.
     - _Requirements: 5.4, 5.6, 5.7_
 
-- [ ] 16. Final checkpoint
+- [x] 16. Final checkpoint
   - Run `pnpm test`, `pnpm typecheck` and `pnpm lint` from the repo root. Confirm that
     every property P-1.2 through P-10.5 and P-9.8 in `design.md` §8 has a test, that each
     names the property and its requirements in a comment, and that each runs at least 200

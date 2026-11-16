@@ -10,10 +10,13 @@
 
 import fc from 'fast-check';
 import { TWO_PI_RAD, _wrapPi, _wrapTwoPi } from '../angle';
+import type { LocalPoint } from '../local-plane';
+import type { CovarianceEnM2, Ellipse, Fix } from '../measurement-model';
 import {
   MAX_AZIMUTH_SIGMA_RAD,
   MAX_POSITION_ACCURACY_M,
   MIN_AZIMUTH_SIGMA_RAD,
+  serialiseBearing,
   type Bearing,
 } from '../observation';
 import {
@@ -778,3 +781,304 @@ export const outlierSet: fc.Arbitrary<OutlierScenario> = fc
         },
       ),
   );
+
+// ---------------------------------------------------------------------------------------------
+// Hostile input (task 14.1, Req 9.8). Every value below passes type checking: a `number` may be
+// any double, a `string` any string, an array any length. Not generated, because the static type
+// would be a lie: sparse arrays (holes read as undefined), objects whose property reads throw
+// (getters, Proxies), and values cast with `as` to a type they do not have.
+// ---------------------------------------------------------------------------------------------
+
+/** The next double above `value`. */
+function nextUp(value: number): number {
+  return value + Math.abs(value) * Number.EPSILON;
+}
+
+/**
+ * Any double, with the special ones and the values at and just past every limit of the package
+ * drawn often: NaN, ±Infinity, ±0, subnormals, ±MAX_VALUE, π, 2π, the 89° latitude limit, the
+ * sigma and accuracy limits, the 1e-9 m and 1e-3 m thresholds, and maxIterations 50 and 51.
+ */
+export const hostileNumber: fc.Arbitrary<number> = fc.oneof(
+  fc.double(),
+  fc.constantFrom(
+    Number.NaN,
+    Number.POSITIVE_INFINITY,
+    Number.NEGATIVE_INFINITY,
+    0,
+    -0,
+    Number.MIN_VALUE,
+    -Number.MIN_VALUE,
+    Number.MAX_VALUE,
+    -Number.MAX_VALUE,
+    Number.EPSILON,
+    1e-300,
+    1e300,
+    1e-9,
+    1e-3,
+    Math.PI,
+    -Math.PI,
+    nextUp(Math.PI),
+    TWO_PI_RAD,
+    MAX_SUPPORTED_LAT_RAD,
+    nextUp(MAX_SUPPORTED_LAT_RAD),
+    -MAX_SUPPORTED_LAT_RAD,
+    MIN_AZIMUTH_SIGMA_RAD,
+    MAX_AZIMUTH_SIGMA_RAD,
+    nextUp(MAX_AZIMUTH_SIGMA_RAD),
+    MAX_POSITION_ACCURACY_M,
+    nextUp(MAX_POSITION_ACCURACY_M),
+    50,
+    51,
+    2.5,
+  ),
+  fc.integer({ min: -100, max: 100 }),
+);
+
+/** A Supported position, a position built from `hostileNumber`, or one just past a limit. */
+export const hostilePosition: fc.Arbitrary<Position> = fc.oneof(
+  supportedPosition,
+  fc.record({ latRad: hostileNumber, lonRad: hostileNumber }),
+  fc.record({
+    latRad: fc.constantFrom(nextUp(MAX_SUPPORTED_LAT_RAD), Math.PI / 2, -Math.PI / 2),
+    lonRad: fc.constantFrom(-Math.PI, Math.PI, nextUp(Math.PI), 0),
+  }),
+);
+
+/** A point on a Local plane built from `hostileNumber`, or near the 1e-9 m collapse. */
+export const hostileLocalPoint: fc.Arbitrary<LocalPoint> = fc.oneof(
+  fc.record({ eastM: hostileNumber, northM: hostileNumber }),
+  fc.record({
+    eastM: fc.double({ min: -1e-8, max: 1e-8, noNaN: true }),
+    northM: fc.double({ min: -1e-8, max: 1e-8, noNaN: true }),
+  }),
+);
+
+/** Any string: empty, short, or any sequence of UTF-16 code units, lone surrogates included. */
+const hostileId: fc.Arbitrary<string> = fc.oneof(
+  fc.constant(''),
+  fc.constantFrom('a', 'b', 'a'),
+  fc.string({ unit: 'binary', maxLength: 12 }),
+);
+
+const BEARING_NUMBER_FIELDS = [
+  'positionAccuracyM',
+  'timeUtcMs',
+  'azimuthRad',
+  'azimuthSigmaRad',
+] as const;
+
+/**
+ * A Bearing that passes type checking: a valid one, a valid one with one field replaced by a
+ * hostile value, or one with every field hostile.
+ */
+export const hostileBearing: fc.Arbitrary<Bearing> = fc.oneof(
+  validBearing,
+  fc
+    .tuple(validBearing, fc.constantFrom(...BEARING_NUMBER_FIELDS), hostileNumber)
+    .map(([bearing, field, value]) => ({ ...bearing, [field]: value })),
+  fc.tuple(validBearing, hostilePosition).map(([bearing, observer]) => ({ ...bearing, observer })),
+  fc.tuple(validBearing, hostileId).map(([bearing, id]) => ({ ...bearing, id })),
+  fc.record({
+    id: hostileId,
+    observer: hostilePosition,
+    positionAccuracyM: hostileNumber,
+    timeUtcMs: hostileNumber,
+    azimuthRad: hostileNumber,
+    azimuthSigmaRad: hostileNumber,
+  }),
+);
+
+/** A bearing with only the given fields chosen; the rest valid and fixed. */
+const plainBearing = (id: string, observer: Position, azimuthRad: number): Bearing => ({
+  id,
+  observer,
+  azimuthRad: _wrapTwoPi(azimuthRad),
+  azimuthSigmaRad: 2 * DEG,
+  positionAccuracyM: 0,
+  timeUtcMs: 0,
+});
+
+/**
+ * Sets of observations, of every length from 0 up, that pass type checking: arrays of
+ * `hostileBearing`; valid and noisy solvable sets; and the degenerate geometries the solver must
+ * refuse without throwing (design §8 `hostileInput`): duplicate ids, all bearings parallel,
+ * colocated observers, observers at 88.5° whose bearings cross beyond 89°, two observers on one
+ * meridian where one sights the other, observers whose centroid is undefined or at the pole,
+ * and valid bearings scattered anywhere on the Earth.
+ */
+export const hostileObservationSet: fc.Arbitrary<Bearing[]> = fc.oneof(
+  fc.array(hostileBearing, { maxLength: 8 }),
+  fc.constant<Bearing[]>([]),
+  validBearing.map((bearing) => [bearing]),
+  solvableSet.map((scenario) => [...scenario.observations]),
+  noisySolvableSet.map((scenario) => [...scenario.observations]),
+  solvableSet.map((scenario) => {
+    const [first] = scenario.observations;
+    return first ? [...scenario.observations, { ...first }] : [...scenario.observations];
+  }),
+  fc
+    .tuple(supportedPosition, azimuth, fc.integer({ min: 2, max: 6 }))
+    .map(([start, azimuthRad, count]) =>
+      Array.from({ length: count }, (_unused, index) =>
+        plainBearing(
+          `p${index}`,
+          unwrapOk(destinationPosition(start, azimuthRad + Math.PI / 2, 1000 * index)),
+          azimuthRad,
+        ),
+      ),
+    ),
+  fc
+    .tuple(supportedPosition, fc.array(azimuth, { minLength: 2, maxLength: 5 }))
+    .map(([observer, azimuthsRad]) =>
+      azimuthsRad.map((azimuthRad, index) => plainBearing(`c${index}`, observer, azimuthRad)),
+    ),
+  fc
+    .tuple(fc.boolean(), longitude)
+    .map(([isNorth, lonRad]) => [
+      plainBearing(
+        'a',
+        { latRad: (isNorth ? 1 : -1) * 88.5 * DEG, lonRad },
+        (isNorth ? 1 : 179) * DEG,
+      ),
+      plainBearing(
+        'b',
+        { latRad: (isNorth ? 1 : -1) * 88.5 * DEG, lonRad: _wrapPi(lonRad + 3 * DEG) },
+        (isNorth ? 359 : 181) * DEG,
+      ),
+    ]),
+  fc
+    .tuple(latitudeUpTo(80 * DEG), longitude, uniformBetween(500, 50_000))
+    .map(([latRad, lonRad, separationM]) => {
+      const a: Position = { latRad, lonRad };
+      const b = unwrapOk(destinationPosition(a, Math.PI, separationM));
+      return [
+        plainBearing('a', a, 45 * DEG),
+        plainBearing('b', b, unwrapOk(initialAzimuthRad(b, a))),
+      ];
+    }),
+  fc
+    .tuple(supportedPosition, azimuth, azimuth)
+    .map(([position, first, second]) => [
+      plainBearing('a', position, first),
+      plainBearing(
+        'b',
+        { latRad: -position.latRad, lonRad: _wrapPi(position.lonRad + Math.PI) },
+        second,
+      ),
+    ]),
+  fc
+    .tuple(longitude, azimuth, azimuth)
+    .map(([lonRad, first, second]) => [
+      plainBearing('a', { latRad: 88.95 * DEG, lonRad }, first),
+      plainBearing('b', { latRad: 88.95 * DEG, lonRad: _wrapPi(lonRad + Math.PI) }, second),
+    ]),
+  fc
+    .array(validBearing, { minLength: 2, maxLength: 8 })
+    .map((bearings) => bearings.map((bearing, index) => ({ ...bearing, id: `s${index}` }))),
+);
+
+/** SolverOptions that pass type checking, each field present or absent. */
+export const hostileSolverOptions: fc.Arbitrary<{
+  outlierRejection?: boolean;
+  maxIterations?: number;
+}> = fc.record(
+  { outlierRejection: fc.boolean(), maxIterations: hostileNumber },
+  { requiredKeys: [] },
+);
+
+/** A covariance built from `hostileNumber`, or a valid, nearly singular or circular one. */
+export const hostileCovariance: fc.Arbitrary<CovarianceEnM2> = fc.oneof(
+  fc.record({ varEastM2: hostileNumber, varNorthM2: hostileNumber, covEastNorthM2: hostileNumber }),
+  fc
+    .tuple(logUniformBetween(1e-20, 1e20), logUniformBetween(1e-20, 1e20), uniformBetween(-1, 1))
+    .map(([varEastM2, varNorthM2, correlation]) => ({
+      varEastM2,
+      varNorthM2,
+      covEastNorthM2: correlation * Math.sqrt(varEastM2 * varNorthM2),
+    })),
+);
+
+/** An ellipse built from `hostileNumber`. */
+export const hostileEllipse: fc.Arbitrary<Ellipse> = fc.record({
+  semiMajorM: hostileNumber,
+  semiMinorM: hostileNumber,
+  azimuthRad: hostileNumber,
+});
+
+/** A Fix that passes type checking, for calling `postSolveCheck` directly. */
+export const hostileFix: fc.Arbitrary<Fix> = fc.record({
+  position: hostilePosition,
+  covariance: hostileCovariance,
+  ellipse: hostileEllipse,
+  residuals: fc.array(
+    fc.record({ id: hostileId, residualRad: hostileNumber, normalisedResidual: hostileNumber }),
+    { maxLength: 6 },
+  ),
+  iterations: hostileNumber,
+  warnings: fc.subarray(['poor_geometry', 'outliers_excluded'] as const),
+  excludedIds: fc.array(hostileId, { maxLength: 3 }),
+});
+
+/**
+ * A `postSolveCheck` call whose Fix carries a residual for each observation, so that the check
+ * reaches its residual and range tests rather than failing on a missing residual.
+ */
+export const hostileFixForObservations: fc.Arbitrary<{ fix: Fix; observations: Bearing[] }> = fc
+  .tuple(hostileFix, hostileObservationSet)
+  .chain(([fix, observations]) =>
+    fc
+      .array(hostileNumber, { minLength: observations.length, maxLength: observations.length })
+      .map((residualsRad) => ({
+        fix: {
+          ...fix,
+          residuals: observations.map((observation, index) => ({
+            id: observation.id,
+            residualRad: residualsRad[index] as number,
+            normalisedResidual: 0,
+          })),
+        },
+        observations,
+      })),
+  );
+
+/**
+ * Anything at all, for `parseBearing(wire: unknown)`: null, undefined and other bare values
+ * drawn often; values from `fc.anything` with boxed values, maps, sets, bigints, dates, typed
+ * arrays, null-prototype objects and sparse arrays; and valid wire objects with one field, or
+ * the observer, replaced by anything (null included).
+ */
+export const hostileWire: fc.Arbitrary<unknown> = fc.oneof(
+  fc.constantFrom<unknown>(null, undefined, [], {}, 0, '', Number.NaN),
+  validBearing.map((bearing) => ({ ...unwrapOk(serialiseBearing(bearing)), observer: null })),
+  fc.anything({
+    withBoxedValues: true,
+    withMap: true,
+    withSet: true,
+    withBigInt: true,
+    withDate: true,
+    withTypedArray: true,
+    withNullPrototype: true,
+    withObjectString: true,
+    withSparseArray: true,
+  }),
+  fc
+    .tuple(
+      validBearing,
+      fc.constantFrom(
+        'v',
+        'kind',
+        'id',
+        'observer',
+        'positionAccuracyM',
+        'timeUtcMs',
+        'azimuthDeg',
+        'azimuthSigmaDeg',
+      ),
+      fc.anything({ withBigInt: true, withBoxedValues: true }),
+    )
+    .map(([bearing, field, value]) => ({ ...unwrapOk(serialiseBearing(bearing)), [field]: value })),
+  fc
+    .tuple(validBearing, fc.record({ latDeg: hostileNumber, lonDeg: hostileNumber }))
+    .map(([bearing, observer]) => ({ ...unwrapOk(serialiseBearing(bearing)), observer })),
+);

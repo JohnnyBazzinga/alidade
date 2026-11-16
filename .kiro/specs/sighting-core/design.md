@@ -871,17 +871,21 @@ Shared generators (domains documented here, reused across properties):
   ranges from even spacing up to the `60°` limit, and every arrangement can be drawn); one bad
   observer in any direction in the same range band, `15°` to `45°` wrong in either direction.
   A guard filter on the `60°` rule discards nothing (0 of 20 000). Used by 10.5.
-- **`hostileInput`** — arbitrary type-correct inputs to every exported function and to the
-  `BearingModel` methods called directly (D17): malformed observations, `NaN`/`±Infinity`
-  fields, out-of-range sigmas, non-object wire payloads, empty `id`s, duplicate `id`s,
-  hostile `SolverOptions` (`maxIterations` as `NaN`/`±Infinity`/`0`/negative/fractional/
-  `> 50`), observation arrays of length `0` and `1`, sets whose bearings are all parallel,
-  covariance values that are non-finite or not positive definite, ellipses with non-finite
-  or non-positive axes, and observation sets on which `evaluate` fails (D15): observers
-  within 1° of the latitude limit whose bearings cross beyond 89° (candidate unprojects to a
-  non-Supported position, `unsupported_position`), and two observers on the same meridian
-  where one sights the other, so the starting estimate lands within `1e-3 m` of an observer
-  (`coincident_positions`). Used by 9.8.
+- **`hostileInput`** — the generators of `generators.ts` for Req 9.8 (`hostileNumber`,
+  `hostilePosition`, `hostileLocalPoint`, `hostileBearing`, `hostileObservationSet`,
+  `hostileSolverOptions`, `hostileCovariance`, `hostileEllipse`, `hostileFix`, `hostileWire`).
+  Type-correct means any value the TypeScript types admit: any double for a `number` (NaN,
+  `±Infinity`, `±0`, subnormals, `±MAX_VALUE` and the values just past every limit of the
+  package), any string (empty, lone surrogates), arrays of any length, and for `parseBearing`'s
+  `unknown` anything at all (null, boxed values, maps, sets, bigints, dates, typed arrays,
+  null-prototype objects, sparse arrays, cycles). Observation sets include duplicate ids, all
+  bearings parallel, colocated observers, crossings beyond `89°`, the same-meridian coincident
+  case, centroids undefined or at the pole, and valid bearings scattered over the Earth. A
+  `MeasurementModel` is an input of `solve` too, so P-9.8 also solves with a stub model that
+  returns hostile numbers for its origin, its start and every `Evaluation` field. Not covered,
+  because the static type would be a lie: sparse arrays where `Bearing[]` is expected (holes
+  read as `undefined`), objects whose property reads throw (getters, Proxies), and values cast
+  with `as` to a type they do not have. Used by 9.8.
 
 | ID | Validates (Req) | Generator domain | Property assertion |
 |----|---|----|----|
@@ -1076,6 +1080,18 @@ with a `Reason` from the closed union of Section 5 (Req 11.4). The public API is
 only from `src/index.ts` (Req 11.3). The package builds and tests under TypeScript `strict`
 with no `any` and no non-null assertions in `core` (Req 11.5; `tech.md`); ESLint enforces
 both, so no test scans for them.
+
+`purity.test.ts` reads the package's own sources as text through Vite's `import.meta.glob`
+with `?raw` (typed by a small declaration in `test-support`, so that the sources still compile
+without Node or browser types). It strips comments and string literals and rejects the clock,
+timers, randomness, the environment, Node and browser globals, `globalThis`, I/O, `console`,
+`import.meta`, dynamic code and dynamic imports; every import must be a relative path to one of
+the package's ten source files. It also checks that `package.json` has no runtime dependencies
+and that `solver.ts` and `measurement-model.ts` import nothing specific to bearings.
+
+The `ok` and `err` helpers of `result.ts` are internal, not exported: as public functions
+`ok(NaN)` would return a NaN to the caller, which Req 9.8 forbids. The types `Result`,
+`Success`, `Failure`, `Reason` and `Warning` are exported.
 
 ## 11. How the altitude model plugs in (forward note, not designed here)
 
