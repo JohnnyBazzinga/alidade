@@ -13,15 +13,31 @@ const DEG_PER_RAD = 180 / Math.PI;
 /** Below this mean resultant length the circular mean is undefined (Req 1.8). */
 const MIN_MEAN_RESULTANT_LENGTH = 1e-9;
 
-/** Wraps a finite angle to [0, 2π). Unchecked: the caller guarantees `angleRad` is finite. */
+/**
+ * Wraps a finite angle to [0, 2π). Unchecked: the caller guarantees `angleRad` is finite.
+ *
+ * `%` is exact in IEEE arithmetic, so the remainder keeps every bit of a small angle. 2π is added
+ * only to a negative remainder; adding it to every value, as `(x % 2π + 2π) % 2π` does, would
+ * round a small result to a multiple of ulp(2π) ≈ 8.9e-16 rad. A negative remainder too small to
+ * survive the addition rounds to 2π, which is mapped to 0. Adding 0 turns -0 into +0.
+ */
 export function _wrapTwoPi(angleRad: number): number {
-  return ((angleRad % TWO_PI_RAD) + TWO_PI_RAD) % TWO_PI_RAD;
+  const remainderRad = angleRad % TWO_PI_RAD;
+  const wrappedRad = remainderRad < 0 ? remainderRad + TWO_PI_RAD : remainderRad;
+  return (wrappedRad >= TWO_PI_RAD ? 0 : wrappedRad) + 0;
 }
 
-/** Wraps a finite angle to (-π, π]. Unchecked: the caller guarantees `angleRad` is finite. */
+/**
+ * Wraps a finite angle to (-π, π]. Unchecked: the caller guarantees `angleRad` is finite.
+ *
+ * The remainder is in (-2π, 2π) with the sign of the input, and 2π is added or subtracted only
+ * when it falls outside (-π, π], so small angles keep full precision (see `_wrapTwoPi`).
+ */
 export function _wrapPi(angleRad: number): number {
-  const wrappedRad = _wrapTwoPi(angleRad);
-  return wrappedRad > Math.PI ? wrappedRad - TWO_PI_RAD : wrappedRad;
+  const remainderRad = angleRad % TWO_PI_RAD;
+  if (remainderRad > Math.PI) return remainderRad - TWO_PI_RAD;
+  if (remainderRad <= -Math.PI) return remainderRad + TWO_PI_RAD;
+  return remainderRad + 0;
 }
 
 /** Wraps an angle to [0, 2π) (Req 1.1). */
@@ -39,13 +55,14 @@ export function wrapPi(angleRad: number): Result<number> {
 /**
  * The angular difference `wrapPi(aRad - bRad)` (Req 1.3).
  *
- * Each argument is wrapped before the subtraction. That gives the same result modulo 2π, keeps
- * full precision for large arguments, and cannot overflow for finite arguments near the limit
- * of the double range, where `aRad - bRad` itself would become infinite.
+ * Each argument is wrapped to (-π, π] before the subtraction. That gives the same result modulo
+ * 2π, keeps full precision for large arguments and for small ones, and cannot overflow for
+ * finite arguments near the limit of the double range, where `aRad - bRad` itself would become
+ * infinite.
  */
 export function angularDifference(aRad: number, bRad: number): Result<number> {
   if (!Number.isFinite(aRad) || !Number.isFinite(bRad)) return err('invalid_number');
-  return ok(_wrapPi(_wrapTwoPi(aRad) - _wrapTwoPi(bRad)));
+  return ok(_wrapPi(_wrapPi(aRad) - _wrapPi(bRad)));
 }
 
 /** Converts degrees to radians (Req 1.5). Fails if the input or the result is not finite. */

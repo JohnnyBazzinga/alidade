@@ -52,6 +52,37 @@ describe('wrapTwoPi', () => {
   });
 });
 
+// Regression for a precision bug found by P-6.5 (task 10): wrapping by `(x % 2π + 2π) % 2π`
+// adds 2π first, so a small result was rounded to a multiple of ulp(2π) ≈ 8.9e-16 rad. That
+// quantised longitudes near 0 in destinationPosition to about 5.7e-9 m, enough to break the
+// finite-difference check of Req 6.5 at a 50 m range.
+describe('wrapping keeps full precision for small angles', () => {
+  it.each([1e-17, 3e-16, -3e-16, 1e-300, -2.5e-12])(
+    'wrapPi(%s) is the angle itself',
+    (angleRad) => {
+      expect(Math.abs(unwrapOk(wrapPi(angleRad)) - angleRad)).toBeLessThanOrEqual(
+        Math.abs(angleRad) * Number.EPSILON,
+      );
+    },
+  );
+
+  it.each([1e-17, 3e-16, 1e-300])('wrapTwoPi(%s) is the angle itself', (angleRad) => {
+    expect(Math.abs(unwrapOk(wrapTwoPi(angleRad)) - angleRad)).toBeLessThanOrEqual(
+      angleRad * Number.EPSILON,
+    );
+  });
+
+  it('wrapPi of 2π plus a small angle keeps the small angle to the precision of 2π', () => {
+    const wrappedRad = unwrapOk(wrapPi(TWO_PI_RAD + 1e-10));
+    expect(Math.abs(wrappedRad - 1e-10)).toBeLessThan(1e-15);
+  });
+
+  it('angularDifference of two small angles is their exact difference', () => {
+    expect(unwrapOk(angularDifference(3e-16, 1e-16))).toBeCloseTo(2e-16, 30);
+    expect(unwrapOk(angularDifference(-1e-17, 0))).toBeCloseTo(-1e-17, 32);
+  });
+});
+
 describe('wrapPi', () => {
   it('maps π to π and -π to π, so the interval is (-π, π]', () => {
     expect(unwrapOk(wrapPi(Math.PI))).toBe(Math.PI);

@@ -9,7 +9,6 @@
 
 import { _wrapPi, _wrapTwoPi } from './angle';
 import { err, ok, type Result } from './result';
-import { _asinChecked } from './trig';
 
 export const EARTH_RADIUS_M = 6_371_008.8;
 /** The Supported-position latitude limit: 89°, in radians. */
@@ -109,13 +108,18 @@ export function destinationPosition(
   const cosLat = Math.cos(a.latRad);
   const cosDistance = Math.cos(angularDistanceRad);
   const sinDistance = Math.sin(angularDistanceRad);
+  const cosAzimuth = Math.cos(azimuthRad);
 
-  const latRad = _asinChecked(sinLat * cosDistance + cosLat * sinDistance * Math.cos(azimuthRad));
-  if (!latRad.ok) return latRad;
-  const deltaLonRad = Math.atan2(
-    Math.sin(azimuthRad) * sinDistance * cosLat,
-    cosDistance - sinLat * Math.sin(latRad.value),
-  );
+  // The destination's unit vector in the frame of the start: along the polar axis, along the
+  // start's meridian plane, and eastward. The latitude comes from atan2 of the polar component
+  // over the horizontal one. `asin` of the polar component alone has condition number
+  // 1/cos(lat), about 57 at 89°, which amplifies rounding near the latitude limit; atan2 is
+  // well-conditioned at every latitude and needs no clamping.
+  const polar = sinLat * cosDistance + cosLat * sinDistance * cosAzimuth;
+  const meridional = cosLat * cosDistance - sinLat * sinDistance * cosAzimuth;
+  const eastward = Math.sin(azimuthRad) * sinDistance;
+  const latRad = Math.atan2(polar, Math.hypot(meridional, eastward));
   // Wrapping to (-π, π] is the longitude normalisation: `_wrapPi` keeps +π and never returns -π.
-  return ok({ latRad: latRad.value, lonRad: _wrapPi(a.lonRad + deltaLonRad) });
+  const lonRad = _wrapPi(a.lonRad + Math.atan2(eastward, meridional));
+  return ok({ latRad, lonRad });
 }

@@ -16,3 +16,14 @@ export { projectToLocalPlane, unprojectToLocalPlane } from './local-plane';
 export type { LocalPoint } from './local-plane';
 export { parseBearing, serialiseBearing, validateBearing } from './observation';
 export type { Bearing, BearingWire } from './observation';
+export { CONFIDENCE_95_SCALE, ellipse95, ellipseFromCovariance } from './ellipse';
+export type {
+  CovarianceEnM2,
+  Ellipse,
+  Evaluation,
+  Fix,
+  MeasurementModel,
+  ObservationResidual,
+  SolverOptions,
+} from './measurement-model';
+export { BearingModel } from './bearing-model';

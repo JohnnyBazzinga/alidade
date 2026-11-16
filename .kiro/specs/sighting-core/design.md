@@ -125,7 +125,7 @@ below. Each is recorded here for review; none contradicts a requirement.
 - **D8 — Bearing partial derivatives are analytic.** The model returns analytic partials
   of the predicted azimuth with respect to `eastM`/`northM`, derived by the chain rule
   through the unproject (destination) and the spherical initial-azimuth formula (Section 7).
-  Property P-6.5 verifies them against central finite differences (step `0.1 m`) of the
+  Property P-6.5 verifies them against central finite differences (step `1 m`) of the
   predicted value, so the test is independent of the implementation — it would catch a
   wrong derivative, not confirm a copied one.
 
@@ -191,13 +191,19 @@ below. Each is recorded here for review; none contradicts a requirement.
   condition number; it fails explicitly, so a candidate that has no defined azimuth is never
   silently weighted.
 
-- **D16 — Analytic partials use the tangent-plane limit at the origin.** The polar chain
-  rule `(e, n) → (d, θ)` divides by `d`, so it is undefined when the candidate is within
-  `1e-3 m` of the Local-plane origin. (This threshold is independent of the projection's own
-  collapse below `1e-9 m`, Req 3.4.) In that region the model uses the tangent-plane limit of the
-  unprojection: `∂latC/∂northM = 1/R`, `∂lonC/∂eastM = 1/(R·cos(origin.latRad))`, and
+- **D16 — Analytic partials use the tangent-plane limit only at the origin.** The polar chain
+  rule `(e, n) → (d, θ)` divides by `d`, so it is undefined at `d = 0`. Below
+  `LOCAL_PLANE_COLLAPSE_M` (`1e-9 m`, the same constant as the projection's collapse, Req 3.4;
+  no second constant), the model uses the tangent-plane limit of the unprojection:
+  `∂latC/∂northM = 1/R`, `∂lonC/∂eastM = 1/(R·cos(origin.latRad))`, and
   `∂latC/∂eastM = ∂lonC/∂northM = 0`, with `R = 6 371 008.8 m`. These feed the same chain
-  through the azimuth formula as everywhere else.
+  through the azimuth formula as everywhere else. The limit leaves out the meridian convergence,
+  a first-order term of size `|grad|·d·tan(origin.latRad)/R`. With the earlier radius of
+  `1e-3 m` that term reached about `1.8e-10 rad/m` (a candidate `1e-3 m` from an origin `10 m`
+  inside the 89° limit, observer `50 m` away), above Req 6.5's `1e-10 rad/m`; below `1e-9 m` it
+  is at most about `2e-16 rad/m`. Above `1e-9 m` the polar chain rule is well-conditioned: over
+  668 000 cases with `1e-9 m ≤ d < 1e-3 m` it agreed with the first-order-corrected limit within
+  `1.4e-14 rad/m`.
 
 - **D17 — Every exported function is total (Req 9.8).** For any type-correct input, an
   exported function returns a failure `Result` or a success whose numbers are all finite;
@@ -403,11 +409,16 @@ The solver is parameterised by `O` and the model; it has no import of `Bearing` 
 ## 6. Algorithms — primitives
 
 **`wrapTwoPi(x)` / `wrapPi(x)`** — matching the math conventions: `wrapTwoPi` returns
-`[0, 2π)`; `wrapPi` first reduces to `[0, 2π)` with `((x % 2π) + 2π) % 2π` then folds the
-upper half down to return `(-π, π]`. Public versions return `Result` on `NaN`/`±Infinity`
-(D1); private `_wrapTwoPi`/`_wrapPi` assume finite.
+`[0, 2π)` and `wrapPi` returns `(-π, π]`. Both start from the exact remainder `x % 2π` and add
+or subtract 2π only when the remainder falls outside the target interval. (The first version
+used `((x % 2π) + 2π) % 2π`, which adds 2π to every value and so rounds a small result to a
+multiple of ulp(2π) ≈ 8.9e-16 rad; P-6.5 found it through the longitudes of destinations near
+0°.) Public versions return `Result` on `NaN`/`±Infinity` (D1); private `_wrapTwoPi`/`_wrapPi`
+assume finite.
 
-**`angularDifference(a, b)`** — `wrapPi(a - b)` (Req 1.3). Returns `Result` (D1).
+**`angularDifference(a, b)`** — `wrapPi(a - b)` (Req 1.3), computed as
+`wrapPi(wrapPi(a) - wrapPi(b))` so that it keeps full precision and cannot overflow for finite
+arguments near the limit of the double range. Returns `Result` (D1).
 
 **`degToRad` / `radToDeg`** — multiplication by `π/180` and `180/π` respectively; the
 constants are derived once. Round-trip is exact to rounding (Req 1.5).
@@ -446,18 +457,33 @@ x = cos(a.latRad) sin(b.latRad) - sin(a.latRad) cos(b.latRad) cos(Δlon)
 
 If `greatCircleDistanceM(a, b) < 1e-3 m` return `coincident_positions` (Req 2.9).
 
-`destinationPosition(a, θ, d)`:
+`destinationPosition(a, θ, d)`: the components of the destination's unit vector in the
+frame of the start (along the polar axis, along the start's meridian plane, and eastward), then
+`atan2` for both angles:
 
 ```
 δ = d / R
-lat2 = asin(clamp(sin(a.latRad) cos δ + cos(a.latRad) sin δ cos θ))
-lon2 = a.lonRad + atan2(sin θ sin δ cos(a.latRad), cos δ - sin(a.latRad) sin(lat2))
-return { latRad: lat2, lonRad: wrapToLonRange(lon2) }   // lon in (-π, π], Req 2.8
+polar      = sin(a.latRad) cos δ + cos(a.latRad) sin δ cos θ
+meridional = cos(a.latRad) cos δ - sin(a.latRad) sin δ cos θ
+eastward   = sin θ sin δ
+lat2 = atan2(polar, hypot(meridional, eastward))
+lon2 = wrapPi(a.lonRad + atan2(eastward, meridional))    // lon in (-π, π], Req 2.8
+return { latRad: lat2, lonRad: lon2 }
 ```
 
-`wrapToLonRange` reduces longitude to `(-π, π]`: wrap to `[0, 2π)`, then map `[π, 2π)` to
-`(-π, 0]` (with `π` kept as `π`). This is the single point where longitude is normalised
-across the ±180° meridian (Req 2.8).
+The latitude was first computed as `asin(polar)`. `asin` has condition number `1/cos(lat)`,
+about 57 at 89°, so it amplified the rounding of `polar` near the latitude limit. In a stress
+case (targets 10.5 m to 5 km inside the limit, observer 50–60 m away at a cardinal azimuth,
+exact or within `5e-4 rad`), 11 472 of 300 000 cases failed Req 6.5, the error doubling when
+the step halved; P-6.6's worst residual on `bearingGeometry` was `9.96e-10 rad` in
+2 000 000 cases. With `atan2`: no failures, worst residual `1.4e-10 rad` on the generator and
+`1.9e-11 rad` on the stress case. `atan2` needs no clamping, so `destinationPosition` no longer
+uses a guarded `asin`.
+
+The longitude term `atan2(eastward, meridional)` is the same angle as the textbook
+`atan2(sin θ sin δ cos(a.latRad), cos δ - sin(a.latRad) sin(lat2))`: both arguments of the
+textbook form are the ones above multiplied by `cos(a.latRad) > 0`. Wrapping with `wrapPi` is
+the single point where longitude is normalised across the ±180° meridian (Req 2.8).
 
 All three reject non-Supported input with `unsupported_position` (Req 2.10) and never emit
 `NaN`/`Infinity`. Because distance and azimuth are invariant under any rotation of the
@@ -591,11 +617,18 @@ doubles and `degToRad(radToDeg(x))` round-trips to rounding (Req 1.5), far insid
     `∂predicted/∂(e,n) = (∂predicted/∂(latC, lonC)) · (∂(latC, lonC)/∂(d, θ)) · (∂(d, θ)/∂(e, n))`,
     where the first factor is the quotient-rule derivative of `atan2(y, x)` for the azimuth
     formula, the second is the destination-formula derivative, and the third is
-    `∂d/∂e = e/d`, `∂d/∂n = n/d`, `∂θ/∂e = n/d²`, `∂θ/∂n = -e/d²`. When `d < 1e-3 m` the
-    polar factors divide by zero, so the last two factors are replaced by the tangent-plane
+    `∂d/∂e = e/d`, `∂d/∂n = n/d`, `∂θ/∂e = n/d²`, `∂θ/∂n = -e/d²`. When
+    `d < LOCAL_PLANE_COLLAPSE_M` (`1e-9 m`) the polar factors divide by (nearly) zero, so the
+    last two factors are replaced by the tangent-plane
     limit of `∂(latC, lonC)/∂(e, n)`: `∂latC/∂northM = 1/R`,
     `∂lonC/∂eastM = 1/(R·cos(origin.latRad))`, and the other two zero (D16). The `1 m` floor
     on `rangeM` keeps the effective sigma finite for a candidate near an observer.
+
+- **Near the 89° limit.** Req 6.5 and 6.6 hold for candidates at least `10 m` inside the
+  Supported latitude limit. Closer than that, a `1 m` finite-difference step can carry the
+  candidate outside the Supported region. A candidate that unprojects outside it makes
+  `evaluate` return `unsupported_position` (D15), never a NaN. The margin applies
+  to the candidate only; observers may lie anywhere up to the limit.
 
 - `postSolveCheck(fix, origin, observations)` — Req 9.5, 9.6 (D7). The `origin` is the
   Local-plane origin the solver computed; `out_of_range` is measured from it. For each
@@ -794,8 +827,8 @@ Shared generators (domains documented here, reused across properties):
 | P-3.3 | 3.3 (round-trip) | `supportedPosition` origin; position reached at a distance drawn log-uniformly from `1e-10 m` to `1000 km` (Supported destinations only) | `greatCircleDistanceM(unprojectToLocalPlane(origin, projectToLocalPlane(origin, P)), P) < 1e-4 m` |
 | P-3.5 | 3.5 | `supportedPosition` origin; position at a distance drawn log-uniformly from `1e-10 m` to `1000 km` (Supported destinations only) | `|√(eastM² + northM²) − greatCircleDistanceM(origin, P)| < 1e-6 m` |
 | P-4.6 | 4.6 (round-trip) | `validBearing` `b` | `serialiseBearing(b)` and then `parseBearing` both succeed; angles equal `b` within `1e-12 rad`; other fields identical |
-| P-6.5 | 6.5 | observer and candidate `50 m–200 km` apart; candidate anywhere relative to the Local-plane origin, **including** a candidate at the origin (`d < 1e-3 m`, the D16 tangent-plane branch) | model partials match central finite differences of `predicted` (step `0.1 m`) within relative `1e-2` or absolute `1e-10 rad/m` |
-| P-6.6 | 6.6 | observer and target `50 m–200 km` apart | a noise-free bearing has `|residualRad| < 1e-9 rad` at the true target |
+| P-6.5 | 6.5 | `bearingGeometry`: observer and candidate `50 m–200 km` apart, the candidate at least `10 m` inside the 89° latitude limit; the origin at the candidate, within `1e-9`–`1e-3 m` of it (the D16 tangent-plane branch) or farther | model partials match central finite differences of `predicted` (step `1 m`) within relative `1e-2` or absolute `1e-10 rad/m` |
+| P-6.6 | 6.6 | `bearingGeometry`, as for P-6.5: the target at least `10 m` inside the 89° latitude limit | a noise-free bearing has `|residualRad| < 1e-9 rad` at the true target |
 | P-7.4 | 7.4 | `solvableSet` (2–12 observers, `500 m–100 km`, a pair with crossing angle `≥ 10°`, unique ids; no filter on solver success) | `solve` succeeds (a failure fails the test) and `greatCircleDistanceM(fix.position, target) < 0.01 m` |
 | P-7.5 | 7.5 | `solvableSet`, two random input orderings; and `noisySolvableSet`, which may discard unsolved sets (documented, discards counted) | both solves succeed on the noise-free set (a failure fails the test); `greatCircleDistanceM(fix1.position, fix2.position) < 1e-3 m` |
 | P-7.6 | 7.6 | `solvableSet` | with effective sigmas frozen at the fix, `Cost(fix) ≤ Cost(fix ± 1 m E/W/N/S)` |
@@ -926,9 +959,18 @@ deterministic.
     that their centroid is within 1° of a pole.
   - `serialiseBearing` returns `invalid_observation` naming the `field` for a bearing with
     a `NaN` azimuth.
+- **Near the 89° limit (Req 6.5, 6.6):** a candidate that unprojects plainly beyond the limit
+  (`4.5 m` past it, far beyond rounding) makes `evaluate` return `unsupported_position`; a `1 m`
+  finite-difference step that crosses the limit fails the same way, and the step on the other
+  side succeeds. (The earlier examples of a round trip that lands just outside the limit
+  depended on the rounding of the `asin` latitude and were removed with it.)
+- **Destination latitude (D16 review):** a target `57 m` inside the `-89°` limit with the
+  observer `50.6 m` due east and the origin `2.5 mm` away; the partials match the `1 m` finite
+  difference. With the `asin` latitude this example fails. The candidate `0.86 mm` from an
+  origin `10 m` inside the limit, which the old `1e-3 m` D16 radius failed, is kept too.
 - **Origin partials (D16):** three noise-free observers at `5 km`, `120°` apart around a
   target, so the target is exactly the observers' centroid and the Local-plane origin. The
-  partials at the origin (the tangent-plane branch) match central finite differences, and
+  partials at the origin (the tangent-plane limit) match central finite differences, and
   `solve` returns a Fix within `0.01 m` of the target.
 - **Normal-matrix gate (D14):** a stub model whose finite partials are all parallel
   (`JᵀWJ` has rank one, so `λ2 = 0`) makes `solve` return `singular_geometry`; so does a

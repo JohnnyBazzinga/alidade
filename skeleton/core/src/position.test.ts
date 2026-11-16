@@ -215,6 +215,17 @@ describe('destinationPosition', () => {
     expect(Math.abs(wrappedDifferenceRad(destination.lonRad, Math.PI))).toBeLessThan(1e-12);
   });
 
+  // Regression for the same precision bug: the longitude of a destination near 0° was rounded
+  // to a multiple of 8.9e-16 rad (about 5.7e-9 m on the ground).
+  it('keeps the longitude of a destination near 0° to full precision', () => {
+    const start = { latRad: 0, lonRad: 3.589065251841106e-5 };
+    const westM = 3.589065251841106e-5 * EARTH_RADIUS_M - 1e-9;
+    const destination = unwrapOk(destinationPosition(start, (3 * Math.PI) / 2, westM));
+    // 1e-9 m east of the meridian is 1.5696e-16 rad of longitude.
+    expect(destination.lonRad).toBeGreaterThan(1e-16);
+    expect(destination.lonRad).toBeLessThan(2e-16);
+  });
+
   it('returns the start position for a distance of 0', () => {
     const start = position(40, -70);
     const destination = unwrapOk(destinationPosition(start, 1.234, 0));

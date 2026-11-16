@@ -16,7 +16,14 @@ import {
   MIN_AZIMUTH_SIGMA_RAD,
   type Bearing,
 } from '../observation';
-import { MAX_SUPPORTED_LAT_RAD, type Position } from '../position';
+import {
+  EARTH_RADIUS_M,
+  MAX_SUPPORTED_LAT_RAD,
+  destinationPosition,
+  isSupportedPosition,
+  type Position,
+} from '../position';
+import { unwrapOk } from './result-helpers';
 
 const FRACTION_STEPS = 2 ** 52;
 
@@ -152,3 +159,75 @@ export const validBearing: fc.Arbitrary<Bearing> = fc.record({
     uniformBetween(MIN_AZIMUTH_SIGMA_RAD, MAX_AZIMUTH_SIGMA_RAD),
   ),
 });
+
+/** An observer, the true target it sights, and a Local plane origin. All Supported positions. */
+export interface BearingGeometry {
+  readonly observer: Position;
+  readonly target: Position;
+  readonly origin: Position;
+}
+
+/** How far inside the 89° Supported latitude limit a candidate target must lie (Req 6.5, 6.6). */
+export const TARGET_LIMIT_MARGIN_M = 10;
+
+/** A Supported position 10 m to 10 km inside the 89° latitude limit, in either hemisphere. */
+const targetNearLimit: fc.Arbitrary<Position> = fc
+  .tuple(
+    logUniformBetween(TARGET_LIMIT_MARGIN_M, 10_000),
+    fc.boolean(),
+    uniformBetween(0, TWO_PI_RAD).map((offsetRad) => Math.PI - offsetRad),
+  )
+  .map(([marginM, isNorth, lonRad]) => {
+    const latRad = MAX_SUPPORTED_LAT_RAD - marginM / EARTH_RADIUS_M;
+    return { latRad: isNorth ? latRad : -latRad, lonRad };
+  });
+
+/**
+ * An observer and a target between 50 m and 200 km apart, and a Local plane origin near the
+ * target (Req 6.5, 6.6).
+ *
+ * The target is a `supportedPosition` (weight 3) or, so that the edge of the domain is reached on
+ * every run, a target 10 m to 10 km inside the 89° limit of either hemisphere, its distance from
+ * the limit drawn log-uniformly (weight 1). The observer is reached from the target along an
+ * `azimuth` at a distance drawn log-uniformly from 50 m to 200 km. The origin is the target
+ * itself or is reached from it along an `azimuth` at a distance drawn from one of three bands,
+ * so every run exercises each branch of the partial derivatives:
+ * - 0 m, the candidate at the origin, where the tangent-plane limit of design D16 is used
+ *   (weight 1);
+ * - 1e-9 m to 1e-3 m, the polar chain rule just above the projection's collapse (weight 1);
+ * - 1e-3 m to 1000 km, the polar chain rule farther out (weight 2).
+ *
+ * Excludes, by discarding the draw:
+ * - targets less than 10 m inside the 89° latitude limit (Req 6.5, 6.6). Within that band the
+ *   1 m finite-difference step, or the rounding of the plane round trip (about 1e-7 m there),
+ *   can leave the Supported region, where the model must fail. Example tests in
+ *   `bearing-model.test.ts` cover the excluded band: `evaluate` returns `unsupported_position`;
+ * - observers or origins that are not Supported positions. The 10 m margin applies to the target
+ *   only, so an observer may lie anywhere up to the limit; observers within 1 km of it are drawn
+ *   on every run.
+ */
+export const bearingGeometry: fc.Arbitrary<BearingGeometry> = fc
+  .tuple(
+    fc.oneof(
+      { weight: 3, arbitrary: supportedPosition },
+      { weight: 1, arbitrary: targetNearLimit },
+    ),
+    azimuth,
+    logUniformBetween(50, 2e5),
+    azimuth,
+    fc.oneof(
+      { weight: 1, arbitrary: fc.constant(0) },
+      { weight: 1, arbitrary: logUniformBetween(1e-9, 1e-3) },
+      { weight: 2, arbitrary: logUniformBetween(1e-3, 1e6) },
+    ),
+  )
+  .filter(
+    ([target]) =>
+      (MAX_SUPPORTED_LAT_RAD - Math.abs(target.latRad)) * EARTH_RADIUS_M >= TARGET_LIMIT_MARGIN_M,
+  )
+  .map(([target, observerAzimuthRad, rangeM, originAzimuthRad, originOffsetM]) => ({
+    target,
+    observer: unwrapOk(destinationPosition(target, observerAzimuthRad, rangeM)),
+    origin: unwrapOk(destinationPosition(target, originAzimuthRad, originOffsetM)),
+  }))
+  .filter(({ observer, origin }) => isSupportedPosition(observer) && isSupportedPosition(origin));

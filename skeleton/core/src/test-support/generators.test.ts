@@ -7,9 +7,17 @@ import {
   MIN_AZIMUTH_SIGMA_RAD,
   validateBearing,
 } from '../observation';
-import { isSupportedPosition } from '../position';
 import {
+  EARTH_RADIUS_M,
+  MAX_SUPPORTED_LAT_RAD,
+  greatCircleDistanceM,
+  isSupportedPosition,
+} from '../position';
+import { unwrapOk } from './result-helpers';
+import {
+  TARGET_LIMIT_MARGIN_M,
   azimuth,
+  bearingGeometry,
   clusteredAngles,
   finiteAngle,
   logUniformBetween,
@@ -124,5 +132,46 @@ describe('validBearing', () => {
     const ids = sampleOf(validBearing).map((bearing) => bearing.id);
     expect(new Set(ids.map((id) => id.length)).size).toBeGreaterThan(8);
     expect(new Set(ids).size).toBeGreaterThan(ids.length * 0.9);
+  });
+});
+
+describe('bearingGeometry', () => {
+  const geometries = sampleOf(bearingGeometry, 4000);
+  const limitMarginM = (latRad: number): number =>
+    (MAX_SUPPORTED_LAT_RAD - Math.abs(latRad)) * EARTH_RADIUS_M;
+
+  it('keeps every target at least 10 m inside the 89° limit, and every position Supported', () => {
+    expect(TARGET_LIMIT_MARGIN_M).toBe(10);
+    for (const { observer, target, origin } of geometries) {
+      expect(limitMarginM(target.latRad)).toBeGreaterThanOrEqual(10);
+      expect(isSupportedPosition(observer) && isSupportedPosition(origin)).toBe(true);
+    }
+  });
+
+  it('reaches targets just inside the 10 m margin, and observers near the limit', () => {
+    const targetMarginsM = geometries.map(({ target }) => limitMarginM(target.latRad));
+    expect(shareOf(targetMarginsM, (marginM) => marginM < 20)).toBeGreaterThan(0.005);
+    expect(shareOf(targetMarginsM, (marginM) => marginM < 1000)).toBeGreaterThan(0.05);
+    const observerMarginsM = geometries.map(({ observer }) => limitMarginM(observer.latRad));
+    expect(observerMarginsM.some((marginM) => marginM < 1000)).toBe(true);
+  });
+
+  it('puts the observer 50 m to 200 km from the target, across the decades', () => {
+    const rangesM = geometries.map(({ observer, target }) =>
+      unwrapOk(greatCircleDistanceM(observer, target)),
+    );
+    expect(Math.min(...rangesM)).toBeGreaterThan(50 * (1 - 1e-9));
+    expect(Math.max(...rangesM)).toBeLessThan(2e5 * (1 + 1e-9));
+    expect(shareOf(rangesM, (rangeM) => rangeM < 200)).toBeGreaterThan(0.1);
+    expect(shareOf(rangesM, (rangeM) => rangeM > 50_000)).toBeGreaterThan(0.1);
+  });
+
+  it('fills each band of origin offsets: at the target, inside 1e-3 m, and beyond', () => {
+    const offsetsM = geometries.map(({ target, origin }) =>
+      unwrapOk(greatCircleDistanceM(target, origin)),
+    );
+    expect(shareOf(offsetsM, (offsetM) => offsetM === 0)).toBeGreaterThan(0.15);
+    expect(shareOf(offsetsM, (offsetM) => offsetM > 0 && offsetM < 1e-3)).toBeGreaterThan(0.15);
+    expect(shareOf(offsetsM, (offsetM) => offsetM >= 1e-3)).toBeGreaterThan(0.35);
   });
 });

@@ -111,8 +111,9 @@ Package: `skeleton/core` (`@alidade/core`). Source of truth: `requirements.md` a
     - `Position`, `isSupportedPosition` (finite, `|latRad| ≤ 89°`, `lonRad ∈ (-π, π]`),
       `wrapToLonRange`, `greatCircleDistanceM` (haversine), `initialAzimuthRad`,
       `destinationPosition`. `unsupported_position` for any unsupported input;
-      `coincident_positions` when two positions are under `1e-3 m` apart. Clamp `asin`
-      arguments only for excess under `1e-12`; a larger excess is a failure, not a clamp.
+      `coincident_positions` when two positions are under `1e-3 m` apart. The destination
+      latitude is computed with `atan2`, which needs no clamping (design §7.1); the distance
+      uses `atan2(|cross|, dot)`.
     - _Requirements: 2.1, 2.2, 2.3, 2.8, 2.9, 2.10_
   - [x] 5.2 Generator for positions
     - Add `supportedPosition` (`latRad` within `±89°`, `lonRad ∈ (-π, π]`; excludes
@@ -151,8 +152,8 @@ Package: `skeleton/core` (`@alidade/core`). Source of truth: `requirements.md` a
       internal unchecked azimuth and does not fail with `coincident_positions`) and
       `unprojectToLocalPlane` (returns the origin for vectors shorter than `1e-9 m`; otherwise
       `destinationPosition`). Unsupported input gives `unsupported_position`; the unproject
-      result is checked to be Supported (D15). The `1e-3 m` thresholds of D15 and D16 are
-      unchanged.
+      result is checked to be Supported (D15). The `1e-3 m` threshold of D15 is unchanged;
+      D16 now reuses `LOCAL_PLANE_COLLAPSE_M`.
     - _Requirements: 3.1, 3.2, 3.4_
   - [x] 6.2 Example tests in `src/local-plane.test.ts`
     - Origin and a position `1e-10 m` away both project to `(0, 0)` (Req 3.4); positions
@@ -202,14 +203,14 @@ Package: `skeleton/core` (`@alidade/core`). Source of truth: `requirements.md` a
   - Run `pnpm --filter @alidade/core test`, `pnpm typecheck` and `pnpm lint`. Report any
     failing property with the code / property / requirement classification.
 
-- [ ] 9. Measurement-model interface and uncertainty
-  - [ ] 9.1 Define the types in `src/measurement-model.ts`
+- [x] 9. Measurement-model interface and uncertainty
+  - [x] 9.1 Define the types in `src/measurement-model.ts`
     - `MeasurementModel<O>` (`validate`, `idOf`, `origin`, `startEstimate`,
       `geometryCheck`, `evaluate` returning a `Result`, `postSolveCheck(fix, origin,
       observations)`), `Fix`, `Ellipse`, `CovarianceEnM2`, `ObservationResidual`, and
       `SolverOptions` with both fields optional. The file imports nothing bearing-specific.
     - _Requirements: 5.1, 5.2, 5.3, 5.7, 7.2, 7.9, 8.1, 8.2, 10.4_
-  - [ ] 9.2 Implement `src/ellipse.ts`
+  - [x] 9.2 Implement `src/ellipse.ts`
     - The shared symmetric 2×2 eigenvalue helper (`h = hypot((a − c)/2, b)`,
       `λ1 = (a + c)/2 + h`, `λ2 = det/λ1`), `ellipseFromCovariance` (circular within
       rounding when `h ≤ 1e-12·λ1`, azimuth `0`; otherwise major-axis azimuth in
@@ -217,7 +218,7 @@ Package: `skeleton/core` (`@alidade/core`). Source of truth: `requirements.md` a
       `invalid_number` for non-finite input, for a covariance that is not positive definite
       (not both `λ1 > 0` and `λ2 > 0`) and for an axis that is not positive (D17).
     - _Requirements: 8.2, 8.3_
-  - [ ] 9.3 Example tests in `src/ellipse.test.ts`
+  - [x] 9.3 Example tests in `src/ellipse.test.ts`
     - Diagonal covariance (major axis due north and due east cases); a covariance rotated
       by a known angle; a circular covariance gives azimuth `0`; a covariance whose
       discriminant would go negative by rounding still gives real axes; the azimuth is
@@ -229,8 +230,8 @@ Package: `skeleton/core` (`@alidade/core`). Source of truth: `requirements.md` a
       a zero or negative axis.
     - _Requirements: 8.2, 8.3_
 
-- [ ] 10. Bearing measurement model
-  - [ ] 10.1 Implement `validate`, `idOf`, `origin`, `startEstimate`, `geometryCheck`
+- [x] 10. Bearing measurement model
+  - [x] 10.1 Implement `validate`, `idOf`, `origin`, `startEstimate`, `geometryCheck`
         and `postSolveCheck` in `src/bearing-model.ts`
     - `origin` is the 3D spherical centroid (D2). `startEstimate` intersects the pair with
       the largest crossing angle, ties broken by id pair (D4). `geometryCheck` returns
@@ -244,15 +245,15 @@ Package: `skeleton/core` (`@alidade/core`). Source of truth: `requirements.md` a
       `0.5°` (no intersection is attempted); `origin` returns `unsupported_position` when
       the centroid is not a Supported position.
     - _Requirements: 5.5, 5.7, 6.4, 9.2, 9.3, 9.4, 9.5, 9.6, 9.8_
-  - [ ] 10.2 Implement `evaluate` in `src/bearing-model.ts`
+  - [x] 10.2 Implement `evaluate` in `src/bearing-model.ts`
     - Returns a `Result` (D15): `unsupported_position` when the candidate does not
       unproject to a Supported position, `coincident_positions` when it is within `1e-3 m`
       of the observer. Predicted azimuth, residual `wrapPi(measured − predicted)`, effective
       sigma `sqrt(σ² + (σM/rangeM)²)` with `rangeM` floored at `1 m`, and the analytic
-      partials by the chain rule of §7.4, with the tangent-plane limit when the candidate
-      is within `1e-3 m` of the origin (D16).
+      partials by the chain rule of §7.4, with the tangent-plane limit only when the
+      candidate is within `LOCAL_PLANE_COLLAPSE_M` (`1e-9 m`) of the origin (D16).
     - _Requirements: 6.1, 6.2, 6.3, 6.7_
-  - [ ] 10.3 Example tests in `src/bearing-model.test.ts`
+  - [x] 10.3 Example tests in `src/bearing-model.test.ts`
     - Residual wrap: measured `0.01`, predicted `2π − 0.01`, residual `0.02` within
       `1e-12` (Req 6.7). Effective sigma on a worked example, including the `1 m` range
       floor. Centroid of observers that straddle `±180°` is on the meridian side, not
@@ -262,29 +263,37 @@ Package: `skeleton/core` (`@alidade/core`). Source of truth: `requirements.md` a
       measured from the origin argument. `evaluate` failures: `unsupported_position` and
       `coincident_positions` propagate unchanged. Partials at the origin: target at the
       centroid of three observers `5 km` away and `120°` apart match central differences
-      (D16). Totality (D17), calling the methods directly: each of `origin`,
+      (D16). Near the 89° limit: a candidate that unprojects plainly beyond it gives
+      `unsupported_position` from `evaluate`, never a NaN, and a `1 m` finite-difference
+      step that crosses it fails the same way. Regressions: the `0.86 mm` D16 case and the
+      stress case of a target `57 m` inside the limit with the observer `50.6 m` due east
+      (fails with an `asin` latitude).
+      Totality (D17), calling the methods directly: each of `origin`,
       `startEstimate`, `geometryCheck` and `postSolveCheck` returns
       `insufficient_observations` for an empty array and for a one-element array;
       `startEstimate` returns `singular_geometry` for parallel bearings and for a
       `0.4°` crossing, and succeeds at `0.5°`; `origin` returns `unsupported_position` for
       observers whose centroid is within 1° of a pole.
     - _Requirements: 6.2, 6.3, 6.4, 6.7, 9.2, 9.3, 9.4, 9.5, 9.6, 9.8_
-  - [ ] 10.4 Generators for observer/target geometry
-    - In `generators.ts`: an observer and a target `50 m–200 km` apart (documenting the
-      Supported-position filter), plus a variant whose candidate is at the Local-plane
-      origin.
+  - [x] 10.4 Generators for observer/target geometry
+    - In `generators.ts`: `bearingGeometry`, an observer and a target `50 m–200 km` apart, the
+      target at least `10 m` inside the 89° limit (with a weighted draw just inside that
+      margin), and an origin at the target, within `1e-9`–`1e-3 m` of it, or farther.
+      Documents its exclusions.
     - _Requirements: 6.5, 6.6_
-  - [ ] 10.5 Property P-6.5: partials match finite differences
+  - [x] 10.5 Property P-6.5: partials match finite differences
     - Analytic partials agree with central finite differences of the predicted azimuth
-      (step `0.1 m`) within relative `1e-2` or absolute `1e-10` rad/m, for observer and
-      candidate `50 m–200 km` apart, including candidates at the origin.
+      (step `1 m`) within relative `1e-2` or absolute `1e-10` rad/m, for observer and
+      candidate `50 m–200 km` apart, the candidate at least `10 m` inside the 89° limit,
+      including candidates at the origin.
     - _Requirements: 6.5_
-  - [ ] 10.6 Property P-6.6: noise-free residual is zero at the truth
+  - [x] 10.6 Property P-6.6: noise-free residual is zero at the truth
     - A bearing generated from the true target with no noise has `|residualRad| < 1e-9`
-      at the target, for observer and target `50 m–200 km` apart.
+      at the target, for observer and target `50 m–200 km` apart, the target at least `10 m`
+      inside the 89° limit.
     - _Requirements: 6.6_
 
-- [ ] 11. Checkpoint: bearing model
+- [x] 11. Checkpoint: bearing model
   - Run `pnpm --filter @alidade/core test`, `pnpm typecheck` and `pnpm lint`. Report any
     failing property with the code / property / requirement classification.
 

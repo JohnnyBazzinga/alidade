@@ -120,8 +120,8 @@ All conventions in `.kiro/steering/math-conventions.md` are binding for this spe
 2. THE bearing model SHALL compute the residual as `wrapPi(measured Azimuth - predicted Azimuth)`.
 3. THE bearing model SHALL compute the Effective sigma as the square root of `sigmaRad² + (positionSigmaM / rangeM)²`, where `rangeM` is the current distance from observer to candidate target, floored at `1 m`.
 4. THE bearing model SHALL supply the centroid of the observer positions as the Local plane origin, and the intersection of the pair of bearings with the largest Crossing angle as the starting estimate.
-5. FOR ALL observers and candidate targets between `50 m` and `200 km` apart, the model's partial derivatives SHALL agree with central finite differences (step `0.1 m`) within a relative error of `1e-2` or an absolute error of `1e-10` rad/m.
-6. FOR ALL observers and targets between `50 m` and `200 km` apart, a Bearing observation generated from the true target with no noise SHALL have a residual at the true target of magnitude below `1e-9` rad.
+5. FOR ALL observers and candidate targets between `50 m` and `200 km` apart, with the candidate at least `10 m` inside the Supported latitude limit, the model's partial derivatives SHALL agree with central finite differences (step `1 m`) within a relative error of `1e-2` or an absolute error of `1e-10` rad/m.
+6. FOR ALL observers and targets between `50 m` and `200 km` apart, with the target at least `10 m` inside the Supported latitude limit, a Bearing observation generated from the true target with no noise SHALL have a residual at the true target of magnitude below `1e-9` rad.
 7. WHEN the measured Azimuth is `0.01` rad and the predicted Azimuth is `2π - 0.01` rad, THE bearing model SHALL return a residual of `0.02` rad within `1e-12`, not a residual near `-2π`.
 
 ### Requirement 7: Fix solver
