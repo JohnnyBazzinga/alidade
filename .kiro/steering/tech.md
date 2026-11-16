@@ -39,5 +39,5 @@ Tests must run once and exit. Never start a watch mode or a dev server from an a
 - No `any`. No non-null assertions (`!`) in `skeleton/core`.
 - Functions in `skeleton/core` are pure and return `Result` values for expected failures. They throw only on programmer error.
 - Do not add a dependency to do something that takes under 30 lines to write correctly, and do not hand-write something a pinned dependency already does well.
-- Browser sensor APIs are touched only inside `skeleton/sensors`. Everything else receives plain data.
+- Browser sensor APIs (device orientation, geolocation, page visibility, screen orientation, permissions) are touched only inside `skeleton/sensors`. The camera image (`getUserMedia`) belongs to `skeleton/ui`. Everything else receives plain data.
 - Secrets never go in the repo. API keys are read from environment variables and documented in `.env.example`.

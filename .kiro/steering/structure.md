@@ -10,8 +10,8 @@ One repository, pnpm workspaces. The Skeleton Crew category requires the two app
 /.kiro                 specs, steering, hooks, agents, settings (never gitignored)
 /skeleton
   /core                @alidade/core     pure math: angles, geodesy, observations, solver, uncertainty
-  /sensors             @alidade/sensors  device orientation, GPS, camera; simulator source
-  /ui                  @alidade/ui       sighting reticle, uncertainty ellipse map layer, simulator panel
+  /sensors             @alidade/sensors  device orientation, GPS, declination; simulator source
+  /ui                  @alidade/ui       camera image, sighting reticle, uncertainty ellipse map layer, simulator panel
 /apps
   /vigia               wildfire smoke triangulation
   /nonius              celestial position fix

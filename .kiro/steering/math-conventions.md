@@ -16,6 +16,7 @@ Every numeric name carries its unit as a suffix. Names such as `bearing`, `angle
 | Angle at an I/O boundary | degrees | `Deg` | `azimuthDeg` |
 | Length | metres | `M` | `rangeM` |
 | Time instant | milliseconds since Unix epoch, UTC | `UtcMs` | `timeUtcMs` |
+| Duration | milliseconds | `Ms` | `windowLengthMs` |
 | Variance of a length | square metres | `M2` | `covEnM2` |
 
 - All math is done in radians. Degrees exist only in the wire format, fixtures and the UI. Conversion happens in one module.
