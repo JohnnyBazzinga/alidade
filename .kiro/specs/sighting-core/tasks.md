@@ -58,51 +58,51 @@ Package: `skeleton/core` (`@alidade/core`). Source of truth: `requirements.md` a
       0 and 1.
     - _Requirements: 8.8, 11.2_
 
-- [ ] 2. Result type and closed reason set
-  - [ ] 2.1 Implement `src/result.ts`
+- [x] 2. Result type and closed reason set
+  - [x] 2.1 Implement `src/result.ts`
     - `Result<T>` with `ok`, `reason`, optional `field` and `id`; the `Reason` union with
       exactly the twelve members of §5; the `Warning` union (`poor_geometry`,
       `outliers_excluded`); small helpers to build success and failure values.
     - Export the types from `src/index.ts`, with the closed sets documented in a comment.
     - _Requirements: 11.4, 9.9_
 
-- [ ] 3. Angle primitives
-  - [ ] 3.1 Implement `src/angle.ts`
+- [x] 3. Angle primitives
+  - [x] 3.1 Implement `src/angle.ts`
     - `wrapTwoPi`, `wrapPi`, `angularDifference`, `degToRad`, `radToDeg`, `circularMean`,
       each returning a `Result` and failing with `invalid_number` on `NaN` or `±Infinity`
       (D1). Private unchecked helpers for internal use. `circularMean` fails with
       `undefined_mean` when the mean resultant length is below `1e-9`.
     - _Requirements: 1.1, 1.3, 1.5, 1.6, 1.8, 1.9_
-  - [ ] 3.2 Example tests in `src/angle.test.ts`
+  - [x] 3.2 Example tests in `src/angle.test.ts`
     - Wrap boundaries (`0`, `2π`, `-π`, `π`, large multiples); `invalid_number` for each
       public function with `NaN`, `+Infinity` and `-Infinity`; `undefined_mean` for
       opposite angles and for an empty-resultant set; the mean of a set that straddles
       `0` and `2π` (for example `350°` and `10°` gives `0°`, not `180°`).
     - _Requirements: 1.1, 1.6, 1.8, 1.9_
-  - [ ] 3.3 Generators for angles
+  - [x] 3.3 Generators for angles
     - In `src/test-support/generators.ts`: `finiteAngle` (`[-1e6, 1e6]` rad),
       `clusteredAngles` (non-empty, within `π/4` of a centre drawn from `[0, 2π)`), and
       `azimuth` (`[0, 2π)`), each with its domain and exclusions documented.
     - _Requirements: 1.2, 1.4, 1.5, 1.7_
-  - [ ] 3.4 Property P-1.2: wrapping is periodic
+  - [x] 3.4 Property P-1.2: wrapping is periodic
     - `wrapTwoPi(x + 2πk)` equals `wrapTwoPi(x)` within `1e-9` rad as a wrapped
       difference, for `|x| ≤ 1e6` and integers `|k| ≤ 1000`.
     - _Requirements: 1.2_
-  - [ ] 3.5 Property P-1.4: angular difference is antisymmetric
+  - [x] 3.5 Property P-1.4: angular difference is antisymmetric
     - `angularDifference(a, b)` is the negative of `angularDifference(b, a)` within
       `1e-9` rad, except within `1e-9` rad of `π`. Add an example test for the excluded
       neighbourhood of `π`.
     - _Requirements: 1.4_
-  - [ ] 3.6 Property P-1.5: degree/radian round trip
+  - [x] 3.6 Property P-1.5: degree/radian round trip
     - Converting to the other unit and back returns `x` within relative `1e-12` (with a
       stated absolute floor near zero), for `|x| ≤ 1e6`, in both directions.
     - _Requirements: 1.5_
-  - [ ] 3.7 Property P-1.7: circular mean is rotation-equivariant
+  - [x] 3.7 Property P-1.7: circular mean is rotation-equivariant
     - For lists within `π/4` of a common direction, rotating every angle by `r` rotates
       the circular mean by `r` within `1e-9` rad.
     - _Requirements: 1.7_
 
-- [ ] 4. Checkpoint: angle primitives
+- [x] 4. Checkpoint: angle primitives
   - Run `pnpm --filter @alidade/core test`, `pnpm typecheck` and `pnpm lint`. Report any
     failing property with the code / property / requirement classification before going on.
 
