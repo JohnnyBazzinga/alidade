@@ -442,6 +442,8 @@ Package: `skeleton/core` (`@alidade/core`). Source of truth: `requirements.md` a
       solves and assert that the median is under `50 ms` (the clock is read by the test only,
       never by `core`). The test comment says why a single measurement is not used: on a
       shared, loaded machine one solve was seen to stall to 70–143 ms in about 1 run in 5.
+    - Runs through `pnpm test:perf` (its own config, no file parallelism), not `pnpm test`: in
+      the default parallel run the medians read 69 to 130 ms under load, alone 17 to 21 ms.
     - _Requirements: 7.10_
 
 - [x] 14. Hostile input

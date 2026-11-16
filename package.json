@@ -10,6 +10,7 @@
   },
   "scripts": {
     "test": "pnpm -r --if-present run test",
+    "test:perf": "pnpm -r --if-present run test:perf",
     "typecheck": "pnpm -r --if-present run typecheck",
     "lint": "eslint .",
     "format": "prettier --write .",

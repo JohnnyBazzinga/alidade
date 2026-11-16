@@ -966,6 +966,12 @@ deterministic.
   steady state was seen to stall to 70–143 ms in about one run in five. The median of five
   ignores up to two such stalls and still fails if the solver itself is too slow. Each timed
   solve is also checked to land within 50 m of the target. Runs once, no watch mode.
+- The timing test is not part of the default `pnpm test`. It runs through its own root script,
+  `pnpm test:perf` (`vitest.perf.config.ts`, without file parallelism). The reason: on the shared
+  development machine, the default parallel run, where the timing test competes for the CPU
+  with every other test file, read medians of 69 to 130 ms under load, while the test run alone
+  read 17 to 21 ms. Those numbers measure the contention, not the solver. The median of five and
+  the 50 ms bound are unchanged.
 
 **Example tests (testing.md: published values, fixtures, each failure reason):**
 
