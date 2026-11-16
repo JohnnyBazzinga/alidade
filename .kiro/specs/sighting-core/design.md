@@ -59,7 +59,7 @@ below. Each is recorded here for review; none contradicts a requirement.
   `angularDifference`, `circularMean`, `degToRad`, `radToDeg` are public (Req 1.1, 1.3,
   1.5, 1.6). Per Req 1.9 and the math-conventions rule "No `NaN` or `Infinity` may leave a
   public function. Invalid input produces an error result", each returns
-  `Result<number, Reason>` and yields `invalid_number` for `NaN`/`±Infinity` instead of
+  `Result<number>` and yields `invalid_number` for `NaN`/`±Infinity` instead of
   propagating `NaN`. Composition inside the package uses private unchecked helpers
   (`_wrapTwoPi`, `_wrapPi`) that assume finite input; the public functions validate then
   delegate. This keeps callers honest without making internal trig chain `Result`s.
@@ -94,7 +94,8 @@ below. Each is recorded here for review; none contradicts a requirement.
   generic ones.
 
 - **D5 — Geometry check order and re-run.** The model's `geometryCheck` is run twice
-  (Req 9.2, 9.3, 9.11). Before solving it is run on the full set and only its **failures**
+  (Req 9.2, 9.3, 9.11). Before the origin and starting estimate are computed it is run on
+  the full set (so `startEstimate` never sees parallel bearings) and only its **failures**
   are acted on: `colocated_observers` (all observers within 1 m, Req 9.2) is checked before
   `singular_geometry` (largest crossing angle below 0.5°, Req 9.3) — when every observer is
   colocated the bearings carry no position information, so `colocated_observers` is the
@@ -169,11 +170,62 @@ below. Each is recorded here for review; none contradicts a requirement.
   with those sigmas. The Gauss-Newton step `Δ` is accepted only if the cost at
   `candidate + Δ` (evaluated with the **same** current-iteration sigmas) does not exceed
   `C0`; otherwise the step is halved, up to 8 times, and the first non-increasing step is
-  taken (if none decreases the cost, the smallest is taken). This guards overshoot in the
-  nonlinear regime and is deterministic. The normal matrix `JᵀWJ` is PSD by construction
-  (a sum of `wᵢ Jᵢᵀ Jᵢ`); if its smallest eigenvalue is non-positive the matrix is not
-  positive definite and the solver returns `singular_geometry`, alongside the
-  condition-number gate `λmax/λmin > 1e12` (Req 7.3).
+  taken (if none decreases the cost, the smallest is taken). A trial point at which
+  `evaluate` fails counts as a cost increase and is halved (D15). This guards overshoot in
+  the nonlinear regime and is deterministic. The normal matrix `JᵀWJ` is PSD by
+  construction (a sum of `wᵢ Jᵢᵀ Jᵢ`), but the solver does not rely on that: unless
+  `λ1 > 0` **and** `λ2 > 0` it returns `singular_geometry`, so a `NaN` eigenvalue (for which
+  every comparison is false) cannot pass the gate. After that, the condition-number gate
+  `λ1/λ2 > 1e12` also returns `singular_geometry` (Req 7.3).
+
+- **D15 — `evaluate` can fail, and the solver handles each place it can fail.**
+  `MeasurementModel.evaluate` returns a `Result`. The bearing model propagates the
+  underlying failure when the candidate unprojects to a position that is not Supported
+  (`unsupported_position`) or lies within `1e-3 m` of the observer (`coincident_positions`,
+  from `initialAzimuthRad`). The solver then behaves as follows:
+  - **At the current candidate** (building `J`, `W`, `r`, `C0`): return that failure.
+  - **At a step-control trial point**: treat it as a cost increase and halve the step.
+  - **If the smallest step (after 8 halvings) still fails**: return that failure.
+
+  The bearing model does not turn a near-observer candidate into a large partial or a large
+  condition number; it fails explicitly, so a candidate that has no defined azimuth is never
+  silently weighted.
+
+- **D16 — Analytic partials use the tangent-plane limit at the origin.** The polar chain
+  rule `(e, n) → (d, θ)` divides by `d`, so it is undefined when the candidate is within
+  `1e-3 m` of the Local-plane origin (the projection itself already maps that region to
+  `(0, 0)`, Req 3.4). In that region the model uses the tangent-plane limit of the
+  unprojection: `∂latC/∂northM = 1/R`, `∂lonC/∂eastM = 1/(R·cos(origin.latRad))`, and
+  `∂latC/∂eastM = ∂lonC/∂northM = 0`, with `R = 6 371 008.8 m`. These feed the same chain
+  through the azimuth formula as everywhere else.
+
+- **D17 — Every exported function is total (Req 9.8).** For any type-correct input, an
+  exported function returns a failure `Result` or a success whose numbers are all finite;
+  it never throws and never returns `NaN` or an infinity. This is stated here once and
+  applies to every item below and to every function in this package. Consequences:
+  - The angle, geodesy and local-plane functions return `Result` (D1, Section 7).
+  - `serialiseBearing` returns a `Result`: it validates the bearing and fails with
+    `invalid_observation` (naming the `id` and `field`) instead of emitting a non-finite
+    number into the wire object.
+  - `ellipseFromCovariance` and `ellipse95` return a `Result`. Both fail with
+    `invalid_number` when an input number is non-finite, when the covariance is not
+    positive definite (not both `λ1 > 0` and `λ2 > 0`), or when an ellipse axis is not
+    positive.
+  - Every `BearingModel` method that takes an observation set (`origin`, `startEstimate`,
+    `geometryCheck`, `postSolveCheck`) returns `insufficient_observations` when given fewer
+    than two observations, so a method called directly never divides by zero or indexes an
+    empty list.
+  - `BearingModel.startEstimate` returns `singular_geometry` when the selected pair of
+    lines does not intersect, that is, when the largest crossing angle is below `0.5°`
+    (the same threshold as `geometryCheck`). The solver never reaches this case because
+    `geometryCheck` runs first (step 4), but the method is total on its own.
+  - `BearingModel.origin` returns `unsupported_position` when the centroid is not a
+    Supported position (for example, observers on both sides of a pole region).
+  - `solve` checks that every number a model's `evaluate` returns is finite and that the
+    effective sigma is greater than zero, and checks that every number in the assembled
+    `Fix` is finite. A violation returns `invalid_number`. A well-behaved model never
+    triggers either check; they exist so that a type-correct but faulty model cannot push a
+    `NaN` out of the solver.
 
 ## 4. Module layout
 
@@ -204,6 +256,13 @@ Tests: `angle.test.ts`, `angle.property.test.ts`, `position.test.ts`,
 `uncertainty.property.test.ts`, plus `calibration.test.ts` (statistical) and
 `performance.test.ts`. Reference data, if any, lives in `skeleton/core/fixtures/` and is
 read-only.
+
+Test support (not exported, not part of the public API) lives in `src/test-support/`:
+`generators.ts` (the shared fast-check generators of Section 8, each documenting its
+domain), `seeded-random.ts` (a small seeded PRNG with a Gaussian draw, for the statistical
+tests, since `core` itself generates no randomness), and `stub-model.ts` (configurable
+`MeasurementModel` stubs for the solver's generic-behaviour tests, D15 and D14). Test
+support may import from `core` sources; no source file imports from it.
 
 Dependency direction inside `core` (nothing imports upward, `core` imports nothing
 external):
@@ -310,15 +369,18 @@ export interface MeasurementModel<O> {
   geometryCheck(observations: readonly O[]):
     Result<{ warnings: Warning[] }>;   // failure: colocated_observers / singular_geometry
 
-  // Req 5.2 — per candidate (local plane) and observation:
+  // Req 5.2 — per candidate (local plane) and observation. Returns a Result: the model
+  // fails when the candidate is not a valid state for this observation (D15). For the
+  // bearing model: unsupported_position (candidate unprojects to a non-Supported position)
+  // or coincident_positions (candidate within 1e-3 m of the observer).
   evaluate(observation: O, candidate: { eastM: number; northM: number },
-           origin: Position): {
+           origin: Position): Result<{
     predicted: number;             // predicted measurement (azimuth for bearings)
     residualRad: number;           // wrapPi(measured - predicted)
     effectiveSigmaRad: number;     // 1-sigma combining error sources
     partialEastRadPerM: number;    // ∂predicted/∂eastM
     partialNorthRadPerM: number;   // ∂predicted/∂northM
-  };
+  }>;
 
   // Req 5.3 — after exclusion, on the remaining observations. The solver passes the
   // Local-plane origin it computed via origin(); out_of_range is measured from it (Req 9.6):
@@ -449,9 +511,9 @@ the observation `id` set and the offending `field` named on the first failure (R
 ```
 
 All angles carry `Deg` suffixes; time is `timeUtcMs`; accuracy is in metres with `M`.
-`serialiseBearing` serialises a bearing the caller has already validated (via
-`validateBearing`, or one obtained from `parseBearing`, which validates). It does not
-re-validate and does not throw.
+`serialiseBearing` returns a `Result` (D17): it runs `validateBearing` first and fails with
+`invalid_observation` (naming the `id` and `field`) rather than put a non-finite number in
+the wire object. It does not throw.
 
 `parseBearing(json)` — Req 4.5, 4.7, 4.8. If the input is not an object, return
 `invalid_observation`. If `v` is missing or not `1`, or `kind` is missing or not
@@ -471,17 +533,25 @@ doubles and `degToRad(radToDeg(x))` round-trips to rounding (Req 1.5), far insid
   failure (which carries `b.id` and the offending `field`, Req 9.9).
 - `idOf(b)` — returns `b.id` (Req 5.7).
 
+- **Observation-set methods are total (D17).** `origin`, `startEstimate`, `geometryCheck`
+  and `postSolveCheck` return `insufficient_observations` when given fewer than two
+  observations. This is checked first in each method, so none of them can divide by zero or
+  index an empty list when called directly.
+
 - `origin(observations)` — the 3D spherical centroid of the observer positions (D2). For
   each observer form the unit vector `(cos lat cos lon, cos lat sin lon, sin lat)`, average,
   renormalise; if the norm is below `1e-9` (all observers antipodally cancelling, a
-  degenerate input) return `unsupported_position`. Convert back to `{latRad, lonRad}`.
+  degenerate input) return `unsupported_position`. Convert back to `{latRad, lonRad}`; if
+  the result is not a Supported position, return `unsupported_position`.
 
 - `startEstimate(observations, origin)` — Req 6.4. Project each observer to the local
   plane. For each pair compute the crossing angle
   `min(|Δ|, π - |Δ|)` where `Δ = wrapPi(az_i - az_j)`. Select the pair with the largest
-  crossing angle (ties broken by the `id`-pair, D4). Compute the intersection of the two
-  bearing lines in the plane: each line is `(E_i + t·sin az_i, N_i + t·cos az_i)`; solve the
-  2×2 system for the intersection. Return it as `{ eastM, northM }`.
+  crossing angle (ties broken by the `id`-pair, D4). If that largest crossing angle is
+  below `0.5°`, the two lines are parallel or nearly so and do not intersect reliably:
+  return `singular_geometry` (D17). Otherwise compute the intersection of the two bearing
+  lines in the plane: each line is `(E_i + t·sin az_i, N_i + t·cos az_i)`; solve the 2×2
+  system for the intersection. Return it as `{ eastM, northM }`.
 
 - `geometryCheck(observations)` — Req 9.2, 9.3, 9.4, 9.11. If the maximum pairwise observer
   distance is `< 1 m`, return `colocated_observers` (D5). Otherwise compute the largest
@@ -490,22 +560,27 @@ doubles and `degToRad(radToDeg(x))` round-trips to rounding (Req 1.5), far insid
   warning. The solver runs this before solving (failures only) and again after outlier
   exclusion on the remaining set, taking the warning from that final run (D5, Req 9.11).
 
-- `evaluate(observation, candidate, origin)` — Req 6.1–6.3, 6.7:
-  - Unproject the candidate to `{latC, lonC}` (Section 7.2).
-  - `predicted = initialAzimuthRad(observer, {latC, lonC})`.
+- `evaluate(observation, candidate, origin)` — Req 6.1–6.3, 6.7. Returns a `Result` (D15):
+  - Unproject the candidate to `{latC, lonC}` (Section 7.2). If the result is not a
+    Supported position, return `unsupported_position`.
+  - `predicted = initialAzimuthRad(observer, {latC, lonC})`. If the candidate is within
+    `1e-3 m` of the observer this fails with `coincident_positions`, which `evaluate`
+    returns unchanged.
   - `residualRad = wrapPi(measuredAzimuthRad - predicted)`. (Req 6.2, 6.7: the wrap means a
     measured `0.01` and predicted `2π - 0.01` yield `+0.02`, not `-2π + 0.02`.)
   - `rangeM = max(greatCircleDistanceM(observer, {latC, lonC}), 1)` (Req 6.3).
   - `effectiveSigmaRad = sqrt(azimuthSigmaRad² + (positionAccuracyM / rangeM)²)`.
-  - Analytic partials (D8): `predicted` is `initialAzimuthRad(observer, candidate)` and the
-    candidate is `unprojectToLocalPlane(origin, {eastM, northM}) = destinationPosition(origin, θ, d)`
+  - Analytic partials (D8, D16): `predicted` is `initialAzimuthRad(observer, candidate)` and
+    the candidate is `unprojectToLocalPlane(origin, {eastM, northM}) = destinationPosition(origin, θ, d)`
     with `d = √(e² + n²)`, `θ = atan2(e, n)`. The chain rule gives
     `∂predicted/∂(e,n) = (∂predicted/∂(latC, lonC)) · (∂(latC, lonC)/∂(d, θ)) · (∂(d, θ)/∂(e, n))`,
     where the first factor is the quotient-rule derivative of `atan2(y, x)` for the azimuth
     formula, the second is the destination-formula derivative, and the third is
-    `∂d/∂e = e/d`, `∂d/∂n = n/d`, `∂θ/∂e = n/d²`, `∂θ/∂n = -e/d²`. The `1 m` floor on
-    `rangeM` bounds the partials; when the candidate sits on an observer the partials grow,
-    which manifests as a large condition number and `singular_geometry`, not as `NaN`.
+    `∂d/∂e = e/d`, `∂d/∂n = n/d`, `∂θ/∂e = n/d²`, `∂θ/∂n = -e/d²`. When `d < 1e-3 m` the
+    polar factors divide by zero, so the last two factors are replaced by the tangent-plane
+    limit of `∂(latC, lonC)/∂(e, n)`: `∂latC/∂northM = 1/R`,
+    `∂lonC/∂eastM = 1/(R·cos(origin.latRad))`, and the other two zero (D16). The `1 m` floor
+    on `rangeM` keeps the effective sigma finite for a candidate near an observer.
 
 - `postSolveCheck(fix, origin, observations)` — Req 9.5, 9.6 (D7). The `origin` is the
   Local-plane origin the solver computed; `out_of_range` is measured from it. For each
@@ -530,37 +605,45 @@ doubles and `degToRad(radToDeg(x))` round-trips to rounding (Req 1.5), far insid
    and the offending `field`).
 3. **Count**: if fewer than two observations remain, return `insufficient_observations`
    (Req 9.1).
-4. **Origin and start**: `origin = model.origin(observations)`; `start =
-   model.startEstimate(observations, origin)`. Propagate failures. This `origin` is the
-   solve origin reused in steps 8 and 9.
-5. **Pre-solve** (D5): `pre = model.geometryCheck(observations)`. On failure
-   (`colocated_observers` / `singular_geometry`), return the reason. Do not commit any
+4. **Pre-solve** (D5): `pre = model.geometryCheck(observations)`. On failure
+   (`colocated_observers` / `singular_geometry`), return the reason. This runs before the
+   starting estimate so that `startEstimate` never intersects parallel lines and the D5
+   precedence (`colocated_observers` before `singular_geometry`) holds. Do not commit any
    `poor_geometry` warning from this run — it is re-evaluated on the remaining set after
    exclusion (step 8, Req 9.11).
-6. **Solve loop** (Req 7.1, 7.2, 7.3; D14) from the start estimate, bounded by
+5. **Origin and start**: `origin = model.origin(observations)`; `start =
+   model.startEstimate(observations, origin)`. Propagate failures. This `origin` is the
+   solve origin, used again in steps 9 and 10.
+6. **Solve loop** (Req 7.1, 7.2, 7.3; D14, D15) from the start estimate, bounded by
    `maxIterations` (default `50`):
-   - For each observation, `eval = model.evaluate(obs, candidate, origin)`. Build the
-     Jacobian rows `J_i = [partialEastRadPerM, partialNorthRadPerM]`, weights
+   - For each observation, `eval = model.evaluate(obs, candidate, origin)`. If any
+     evaluation fails at the current candidate, return that failure (D15). If a successful
+     evaluation contains a non-finite number, or an effective sigma that is not greater than
+     zero, return `invalid_number` (D17). Otherwise build the Jacobian rows `J_i = [partialEastRadPerM, partialNorthRadPerM]`, weights
      `w_i = 1/effectiveSigmaRad²`, residuals `r_i = eval.residualRad`.
      `JᵀWJ` (2×2) and `JᵀW r` (2-vector) are accumulated by summation. The effective
      sigmas `σ_i` are this iteration's (computed at the current candidate); the cost
      `C0 = Σ (r_i / σ_i)²` uses them.
    - Eigenvalue/condition check: compute the eigenvalues of `JᵀWJ` with the shared helper
-     of Section 7.6 (take `a`, `b`, `c` from the symmetric `JᵀWJ`). If `λ2 ≤ 0` (the matrix
-     is not positive definite) return `singular_geometry`. If `λ1 / λ2 > 1e12` return
-     `singular_geometry` (Req 7.3).
+     of Section 7.6 (take `a`, `b`, `c` from the symmetric `JᵀWJ`). Unless `λ1 > 0` and
+     `λ2 > 0`, return `singular_geometry` (written as a positive test so a `NaN` cannot
+     pass it, D14). Then, if `λ1 / λ2 > 1e12`, return `singular_geometry` (Req 7.3).
    - `Δ = (JᵀWJ)⁻¹ JᵀW r` for the 2×2 system (closed form).
    - Step control: try `candidate + Δ`, evaluating the cost there with the **same**
-     current-iteration `σ_i`. If that cost does not exceed `C0`, accept the step; otherwise
+     current-iteration `σ_i` (the trial evaluation supplies the predicted values and
+     residuals; the sigmas are held). If any evaluation fails at the trial point, treat it
+     as a cost increase (D15). If the cost does not exceed `C0`, accept the step; otherwise
      halve `Δ` and retry, up to 8 halvings, taking the first non-increasing step (or the
-     smallest if none decrease the cost). Update `candidate` by the accepted step.
+     smallest if none decrease the cost). If the smallest step still fails to evaluate,
+     return that failure (D15). Update `candidate` by the accepted step.
    - Convergence: if the accepted step's length `√(ΔE² + ΔN²) < 1e-4 m`, stop (converged).
      If `maxIterations` is reached without that, return `not_converged` (Req 7.2).
    - Effective sigmas are recomputed each iteration because `rangeM` moves with the
      candidate (Req 7.1, D9).
 7. **Outlier rejection** (Req 10.1–10.4), only if `outlierRejection` is enabled **and**
    the current observation count is `≥ 4`:
-   - At the current solution, compute `normalisedResidual_i = r_i / σ_i`. Find the
+   - At the current solution, evaluate every observation at the final candidate (a failure
+     there is returned, D15) and compute `normalisedResidual_i = r_i / σ_i`. Find the
      observation with the largest `|normalisedResidual_i|` (ties by `id`, D4). If that
      magnitude exceeds `3.5`, remove that observation and re-solve from the current fix
      (warm start, bounded by `maxIterations`). Repeat until no magnitude exceeds `3.5` or
@@ -570,13 +653,15 @@ doubles and `degToRad(radToDeg(x))` round-trips to rounding (Req 1.5), far insid
 8. **Post-exclusion geometry** (D5, Req 9.11): `gpost = model.geometryCheck(remaining)`.
    On failure (singular/colocated among the remaining) return the reason. Otherwise take
    `gpost`'s `poor_geometry` warning (if any) as the fix's geometry warning. When nothing
-   was excluded, `remaining` is the full set, so this is the same geometry as step 5.
+   was excluded, `remaining` is the full set, so this is the same geometry as step 4.
 9. **Uncertainty and Fix assembly** (Section 7.6): build the covariance and ellipse from
    `JᵀWJ` at the solution with the converged weights, and assemble the `Fix` with
    `position` (unprojected from the local plane), `covariance`, `ellipse`, `residuals`
    (one per remaining observation, Req 7.9), `iterations` of the final solve (D10), and
-   `excludedIds`. Its `warnings` so far are the `poor_geometry` warning from step 8 and the
-   `outliers_excluded` warning from step 7.
+   `excludedIds`. `ellipseFromCovariance` is a `Result`; if it fails, return its failure.
+   Check that every number in the assembled `Fix` is finite; otherwise return
+   `invalid_number` (D17). Its `warnings` so far are the `poor_geometry` warning from step 8
+   and the `outliers_excluded` warning from step 7.
 10. **Post-solve** (Req 10.3): `post = model.postSolveCheck(fix, origin, remaining)`,
     passing the assembled `Fix`. On failure, return the reason. Otherwise append
     `post.warnings` to the fix's warnings (the bearing model returns none, but the interface
@@ -604,16 +689,21 @@ h  = hypot((a − c)/2, b)          // >= 0
 λ2 = det / λ1                      // det = a·c − b²; equals (a + c)/2 − h
 ```
 
-`ellipseFromCovariance(cov)` — Req 8.2: take `a = varEastM2`, `b = covEastNorthM2`,
+`ellipseFromCovariance(cov)` — Req 8.2. Returns a `Result<Ellipse>` (D17). It returns
+`invalid_number` if any of `varEastM2`, `covEastNorthM2`, `varNorthM2` is non-finite, or if
+the matrix is not positive definite (not both `λ1 > 0` and `λ2 > 0`, written as a positive
+test so a `NaN` fails it). Otherwise take `a = varEastM2`, `b = covEastNorthM2`,
 `c = varNorthM2`; `semiMajorM = √λ1`, `semiMinorM = √λ2`. The ellipse is **circular within
 rounding** when `h ≤ 1e-12 · λ1` (D12); in that case the major-axis azimuth is `0`.
 Otherwise it is the `λ1` eigenvector's azimuth `atan2(v_E, v_N)`, reduced to `[0, π)` (a
 negative result is folded by `+ π`, which only flips the axis direction).
-`ellipse95(ellipse)` returns a copy with both axes multiplied by `2.4477` (Req 8.3).
+`ellipse95(ellipse)` returns a `Result<Ellipse>` (D17): `invalid_number` if an axis or the
+azimuth is non-finite or an axis is not positive (written as a positive test); otherwise a
+copy with both axes multiplied by `2.4477` (Req 8.3) and the azimuth unchanged.
 
-The same helper feeds the solver's gate: `λ2 = det / λ1` is the smallest eigenvalue, so
-`λ2 ≤ 0` is the non-positive case and `λ1 / λ2 > 1e12` is the condition-number case
-(Req 7.3); either returns `singular_geometry`.
+The same helper feeds the solver's gate: `λ2 = det / λ1` is the smallest eigenvalue. The
+solver returns `singular_geometry` unless `λ1 > 0` and `λ2 > 0` (so a `NaN` cannot pass),
+and also when `λ1 / λ2 > 1e12` (Req 7.3).
 
 Scaling behaviour follows algebraically: scaling every `azimuthSigmaRad` and
 `positionAccuracyM` by `k` scales every `effectiveSigmaRad` by `k` (range is unchanged),
@@ -646,17 +736,35 @@ Shared generators (domains documented here, reused across properties):
 - **`validBearing`** — a `Bearing` with non-empty `id`, Supported observer,
   `positionAccuracyM ∈ [0, 10000]`, finite `timeUtcMs`, `azimuthRad ∈ [0, 2π)`,
   `azimuthSigmaRad ∈ [0.01°, 45°]`. Used by 4.6.
-- **`solvableSet`** — a target (Supported position), `n ∈ [2, 12]` observers at
-  `500 m–100 km` from the target, at least one pair with crossing angle `≥ 10°`, noise-free
-  bearings (exact azimuths to the target), unique `id`s. The generator filters to sets the
-  solver actually solves (returns a fix). Used by 7.4, 7.5, 7.6, 7.7, 8.4, 8.5, 8.6, 8.7,
-  10.5; variants add small Gaussian noise where the property allows it.
-- **`meridianSet`** — like `solvableSet` but with observers placed on both sides of the
-  ±180° meridian (longitudes straddling `±π`). Used by 9.7.
-- **`hostileInput`** — arbitrary type-correct inputs to the public API: malformed
-  observations, `NaN`/`±Infinity` fields, out-of-range sigmas, non-object wire payloads,
-  empty `id`s, duplicate `id`s, and hostile `SolverOptions` (`maxIterations` as
-  `NaN`/`±Infinity`/`0`/negative/fractional/`> 50`), etc. Used by 9.8.
+- **`solvableSet`** — exactly the conditions of Req 7.4 and nothing else: a target
+  (Supported position), `n ∈ [2, 12]` observers at `500 m–100 km` from the target (every
+  observer a Supported position), at least one pair with crossing angle `≥ 10°`, noise-free
+  bearings (exact azimuths to the target), unique `id`s. The generator **does not filter
+  on solver success**: it never calls `solve`. In every property that uses it, a solve
+  failure is a test failure. If P-7.4 finds a qualifying set the solver cannot solve, the
+  work stops and the set is reported (testing.md rule 1: decide whether the code, the
+  property or the requirement is wrong); the generator is not narrowed to hide it. Used by
+  7.4, 7.5, 7.6, 7.7, 8.4, 8.5, 8.6, 8.7. The outlier set of Req 10.5 is a separate
+  generator with the domain stated in P-10.5.
+- **`noisySolvableSet`** — a `solvableSet` whose azimuths carry small Gaussian noise
+  (1-sigma at most the stated `azimuthSigmaRad`). Only noisy variants may discard sets the
+  solver does not solve (noise can legitimately produce `diverging_bearings`,
+  `not_converged` and similar); each property that does so says so in its comment and
+  counts the discards. Used by the noisy variant of 7.5.
+- **`meridianSet`** — a `solvableSet` with observers placed on both sides of the ±180°
+  meridian (longitudes straddling `±π`), noise-free. Same rule: a solve failure is a test
+  failure. Used by 9.7.
+- **`hostileInput`** — arbitrary type-correct inputs to every exported function and to the
+  `BearingModel` methods called directly (D17): malformed observations, `NaN`/`±Infinity`
+  fields, out-of-range sigmas, non-object wire payloads, empty `id`s, duplicate `id`s,
+  hostile `SolverOptions` (`maxIterations` as `NaN`/`±Infinity`/`0`/negative/fractional/
+  `> 50`), observation arrays of length `0` and `1`, sets whose bearings are all parallel,
+  covariance values that are non-finite or not positive definite, ellipses with non-finite
+  or non-positive axes, and observation sets on which `evaluate` fails (D15): observers
+  within 1° of the latitude limit whose bearings cross beyond 89° (candidate unprojects to a
+  non-Supported position, `unsupported_position`), and two observers on the same meridian
+  where one sights the other, so the starting estimate lands within `1e-3 m` of an observer
+  (`coincident_positions`). Used by 9.8.
 
 | ID | Validates (Req) | Generator domain | Property assertion |
 |----|---|----|----|
@@ -670,11 +778,11 @@ Shared generators (domains documented here, reused across properties):
 | P-2.7 | 2.7 | `supportedPosition` `A`, `B`, `C` | `greatCircleDistanceM(A,C) ≤ greatCircleDistanceM(A,B) + greatCircleDistanceM(B,C) + 1e-3 m` |
 | P-3.3 | 3.3 (round-trip) | `supportedPosition` origin; position within `1000 km` of it (Supported) | `greatCircleDistanceM(unprojectToLocalPlane(origin, projectToLocalPlane(origin, P)), P) < 1e-4 m` |
 | P-3.5 | 3.5 | `supportedPosition` origin; position within `1000 km` | `|√(eastM² + northM²) − greatCircleDistanceM(origin, P)| < 1e-6 m` |
-| P-4.6 | 4.6 (round-trip) | `validBearing` `b` | `parseBearing(serialiseBearing(b))` succeeds; angles equal `b` within `1e-12 rad`; other fields identical |
-| P-6.5 | 6.5 | observer and candidate `50 m–200 km` apart | model partials match central finite differences of `predicted` (step `0.1 m`) within relative `1e-2` or absolute `1e-10 rad/m` |
+| P-4.6 | 4.6 (round-trip) | `validBearing` `b` | `serialiseBearing(b)` and then `parseBearing` both succeed; angles equal `b` within `1e-12 rad`; other fields identical |
+| P-6.5 | 6.5 | observer and candidate `50 m–200 km` apart; candidate anywhere relative to the Local-plane origin, **including** a candidate at the origin (`d < 1e-3 m`, the D16 tangent-plane branch) | model partials match central finite differences of `predicted` (step `0.1 m`) within relative `1e-2` or absolute `1e-10 rad/m` |
 | P-6.6 | 6.6 | observer and target `50 m–200 km` apart | a noise-free bearing has `|residualRad| < 1e-9 rad` at the true target |
-| P-7.4 | 7.4 | `solvableSet` (2–12 observers, `500 m–100 km`, a pair with crossing angle `≥ 10°`) | `greatCircleDistanceM(fix.position, target) < 0.01 m` |
-| P-7.5 | 7.5 | `solvableSet` (and a noisy variant), two random input orderings | `greatCircleDistanceM(fix1.position, fix2.position) < 1e-3 m` |
+| P-7.4 | 7.4 | `solvableSet` (2–12 observers, `500 m–100 km`, a pair with crossing angle `≥ 10°`, unique ids; no filter on solver success) | `solve` succeeds (a failure fails the test) and `greatCircleDistanceM(fix.position, target) < 0.01 m` |
+| P-7.5 | 7.5 | `solvableSet`, two random input orderings; and `noisySolvableSet`, which may discard unsolved sets (documented, discards counted) | both solves succeed on the noise-free set (a failure fails the test); `greatCircleDistanceM(fix1.position, fix2.position) < 1e-3 m` |
 | P-7.6 | 7.6 | `solvableSet` | with effective sigmas frozen at the fix, `Cost(fix) ≤ Cost(fix ± 1 m E/W/N/S)` |
 | P-7.7 | 7.7 | `solvableSet`; add a copy of every observation under a fresh unique `id` | `greatCircleDistanceM(fixCopied.position, fix.position) < 1e-3 m` |
 | P-7.8 | 7.8 | `solvableSet` | two calls on identical input produce identical `Fix` (deep equality, including `iterations`, `warnings`, `excludedIds`) |
@@ -683,11 +791,16 @@ Shared generators (domains documented here, reused across properties):
 | P-8.6 | 8.6 | `solvableSet` (satisfying 7.4) plus one more noise-free bearing of the same target | `det(covariance') ≤ det(covariance) · (1 + 1e-9)` (determinant does not increase by more than relative `1e-9`) |
 | P-8.7 | 8.7 | `solvableSet` | `covariance` symmetric within `1e-12` and positive definite (both eigenvalues `> 0`) |
 | P-9.7 | 9.7 | `meridianSet`; the same configuration shifted `90°` in longitude | the fix from the shifted config, shifted back `90°`, equals the original fix within `0.01 m` |
-| P-9.8 | 9.8 | `hostileInput` to every public entry point | no call throws; any returned `Result` is either a failure or a success whose values contain no `NaN`/`±Infinity` |
+| P-9.8 | 9.8 | `hostileInput` to every exported function, including each `BearingModel` method called directly and `ellipseFromCovariance`/`ellipse95` | no call throws; every call returns a failure or a success whose numbers are all finite (D17) |
 | P-10.5 | 10.5 | 8–12 observers `5–7 km` from a target, directions spanning `≥ 120°`, exact positions, `azimuthSigmaRad = 2°`; one extra bearing wrong by `30°–80°` | `greatCircleDistanceM(fix.position, target) < 1 m` and `excludedIds` is exactly the bad observation's `id` |
 
 Notes on the properties:
 
+- **Solver failures in noise-free properties are test failures.** P-7.4 through P-7.8,
+  P-8.4 through P-8.7 and P-9.7 draw from noise-free generators that do not filter on
+  solver success. In each of them a `solve` that returns a failure fails the test; none of
+  them discards a set it could not solve. Only the noisy variant of P-7.5 may discard, and
+  its comment says so.
 - **P-1.4** excludes the antipodal case where the difference is within `1e-9` of `π`, since
   the antisymmetry target `−π ≡ π` is ambiguous at the wrap boundary (the requirement
   excludes it explicitly).
@@ -700,10 +813,12 @@ Notes on the properties:
   that frozen-sigma cost (the solver drives `JᵀW r → 0`, which is the frozen-sigma gradient),
   and the positive-definite Hessian makes it a local minimum, so the property holds for
   every solvable set.
-- **P-9.8** is the umbrella property for Req 9.8. It exercises every public function with
-  arbitrary type-correct (including hostile) inputs and asserts no throw and no
-  `NaN`/`Infinity` escapes. This is also what makes the per-function `invalid_number`,
-  `invalid_observation`, and `unsupported_format` failures trustworthy.
+- **P-9.8** is the umbrella property for Req 9.8 and for the totality rule D17. It calls
+  every exported function, and the `BearingModel` methods directly (`origin`,
+  `startEstimate`, `geometryCheck`, `postSolveCheck`, `evaluate`, `validate`, `idOf`), with
+  arbitrary type-correct (including hostile) inputs, and asserts no throw and no
+  `NaN`/`Infinity` escapes. Because the model methods are called directly, the solver's
+  own pre-checks cannot mask a missing guard in a method.
 
 ## 9. Statistical, performance and example tests
 
@@ -758,6 +873,51 @@ deterministic.
   example of each parse-failure path.
 - **Circular ellipse (D12):** a covariance with `h ≤ 1e-12 · λ1` (axes equal to within
   rounding) yields `ellipse.azimuthRad = 0`.
+- **`evaluate` failures (D15):**
+  - *At the current candidate, `coincident_positions`:* observers `A` and `B` on the same
+    meridian (same longitude, `A` north of `B`, a few kilometres apart). `B` sights `A`
+    (azimuth `0`) and `A` sights any non-parallel direction (for example `45°`). The
+    Local-plane origin (the centroid) lies on that meridian too, so both observers have
+    `eastM = 0` and `B`'s bearing line is the line `eastM = 0`, which passes through `A`.
+    The two lines therefore intersect at `A`'s plane position, the starting estimate
+    unprojects to within `1e-3 m` of `A`, and `solve` returns `coincident_positions`. (Off
+    the origin's meridian the plane image of a great circle is curved, so a pair on
+    different meridians would only come close to `A`, not land on it; the shared meridian is
+    what makes the example exact.)
+  - *At the current candidate, `unsupported_position`:* observers near `88.5°` latitude
+    whose bearings cross beyond `89°`; `solve` returns `unsupported_position`.
+  - *At a trial point, halved:* a stub `MeasurementModel` (the solver depends only on the
+    interface, Req 5.4) whose `evaluate` fails beyond a set distance from the start, with a
+    Gauss-Newton step that lands in the failing region; `solve` halves the step and returns
+    a Fix.
+  - *Smallest step still fails:* a stub model whose `evaluate` fails at every trial point;
+    `solve` returns that model's failure after 8 halvings.
+- **Total on direct calls (D17):**
+  - `ellipseFromCovariance` returns `invalid_number` for a covariance with a `NaN` or
+    infinite entry, for an indefinite matrix (`varEastM2·varNorthM2 < covEastNorthM2²`), for
+    a zero matrix and for a matrix with a negative diagonal; `ellipse95` returns
+    `invalid_number` for a `NaN` axis and for an axis of `0` or a negative axis.
+  - Each of `BearingModel.origin`, `startEstimate`, `geometryCheck` and `postSolveCheck`
+    returns `insufficient_observations` for an empty array and for a one-element array.
+  - `BearingModel.startEstimate` returns `singular_geometry` for two observations whose
+    bearings are parallel and for two whose crossing angle is `0.4°`, and succeeds at
+    `0.5°`. `BearingModel.origin` returns `unsupported_position` for observers placed so
+    that their centroid is within 1° of a pole.
+  - `serialiseBearing` returns `invalid_observation` naming the `field` for a bearing with
+    a `NaN` azimuth.
+- **Origin partials (D16):** three noise-free observers at `5 km`, `120°` apart around a
+  target, so the target is exactly the observers' centroid and the Local-plane origin. The
+  partials at the origin (the tangent-plane branch) match central finite differences, and
+  `solve` returns a Fix within `0.01 m` of the target.
+- **Normal-matrix gate (D14):** a stub model whose finite partials are all parallel
+  (`JᵀWJ` has rank one, so `λ2 = 0`) makes `solve` return `singular_geometry`; so does a
+  stub whose finite partials are so large (`1e200`) that `JᵀWJ` overflows and its
+  eigenvalues are `NaN`. Neither returns a Fix.
+- **Faulty model output (D17):** a stub whose `evaluate` returns a `NaN` residual, an
+  infinite partial or an effective sigma of `0` makes `solve` return `invalid_number`.
+- **Pre-solve before start (step 4):** observers whose bearings are exactly parallel
+  return `singular_geometry` without `startEstimate` being called (verified with a
+  counting stub around the bearing model's `startEstimate`).
 
 ## 10. Purity and packaging
 
@@ -766,7 +926,8 @@ random numbers, performs no I/O, and references no browser or Node globals; time
 (`timeUtcMs`) and any seeds are arguments (Req 11.2). Every expected failure is a `Result`
 with a `Reason` from the closed union of Section 5 (Req 11.4). The public API is exported
 only from `src/index.ts` (Req 11.3). The package builds and tests under TypeScript `strict`
-with no `any` and no non-null assertions in `core` (Req 11.5; `tech.md`).
+with no `any` and no non-null assertions in `core` (Req 11.5; `tech.md`); ESLint enforces
+both, so no test scans for them.
 
 ## 11. How the altitude model plugs in (forward note, not designed here)
 
