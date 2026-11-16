@@ -108,6 +108,7 @@ All conventions in `.kiro/steering/math-conventions.md` are binding for this spe
 4. THE fix solver SHALL depend only on the Measurement model interface and SHALL contain no logic specific to bearings.
 5. THE Core SHALL provide the bearing Measurement model as the first implementation of that interface.
 6. WHERE a second Measurement model is added, THE solver SHALL accept it without modification to the solver's source file.
+7. THE Measurement model interface SHALL supply the validation of an observation and its id, so that the solver validates and identifies observations without knowing their type.
 
 ### Requirement 6: Bearing measurement model
 
@@ -135,7 +136,7 @@ All conventions in `.kiro/steering/math-conventions.md` are binding for this spe
 4. FOR ALL targets and sets of 2 to 12 observers, each between `500 m` and `100 km` from the target, with at least one pair of bearings whose Crossing angle is `≥ 10°`, WHEN given the Noise-free observation set, THE solver SHALL return a Fix within `0.01 m` of the true target.
 5. FOR ALL solvable observation sets, reordering the observations SHALL change the Fix by less than `1e-3 m` (order independence).
 6. FOR ALL solvable observation sets, with every observation's Effective sigma held at its value at the Fix, the Cost at the returned Fix SHALL NOT exceed the Cost at any point `1 m` away in the East, West, North or South direction (local optimality).
-7. FOR ALL solvable observation sets, duplicating every observation SHALL leave the Fix unchanged within `1e-3 m`.
+7. FOR ALL solvable observation sets, adding a copy of every observation under a new id SHALL leave the Fix unchanged within `1e-3 m`.
 8. THE solver SHALL be deterministic: identical inputs SHALL produce identical outputs.
 9. THE solver SHALL return, with every successful Fix, each observation's residual and Normalised residual, the number of iterations and the list of warnings.
 10. THE solver SHALL complete within `50 ms` for 200 observations on a current laptop.
@@ -150,7 +151,7 @@ All conventions in `.kiro/steering/math-conventions.md` are binding for this spe
 2. THE Core SHALL derive from the covariance an Error ellipse: 1-sigma semi-major and semi-minor axes in metres (semi-major `≥` semi-minor `> 0`) and the Azimuth of the major axis in `[0, π)`.
 3. THE Core SHALL provide the 95% ellipse by multiplying the 1-sigma axes by `2.4477`.
 4. FOR ALL solvable observation sets and factors `k` in `[0.5, 4]`, multiplying every observation's Azimuth 1-sigma and position accuracy by `k` SHALL leave the Fix unchanged within `1e-3 m` and SHALL multiply both ellipse axes by `k` within a relative error of `1e-5`.
-5. FOR ALL solvable observation sets, duplicating every observation SHALL divide both ellipse axes by `√2` within a relative error of `1e-5`.
+5. FOR ALL solvable observation sets, adding a copy of every observation under a new id SHALL divide both ellipse axes by `√2` within a relative error of `1e-5`.
 6. FOR ALL Noise-free observation sets that satisfy the conditions of criterion 7.4, adding one further noise-free observation of the same target SHALL NOT increase the determinant of the covariance by more than a relative `1e-9`.
 7. THE covariance matrix SHALL be symmetric and positive definite for every successful Fix.
 8. WHEN 1000 trials are run with a fixed seed, each with 3 observers between `1 km` and `20 km` from the target, pairwise Crossing angles `≥ 30°`, exact observer positions and Gaussian Azimuth noise of 1-sigma `2°`, THE 95% ellipse SHALL contain the true target in at least 90% and at most 99% of trials, counting any failed trial as not contained (calibration).
@@ -169,6 +170,9 @@ All conventions in `.kiro/steering/math-conventions.md` are binding for this spe
 6. IF the Fix lies more than `500 km` from the Local plane origin, THEN THE Core SHALL return a failure with reason `out_of_range`.
 7. WHEN observers lie on both sides of the ±180° meridian, THE Core SHALL return the same Fix, within `0.01 m`, as for the same configuration shifted `90°` in longitude and shifted back.
 8. THE Core SHALL NOT throw, and SHALL NOT return `NaN` or infinite values, for any input that passes type checking.
+9. IF any supplied observation fails validation, THEN THE solver SHALL return a failure with reason `invalid_observation` that names the observation id and the offending field, and SHALL NOT silently drop it.
+10. IF two supplied observations share the same id, THEN THE solver SHALL return a failure with reason `invalid_observation` naming the field `id`, so that a report submitted twice cannot be counted twice.
+11. WHEN outlier rejection has excluded observations, THE Core SHALL evaluate the `poor_geometry` warning on the observations that remain.
 
 ### Requirement 10: Outlier handling
 
