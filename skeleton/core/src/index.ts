@@ -5,3 +5,14 @@
 export { err, ok } from './result';
 export type { Failure, Reason, Result, Success, Warning } from './result';
 export { angularDifference, circularMean, degToRad, radToDeg, wrapPi, wrapTwoPi } from './angle';
+export {
+  destinationPosition,
+  greatCircleDistanceM,
+  initialAzimuthRad,
+  isSupportedPosition,
+} from './position';
+export type { Position } from './position';
+export { projectToLocalPlane, unprojectToLocalPlane } from './local-plane';
+export type { LocalPoint } from './local-plane';
+export { parseBearing, serialiseBearing, validateBearing } from './observation';
+export type { Bearing, BearingWire } from './observation';

@@ -78,7 +78,7 @@ All conventions in `.kiro/steering/math-conventions.md` are binding for this spe
 1. THE Core SHALL project a Supported position to East-North metres on the Local plane of a stated origin, using the azimuthal equidistant projection (east = `d · sin θ`, north = `d · cos θ`, where `d` and `θ` are the great-circle distance and initial Azimuth from the origin).
 2. THE Core SHALL convert East-North metres on a Local plane back to a Position.
 3. FOR ALL Supported origins and Supported positions within `1000 km` of the origin, projecting to the Local plane and back SHALL return a Position within `1e-4 m` of the original.
-4. THE Core SHALL project the origin, and any position less than `1e-3 m` from it, to `(0, 0)`.
+4. THE Core SHALL project the origin, and any position less than `1e-9 m` from it, to `(0, 0)`, and SHALL convert a Local plane vector shorter than `1e-9 m` back to the origin.
 5. FOR ALL Supported origins and positions within `1000 km`, the Euclidean length of the projected vector SHALL equal the great-circle distance from the origin within `1e-6 m`.
 
 ### Requirement 4: Bearing observation model and wire format
@@ -93,8 +93,8 @@ All conventions in `.kiro/steering/math-conventions.md` are binding for this spe
 4. THE Core SHALL serialise a Bearing observation to a JSON wire format that carries a format version `v: 1`, a `kind` of `"bearing"`, angles in degrees with `Deg` suffixes and time as `timeUtcMs`.
 5. THE Core SHALL parse the wire format back into a Bearing observation, applying the same validation.
 6. FOR ALL valid Bearing observations, serialising then parsing SHALL produce an observation whose angles equal the original within `1e-12` rad and whose other fields are identical (round-trip property).
-7. IF the wire format has an unknown `v` or `kind`, THEN THE Core SHALL return a failure with reason `unsupported_format`.
-8. IF the wire format is missing a required field or is not an object, THEN THE Core SHALL return a failure with reason `invalid_observation` and SHALL NOT throw.
+7. IF the wire format has a missing or unknown `v` or `kind`, THEN THE Core SHALL return a failure with reason `unsupported_format`.
+8. IF the wire format is missing any other required field or is not an object, THEN THE Core SHALL return a failure with reason `invalid_observation` and SHALL NOT throw.
 
 ### Requirement 5: Generic measurement model
 

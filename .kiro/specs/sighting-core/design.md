@@ -193,8 +193,8 @@ below. Each is recorded here for review; none contradicts a requirement.
 
 - **D16 — Analytic partials use the tangent-plane limit at the origin.** The polar chain
   rule `(e, n) → (d, θ)` divides by `d`, so it is undefined when the candidate is within
-  `1e-3 m` of the Local-plane origin (the projection itself already maps that region to
-  `(0, 0)`, Req 3.4). In that region the model uses the tangent-plane limit of the
+  `1e-3 m` of the Local-plane origin. (This threshold is independent of the projection's own
+  collapse below `1e-9 m`, Req 3.4.) In that region the model uses the tangent-plane limit of the
   unprojection: `∂latC/∂northM = 1/R`, `∂lonC/∂eastM = 1/(R·cos(origin.latRad))`, and
   `∂latC/∂eastM = ∂lonC/∂northM = 0`, with `R = 6 371 008.8 m`. These feed the same chain
   through the azimuth formula as everywhere else.
@@ -421,14 +421,18 @@ summing, so no `NaN` is produced.
 
 ### 7.1 Spherical Earth (`position.ts`)
 
-`greatCircleDistanceM(a, b)` — haversine, stable near zero and for all central angles up
-to the antipode:
+`greatCircleDistanceM(a, b)` — the central angle is `atan2(|cross|, dot)` of the two position
+vectors, written in latitude and longitude, which is well-conditioned at every distance.
+(`2·asin(√haversine)` was the first choice; it loses about √ε of accuracy, roughly 0.1 m, as the
+positions approach the antipode, which would let the triangle inequality of Req 2.7 fail by more
+than its 1e-3 m slack.)
 
 ```
-Δlat = b.latRad - a.latRad
-Δlon = b.lonRad - a.lonRad
-h = sin²(Δlat/2) + cos(a.latRad) cos(b.latRad) sin²(Δlon/2)
-c = 2 asin(clamp(√h))            // clamp only if √h exceeds 1 by < 1e-12
+Δlon  = b.lonRad - a.lonRad
+east  = cos(b.latRad) sin(Δlon)
+north = cos(a.latRad) sin(b.latRad) - sin(a.latRad) cos(b.latRad) cos(Δlon)
+along = sin(a.latRad) sin(b.latRad) + cos(a.latRad) cos(b.latRad) cos(Δlon)
+c = atan2(hypot(east, north), along)
 d = R · c,  R = 6 371 008.8
 ```
 
@@ -465,27 +469,38 @@ consistent with that invariance, the meridian-shift property (Req 9.7) holds end
 `projectToLocalPlane(origin, p)` — azimuthal equidistant (Req 3.1):
 
 ```
-d = greatCircleDistanceM(origin, p)
-θ = initialAzimuthRad(origin, p)       // coincident -> (0,0) handled
+d = distance(origin, p)                 // the unchecked great-circle distance
+if d < 1e-9 m: return { eastM: 0, northM: 0 }     // Req 3.4
+θ = initial azimuth (origin -> p), unchecked      // no coincidence check
 eastM = d sin θ
 northM = d cos θ
 ```
 
-If `d < 1e-3 m`, return `{ eastM: 0, northM: 0 }` (Req 3.4). By construction the projected
-length equals `d`, so Req 3.5 holds to rounding.
+The collapse threshold is `LOCAL_PLANE_COLLAPSE_M = 1e-9 m`, a constant separate from
+`COINCIDENT_DISTANCE_M = 1e-3 m`. The latter (Req 2.9) keeps its meaning for the public
+`initialAzimuthRad`, which fails with `coincident_positions` below it. The projection must not
+fail between `1e-9 m` and `1e-3 m`, so it calls the internal unchecked azimuth, which returns
+the direction of the same cross-product vector the distance is computed from. By construction
+the projected length equals `d`, so Req 3.5 holds to rounding. The threshold is `1e-9 m`
+rather than `1e-3 m` because a collapse radius `r` costs a round-trip error of up to `r` for
+positions inside it, which Req 3.3 (`1e-4 m`) and Req 3.5 (`1e-6 m`) would not tolerate for
+`r = 1e-3 m`; at `1e-9 m` both hold with room to spare.
 
 `unprojectToLocalPlane(origin, { eastM, northM })`:
 
 ```
 d = √(eastM² + northM²)
-if d < 1e-3 m: return origin                  // Req 3.4
+if d < 1e-9 m: return origin                  // Req 3.4
 θ = atan2(eastM, northM)
-return destinationPosition(origin, θ, d)
+p = destinationPosition(origin, θ, d)
+if p is not Supported: fail with unsupported_position     // D15
+return p
 ```
 
 Because the projection is defined as `(d, θ)` and the inverse is `destinationPosition` at
-that `(d, θ)`, the round-trip (Req 3.3) is exact to rounding for any distance up to the
-antipode; the 1000 km bound in 3.3 is a generous tolerance, not a limit of correctness.
+that `(d, θ)`, the round-trip (Req 3.3) is exact to rounding for any distance above the
+collapse and within `1e-9 m` below it; the 1000 km bound in 3.3 is a generous tolerance, not a
+limit of correctness.
 
 ### 7.3 Observation and wire format (`observation.ts`)
 
@@ -776,8 +791,8 @@ Shared generators (domains documented here, reused across properties):
 | P-2.5 | 2.5 (round-trip) | `supportedPosition` `A`; `azimuth` `θ`; `d ∈ [100 m, 10 000 km]`; keep only if `B` is Supported | `wrapPi(initialAzimuthRad(A, B) − θ) < 1e-9` |
 | P-2.6 | 2.6 | `supportedPosition` `A`, `B`; also `A` alone | `|greatCircleDistanceM(A,B) − greatCircleDistanceM(B,A)| < 1e-6 m`, and `greatCircleDistanceM(A,A) ≈ 0` within `1e-6 m` |
 | P-2.7 | 2.7 | `supportedPosition` `A`, `B`, `C` | `greatCircleDistanceM(A,C) ≤ greatCircleDistanceM(A,B) + greatCircleDistanceM(B,C) + 1e-3 m` |
-| P-3.3 | 3.3 (round-trip) | `supportedPosition` origin; position within `1000 km` of it (Supported) | `greatCircleDistanceM(unprojectToLocalPlane(origin, projectToLocalPlane(origin, P)), P) < 1e-4 m` |
-| P-3.5 | 3.5 | `supportedPosition` origin; position within `1000 km` | `|√(eastM² + northM²) − greatCircleDistanceM(origin, P)| < 1e-6 m` |
+| P-3.3 | 3.3 (round-trip) | `supportedPosition` origin; position reached at a distance drawn log-uniformly from `1e-10 m` to `1000 km` (Supported destinations only) | `greatCircleDistanceM(unprojectToLocalPlane(origin, projectToLocalPlane(origin, P)), P) < 1e-4 m` |
+| P-3.5 | 3.5 | `supportedPosition` origin; position at a distance drawn log-uniformly from `1e-10 m` to `1000 km` (Supported destinations only) | `|√(eastM² + northM²) − greatCircleDistanceM(origin, P)| < 1e-6 m` |
 | P-4.6 | 4.6 (round-trip) | `validBearing` `b` | `serialiseBearing(b)` and then `parseBearing` both succeed; angles equal `b` within `1e-12 rad`; other fields identical |
 | P-6.5 | 6.5 | observer and candidate `50 m–200 km` apart; candidate anywhere relative to the Local-plane origin, **including** a candidate at the origin (`d < 1e-3 m`, the D16 tangent-plane branch) | model partials match central finite differences of `predicted` (step `0.1 m`) within relative `1e-2` or absolute `1e-10 rad/m` |
 | P-6.6 | 6.6 | observer and target `50 m–200 km` apart | a noise-free bearing has `|residualRad| < 1e-9 rad` at the true target |
@@ -868,7 +883,13 @@ deterministic.
   and the converse), and `outliers_excluded` (Req 10.4) each get an example test.
 - **Req 2.8:** a destination computed to cross the ±180° meridian returns a longitude in
   `(-π, π]`.
-- **Req 3.4:** the origin and a position `< 1e-3 m` away both project to `(0, 0)`.
+- **Req 3.4:** the origin and a position `1e-10 m` away both project to `(0, 0)`; a vector
+  shorter than `1e-9 m` unprojects to the origin and one of `2e-9 m` does not. Positions
+  `1e-6 m`, `5e-4 m` and `9e-4 m` away do not collapse and do not fail with
+  `coincident_positions`; each round-trips within `1e-4 m` and has a vector length within
+  `1e-6 m` of its distance. The shrunk counterexample of the first P-3.5 run (a position about
+  `1e-6 m` from the origin, which the old `1e-3 m` collapse sent to `(0, 0)`) is kept as an
+  example.
 - **Wire format versioning:** an example `serialiseBearing`→`parseBearing` pair and an
   example of each parse-failure path.
 - **Circular ellipse (D12):** a covariance with `h ≤ 1e-12 · λ1` (axes equal to within

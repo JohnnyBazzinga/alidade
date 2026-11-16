@@ -106,19 +106,19 @@ Package: `skeleton/core` (`@alidade/core`). Source of truth: `requirements.md` a
   - Run `pnpm --filter @alidade/core test`, `pnpm typecheck` and `pnpm lint`. Report any
     failing property with the code / property / requirement classification before going on.
 
-- [ ] 5. Spherical Earth primitives
-  - [ ] 5.1 Implement `src/position.ts`
+- [x] 5. Spherical Earth primitives
+  - [x] 5.1 Implement `src/position.ts`
     - `Position`, `isSupportedPosition` (finite, `|latRad| ≤ 89°`, `lonRad ∈ (-π, π]`),
       `wrapToLonRange`, `greatCircleDistanceM` (haversine), `initialAzimuthRad`,
       `destinationPosition`. `unsupported_position` for any unsupported input;
       `coincident_positions` when two positions are under `1e-3 m` apart. Clamp `asin`
       arguments only for excess under `1e-12`; a larger excess is a failure, not a clamp.
     - _Requirements: 2.1, 2.2, 2.3, 2.8, 2.9, 2.10_
-  - [ ] 5.2 Generator for positions
+  - [x] 5.2 Generator for positions
     - Add `supportedPosition` (`latRad` within `±89°`, `lonRad ∈ (-π, π]`; excludes
       positions within 1° of a pole) to `generators.ts`.
     - _Requirements: 2.4, 2.5, 2.6, 2.7, 3.3, 3.5_
-  - [ ] 5.3 Example tests in `src/position.test.ts`
+  - [x] 5.3 Example tests in `src/position.test.ts`
     - Published or hand-derivable values: one degree of latitude along a meridian is
       `R·π/180`; a quarter of the equator is `R·π/2`; known azimuths (due east along the
       equator is `π/2`). Destination crossing `±180°` returns a longitude in `(-π, π]`
@@ -128,46 +128,53 @@ Package: `skeleton/core` (`@alidade/core`). Source of truth: `requirements.md` a
       itself is zero. Cover the pole-adjacent and antimeridian destinations that
       P-2.4 and P-2.5 exclude through their generators.
     - _Requirements: 2.1, 2.2, 2.3, 2.6, 2.8, 2.9, 2.10_
-  - [ ] 5.4 Property P-2.4: destination distance round trip
+  - [x] 5.4 Property P-2.4: destination distance round trip
     - For Supported `A`, azimuth `θ`, `d ∈ [10 m, 10 000 km]` whose destination `B` is
       Supported: the distance from `A` to `B` equals `d` within `1e-4 m`.
     - _Requirements: 2.4_
-  - [ ] 5.5 Property P-2.5: destination azimuth round trip
+  - [x] 5.5 Property P-2.5: destination azimuth round trip
     - For `d ∈ [100 m, 10 000 km]` with Supported `B`: the initial azimuth from `A` to `B`
       equals `θ` within `1e-9` rad as a wrapped difference.
     - _Requirements: 2.5_
-  - [ ] 5.6 Property P-2.6: distance is symmetric and zero on identity
+  - [x] 5.6 Property P-2.6: distance is symmetric and zero on identity
     - Symmetric within `1e-6 m`; zero when both arguments are equal.
     - _Requirements: 2.6_
-  - [ ] 5.7 Property P-2.7: triangle inequality
+  - [x] 5.7 Property P-2.7: triangle inequality
     - `d(A, C) ≤ d(A, B) + d(B, C) + 1e-3 m` for Supported `A`, `B`, `C`.
     - _Requirements: 2.7_
 
-- [ ] 6. Local plane projection
-  - [ ] 6.1 Implement `src/local-plane.ts`
+- [x] 6. Local plane projection
+  - [x] 6.1 Implement `src/local-plane.ts`
     - `projectToLocalPlane` (azimuthal equidistant: `east = d·sin θ`, `north = d·cos θ`;
-      `(0, 0)` for positions within `1e-3 m` of the origin) and `unprojectToLocalPlane`
-      (returns the origin for vectors shorter than `1e-3 m`; otherwise
-      `destinationPosition`). Unsupported input gives `unsupported_position`; the
-      unproject result is checked to be Supported (D15).
+      `(0, 0)` for positions within `1e-9 m` of the origin, constant `LOCAL_PLANE_COLLAPSE_M`,
+      separate from `COINCIDENT_DISTANCE_M`; between `1e-9 m` and `1e-3 m` it uses the
+      internal unchecked azimuth and does not fail with `coincident_positions`) and
+      `unprojectToLocalPlane` (returns the origin for vectors shorter than `1e-9 m`; otherwise
+      `destinationPosition`). Unsupported input gives `unsupported_position`; the unproject
+      result is checked to be Supported (D15). The `1e-3 m` thresholds of D15 and D16 are
+      unchanged.
     - _Requirements: 3.1, 3.2, 3.4_
-  - [ ] 6.2 Example tests in `src/local-plane.test.ts`
-    - Origin and a position `< 1e-3 m` away both project to `(0, 0)` (Req 3.4); a point
-      `1 km` due east of an equatorial origin projects to `(1000, ~0)`; due north to
+  - [x] 6.2 Example tests in `src/local-plane.test.ts`
+    - Origin and a position `1e-10 m` away both project to `(0, 0)` (Req 3.4); positions
+      `1e-6 m` and `5e-4 m` away do not fail, round-trip within `1e-4 m` and have a vector
+      length within `1e-6 m` of the distance; the P-3.5 counterexample is kept as an example;
+      a vector shorter than `1e-9 m` unprojects to the origin and one of `2e-9 m` does not; a
+      point `1 km` due east of an equatorial origin projects to `(1000, ~0)`; due north to
       `(~0, 1000)`; unprojecting a vector whose result is beyond `89°` gives
       `unsupported_position`.
     - _Requirements: 3.1, 3.2, 3.4_
-  - [ ] 6.3 Property P-3.3: projection round trip
-    - For Supported origin and position within `1000 km`: project then unproject returns a
+  - [x] 6.3 Property P-3.3: projection round trip
+    - For Supported origin and position within `1000 km`, with the distance from the origin
+      drawn log-uniformly from `1e-10 m` to `1000 km`: project then unproject returns a
       position within `1e-4 m` of the original.
     - _Requirements: 3.3_
-  - [ ] 6.4 Property P-3.5: projection preserves distance from the origin
+  - [x] 6.4 Property P-3.5: projection preserves distance from the origin
     - The Euclidean length of the projected vector equals the great-circle distance within
-      `1e-6 m`, for positions within `1000 km`.
+      `1e-6 m`, for positions within `1000 km`, with the same log-uniform distance draw.
     - _Requirements: 3.5_
 
-- [ ] 7. Bearing observation and wire format
-  - [ ] 7.1 Implement `src/observation.ts`
+- [x] 7. Bearing observation and wire format
+  - [x] 7.1 Implement `src/observation.ts`
     - `Bearing` type; `validateBearing` (checks in the order of §7.3; the failure carries
       the observation `id` and the offending `field`); `serialiseBearing` (`v: 1`,
       `kind: "bearing"`, `Deg` suffixes, `timeUtcMs`; returns a `Result` and validates first,
@@ -175,7 +182,7 @@ Package: `skeleton/core` (`@alidade/core`). Source of truth: `requirements.md` a
       missing field gives `invalid_observation` naming the field; unknown `v` or `kind`
       gives `unsupported_format`; then the same validation). No path throws.
     - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.7, 4.8, 9.9_
-  - [ ] 7.2 Example tests in `src/observation.test.ts`
+  - [x] 7.2 Example tests in `src/observation.test.ts`
     - Each validation rule violated one at a time (empty id, non-finite number, observer
       beyond `89°`, azimuth outside `[0, 2π)`, sigma below `0.01°` and above `45°`,
       accuracy negative and above `10 000 m`), asserting reason, field and id. Exact wire
@@ -184,14 +191,14 @@ Package: `skeleton/core` (`@alidade/core`). Source of truth: `requirements.md` a
       missing field, with no throw. `serialiseBearing` returns `invalid_observation` naming
       the field for a bearing with a `NaN` azimuth (D17).
     - _Requirements: 4.2, 4.3, 4.4, 4.5, 4.7, 4.8, 9.9_
-  - [ ] 7.3 Generator and property P-4.6: wire round trip
+  - [x] 7.3 Generator and property P-4.6: wire round trip
     - Add `validBearing` to `generators.ts` (non-empty id, Supported observer, accuracy in
       `[0, 10 000]`, finite `timeUtcMs`, azimuth in `[0, 2π)`, sigma in `[0.01°, 45°]`).
       Serialise then parse succeeds; angles equal within `1e-12` rad; every other field is
       identical.
     - _Requirements: 4.6_
 
-- [ ] 8. Checkpoint: foundations
+- [x] 8. Checkpoint: foundations
   - Run `pnpm --filter @alidade/core test`, `pnpm typecheck` and `pnpm lint`. Report any
     failing property with the code / property / requirement classification.
 
