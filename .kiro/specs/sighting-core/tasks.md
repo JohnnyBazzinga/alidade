@@ -371,6 +371,8 @@ Package: `skeleton/core` (`@alidade/core`). Source of truth: `requirements.md` a
       stub returning a `NaN` residual, an infinite partial or an effective sigma of `0`
       gives `invalid_number`); the three-observer
       centroid case (target at the origin) returns a Fix within `0.01 m`.
+      Req 7.1: a stub whose sigma depends on the candidate, whose fix (about 189 m) differs by
+      39 m from the one that sigmas frozen at their first-iteration values would give.
     - _Requirements: 7.2, 7.3, 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.8, 9.9, 9.10, 9.11, 10.4, 10.6_
   - [x] 12.8 Property P-7.4: noise-free recovery
     - For `solvableSet`, `solve` succeeds and the Fix is within `0.01 m` of the true
@@ -427,7 +429,7 @@ Package: `skeleton/core` (`@alidade/core`). Source of truth: `requirements.md` a
       `excludedIds` is exactly the wrong observation's id.
     - _Requirements: 10.5_
 
-- [ ] 13. Statistical and performance tests
+- [x] 13. Statistical and performance tests
   - [x] 13.1 Calibration test in `src/calibration.test.ts`
     - 1000 trials from a fixed seed passed as an argument: 3 observers `1–20 km` from the
       target, pairwise crossing angles `≥ 30°`, exact observer positions, Gaussian azimuth
@@ -435,15 +437,11 @@ Package: `skeleton/core` (`@alidade/core`). Source of truth: `requirements.md` a
       contains the target in at least 90% and at most 99% of trials. Run the same test
       twice to show it is deterministic.
     - _Requirements: 8.8, 8.3_
-  - [ ] 13.2 Performance test in `src/performance.test.ts`
-    - Solve 200 valid bearings on a well-conditioned target and assert a wall-clock time
-      under `50 ms` (the clock is read by the test only, never by `core`). Warm up once
-      before timing.
-    - DECISION NEEDED: implemented exactly as written, and the solver meets the bound in steady
-      state (median about 11 ms here, about 3 ms on the reference laptop), but on this shared
-      machine (load average about 4.6 on 8 cores) the single timed solve sometimes stalls to
-      70 to 143 ms, so the test fails in about 1 run in 5. The first solve in a fresh process
-      takes 54 to 69 ms. See the task 16 report.
+  - [x] 13.2 Performance test in `src/performance.test.ts`
+    - Solve 200 valid bearings on a well-conditioned target, warm up once, then time five
+      solves and assert that the median is under `50 ms` (the clock is read by the test only,
+      never by `core`). The test comment says why a single measurement is not used: on a
+      shared, loaded machine one solve was seen to stall to 70–143 ms in about 1 run in 5.
     - _Requirements: 7.10_
 
 - [x] 14. Hostile input
@@ -477,11 +475,11 @@ Package: `skeleton/core` (`@alidade/core`). Source of truth: `requirements.md` a
       (`Date`, `performance`), no randomness (`Math.random`, `crypto`), no I/O or
       environment (`fs`, `process`, `fetch`, `window`, `document`, `globalThis` access to
       them), and no import from outside `skeleton/core`. Also assert `package.json` has no
-      runtime dependencies. Include a negative check that the scanner flags a deliberately
+      runtime dependencies, and that its exports map exposes only `"."` (Req 11.3). Include a negative check that the scanner flags a deliberately
       bad sample string, so the test cannot pass by matching nothing.
     - `any` and `!` are not scanned here; the ESLint rules from task 1.1 enforce them. Run
       `pnpm lint` in this task and confirm it passes on `skeleton/core`.
-    - _Requirements: 11.1, 11.2, 11.5_
+    - _Requirements: 11.1, 11.2, 11.3, 11.5_
   - [x] 15.3 Dependency-direction check
     - Verify that `solver.ts` and `measurement-model.ts` import nothing from
       `bearing-model.ts` or `observation.ts`, as part of the purity test.

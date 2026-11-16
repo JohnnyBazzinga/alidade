@@ -447,6 +447,54 @@ describe('solve: the solve loop (step 6)', () => {
   });
 });
 
+describe('solve: Effective sigmas are re-evaluated at every iteration (Req 7.1)', () => {
+  // Two east readings that disagree: 'a' says 100 m and 'b' says 200 m, both with partial
+  // 1e-3 rad/m. b's sigma is a fixed 0.01 rad; a's grows with the candidate's east coordinate,
+  // 0.01 + 1e-4 · east rad. At the start (east 0) both weigh the same, so sigmas frozen at their
+  // first-iteration values would give the plain mean, 150 m. Re-evaluated at every iteration,
+  // the weights follow the estimate, and the fix is the point e where
+  // e = (w_a(e) · 100 + w_b · 200) / (w_a(e) + w_b), with w = 1/σ², about 189 m.
+  const sigmaOfA = (eastM: number): number => 0.01 + 1e-4 * Math.abs(eastM);
+  const observations = [
+    stubObservation('a', 1e-3, 0, { eastM: 100, northM: 0 }),
+    stubObservation('b', 1e-3, 0, { eastM: 200, northM: 0 }),
+    stubObservation('n', 0, 1e-3, { eastM: 0, northM: 0 }),
+  ];
+
+  /** The fixed point, found here by bisection, independently of the solver. */
+  function fixedPointEastM(): number {
+    const excess = (eastM: number): number => {
+      const weightA = 1 / sigmaOfA(eastM) ** 2;
+      const weightB = 1 / 0.01 ** 2;
+      return (weightA * 100 + weightB * 200) / (weightA + weightB) - eastM;
+    };
+    let low = 100;
+    let high = 200;
+    for (let step = 0; step < 200; step += 1) {
+      const middle = (low + high) / 2;
+      if (excess(middle) > 0) low = middle;
+      else high = middle;
+    }
+    return (low + high) / 2;
+  }
+
+  it('fixes the point where the weights at the fix balance, not the start-weighted mean', () => {
+    const model = createStubModel({
+      overrideEvaluation: (observation, _candidate, normal, point) =>
+        observation.id === 'a' ? { ...normal, effectiveSigmaRad: sigmaOfA(point.eastM) } : normal,
+    });
+    const expectedEastM = fixedPointEastM();
+    expect(expectedEastM).toBeGreaterThan(185);
+    expect(expectedEastM).toBeLessThan(195);
+
+    const fix = unwrapOk(solve(model, observations));
+    const fixEastM = unwrapOk(projectToLocalPlane(stubOrigin, fix.position)).eastM;
+    expect(Math.abs(fixEastM - expectedEastM)).toBeLessThan(0.01);
+    // Far from the 150 m that sigmas frozen at the start would give.
+    expect(Math.abs(fixEastM - 150)).toBeGreaterThan(30);
+  });
+});
+
 describe('solve: outlier rejection (step 7) and the post-exclusion geometry (step 8)', () => {
   // Five observations of the east axis read 100 m; the sixth, 'x', reads 300 m. With every sigma
   // 0.01 rad the least-squares east is 133.3 m, where x's normalised residual is -16.7 and the

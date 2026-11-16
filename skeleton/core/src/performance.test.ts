@@ -37,23 +37,45 @@ function twoHundredBearings(seed: number): {
   return { target, observations };
 }
 
+/** The median of a list of numbers. */
+function median(values: readonly number[]): number {
+  const sorted = [...values].sort((left, right) => left - right);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 1
+    ? (sorted[middle] as number)
+    : ((sorted[middle - 1] as number) + (sorted[middle] as number)) / 2;
+}
+
 describe('performance (Req 7.10)', () => {
-  it('solves 200 observations in under 50 ms', () => {
+  // Why the median of five solves, and not one measurement: a single wall-clock reading also
+  // times whatever else the machine is doing. On a shared, loaded machine one solve that takes
+  // about 11 ms in steady state was seen to stall to 70 to 143 ms in about 1 run in 5, which
+  // says nothing about the solver. The median of five ignores up to two such stalls, while still
+  // failing if the solver itself is slower than the 50 ms bound of Req 7.10, which stays as it is.
+  it('solves 200 observations in under 50 ms (median of five solves after a warm-up)', () => {
     const model = new BearingModel();
     const { target, observations } = twoHundredBearings(7);
     // Warm up once, so that the timing does not include compiling the code.
     unwrapOk(solve(model, observations));
 
     // The clock is read here, in the test, never by @alidade/core (Req 11.2).
-    const startedMs = Date.now();
-    const result = solve(model, observations);
-    const elapsedMs = Date.now() - startedMs;
+    const elapsedMs: number[] = [];
+    for (let run = 0; run < 5; run += 1) {
+      const startedMs = Date.now();
+      const result = solve(model, observations);
+      elapsedMs.push(Date.now() - startedMs);
 
-    const fix = unwrapOk(result);
-    // A sanity check that the timed solve did the real work: 200 bearings with 2° of noise
-    // put the fix within a few metres of the target.
-    expect(unwrapOk(greatCircleDistanceM(fix.position, target))).toBeLessThan(50);
-    expect(fix.residuals).toHaveLength(200);
-    expect(elapsedMs).toBeLessThan(50);
+      const fix = unwrapOk(result);
+      // A sanity check that each timed solve did the real work: 200 bearings with 2° of noise
+      // put the fix within a few metres of the target.
+      expect(unwrapOk(greatCircleDistanceM(fix.position, target))).toBeLessThan(50);
+      expect(fix.residuals).toHaveLength(200);
+    }
+    expect(median(elapsedMs)).toBeLessThan(50);
+  });
+
+  it('takes the median of five as the middle value', () => {
+    expect(median([5, 1, 143, 2, 3])).toBe(3);
+    expect(median([70, 126, 11, 12, 13])).toBe(13);
   });
 });

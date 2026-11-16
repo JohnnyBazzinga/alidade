@@ -78,7 +78,11 @@ function expectTotal(call: () => unknown): void {
 
 const model = new core.BearingModel();
 
-describe('P-9.8: every exported function is total', () => {
+// The `solve` property makes 1500 solves (500 cases, three solves each). It takes under 2 s
+// on an idle machine, but Vitest's default budget of 5 s per test was exceeded once on a shared
+// machine at a load average of 10 on 8 cores. The budget is a harness setting, not a tolerance
+// of the requirement: no case count or check changes.
+describe('P-9.8: every exported function is total', { timeout: 60_000 }, () => {
   it('covers every function the package exports', () => {
     const exportedValues = Object.keys(core).sort();
     expect(exportedValues).toStrictEqual(

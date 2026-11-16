@@ -70,11 +70,15 @@ export interface StubModelOptions {
    * evaluate normally.
    */
   readonly failAt?: (candidate: LocalPoint) => Failure | undefined;
-  /** Replaces the evaluation with arbitrary, possibly hostile, numbers. */
+  /**
+   * Replaces the evaluation with arbitrary, possibly hostile, numbers. `point` is where the
+   * candidate lies on the reference plane, whatever origin it was given on.
+   */
   readonly overrideEvaluation?: (
     observation: StubObservation,
     candidate: LocalPoint,
     normal: Evaluation,
+    point: LocalPoint,
   ) => Evaluation;
 }
 
@@ -217,7 +221,9 @@ export function createStubModel(options: StubModelOptions = {}): StubModel {
             observation.partialNorthRadPerM * northFromNorth) *
           reportedPartialScale,
       };
-      return ok(options.overrideEvaluation?.(observation, candidate, normal) ?? normal);
+      return ok(
+        options.overrideEvaluation?.(observation, candidate, normal, point.value) ?? normal,
+      );
     },
     postSolveCheck(fix, origin, observations) {
       calls.postSolveCheck += 1;

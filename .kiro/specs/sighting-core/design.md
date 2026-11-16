@@ -959,9 +959,13 @@ deterministic.
 
 **Performance (Req 7.10):**
 
-- A test builds 200 valid bearings on a well-conditioned target and asserts `solve`
-  completes within `50 ms` on the runner. It does not assert correctness (the property tests
-  do that); it asserts wall-clock only. Runs once, no watch mode.
+- A test builds 200 valid bearings around a well-conditioned target, with 2° of seeded noise,
+  solves once to warm up, then times five solves and asserts that the median is under `50 ms`.
+  The bound is the requirement's. A single measurement is not used because it also times
+  whatever else the machine is doing: on a shared, loaded machine a solve of about 11 ms in
+  steady state was seen to stall to 70–143 ms in about one run in five. The median of five
+  ignores up to two such stalls and still fails if the solver itself is too slow. Each timed
+  solve is also checked to land within 50 m of the target. Runs once, no watch mode.
 
 **Example tests (testing.md: published values, fixtures, each failure reason):**
 
@@ -1054,6 +1058,14 @@ deterministic.
 - **Start estimate (D18):** two observers at `57.6°S`, `49 km` apart, which failed with
   `singular_geometry` when the lines used the raw azimuths, now start within `10 m` and solve
   within `0.01 m`.
+- **Effective sigma re-evaluated at every iteration (Req 7.1):** a stub with two disagreeing
+  east readings (100 m and 200 m), one of them with a sigma that grows with the candidate's
+  east coordinate. Re-evaluated each iteration, the fix is the fixed point where the weights at
+  the fix balance (about `189 m`, found in the test by bisection, to `0.01 m`); sigmas frozen at
+  their first-iteration values would give the plain mean, `150 m`. Freezing them in the solve
+  loop fails this example by `39.3 m`.
+- **Exports map (Req 11.3):** `purity.test.ts` asserts that `package.json` exposes only `"."`
+  (`./src/index.ts`), so no deep import of a module resolves; adding an entry fails it.
 - **Ellipse azimuth at the Fix (D19):** a target at `70°N` and two observers `100 km` from it at
   `60°` and `120°`, symmetric about the great circle due east of the target, whose centroid is
   `87 km` east. The major axis points due east to `1e-9 rad`; on the solve origin's plane it

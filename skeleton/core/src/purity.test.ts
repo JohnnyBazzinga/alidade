@@ -160,6 +160,14 @@ describe('purity (Req 11.1, 11.2)', () => {
     ).toStrictEqual([]);
   });
 
+  it('exposes only the package root in its exports map, so no deep import resolves (Req 11.3)', () => {
+    const [packageText] = Object.values(PACKAGE_JSON);
+    const manifest = JSON.parse(packageText as string) as { exports?: unknown; main?: unknown };
+    expect(manifest.exports).toStrictEqual({ '.': './src/index.ts' });
+    expect(Object.keys(manifest.exports as Record<string, unknown>)).toStrictEqual(['.']);
+    expect(manifest.main).toBeUndefined();
+  });
+
   it('has no runtime dependencies (Req 11.1)', () => {
     const [packageText] = Object.values(PACKAGE_JSON);
     const manifest = JSON.parse(packageText as string) as {
