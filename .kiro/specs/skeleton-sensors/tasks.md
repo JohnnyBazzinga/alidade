@@ -36,12 +36,15 @@ Package: `skeleton/sensors` (`@alidade/sensors`). Source of truth: `requirements
   properties of that layer (§8: 100 000 cases, or 10 000 for the properties listed there), and
   reports, for each property, the number of cases run, the number of discards and the worst
   error measured against its tolerance. It then runs `pnpm test`, `pnpm typecheck` and
-  `pnpm lint` from the root, and stops for review.
+  `pnpm lint` from the root.
+- **Stops for review** at checkpoints 6, 10, 13 and 18, and at any failing property. The
+  checkpoints 4 and 16 do not stop: their `test:deep` reports are carried into the reports of
+  checkpoints 6 and 18.
 
 ## Tasks
 
-- [ ] 1. Scaffold the sensors package
-  - [ ] 1.1 Create `skeleton/sensors` (`@alidade/sensors`)
+- [x] 1. Scaffold the sensors package
+  - [x] 1.1 Create `skeleton/sensors` (`@alidade/sensors`)
     - `package.json`: `exports` only `"."` (`./src/index.ts`); dependencies `@alidade/core`
       (`workspace:*`) and `magvar` `2.2.0` exactly; dev dependencies Vitest, `fast-check` and
       TypeScript at the versions Core pins. Scripts `test` (`vitest run`), `test:deep`
@@ -50,7 +53,7 @@ Package: `skeleton/sensors` (`@alidade/sensors`). Source of truth: `requirements
       `browser-environment.ts`, §10). An empty `src/index.ts`.
     - Extend the root ESLint config so that `no-explicit-any` applies to `skeleton/sensors/**`.
     - _Requirements: 1.1, 1.6, 1.8_
-  - [ ] 1.2 Property-run configuration and error tracking
+  - [x] 1.2 Property-run configuration and error tracking
     - `vitest.config.ts` provides `propertyRuns = 200`; `vitest.deep.config.ts` provides
       `propertyRuns = 100 000`, includes only `*.property.test.ts`, and runs without file
       parallelism. `src/test-support/fast-check-setup.ts` reads the value with `inject` and
@@ -60,7 +63,7 @@ Package: `skeleton/sensors` (`@alidade/sensors`). Source of truth: `requirements
       for the checkpoint reports.
     - Example test: the default run gives 200 runs; the cap gives `min(runs, 10 000)`.
     - _Requirements: 13.1_
-  - [ ] 1.3 WMM2025 fixture
+  - [x] 1.3 WMM2025 fixture
     - Copy `WMM2025_TEST_VALUES.txt` and `WMM2025COF/WMM2025_TestValues.txt` from NOAA NCEI
       into `fixtures/wmm2025/` byte for byte, with `SOURCE.md` giving their URLs, the retrieval
       date and the SHA-256 values of §3.
@@ -69,7 +72,7 @@ Package: `skeleton/sensors` (`@alidade/sensors`). Source of truth: `requirements
     - Example test: both files hash to the recorded SHA-256 values; the parsers return 12 and
       100 rows; the first row of each matches the published text.
     - _Requirements: 6.10, 13.4_
-  - [ ] 1.4 Seeded random source
+  - [x] 1.4 Seeded random source
     - `src/simulator/seeded-random.ts`: `sfc32` from a 32-bit seed, uniform doubles in `[0, 1)`,
       and normal draws by Box–Muller (D17). Source code, not test code: the Simulator uses it.
     - Example test: the same seed gives the same sequence bit for bit; different seeds differ;
@@ -77,22 +80,22 @@ Package: `skeleton/sensors` (`@alidade/sensors`). Source of truth: `requirements
       `0.01` of `0` and `1`.
     - _Requirements: 12.4_
 
-- [ ] 2. Results, defaults and parameters
-  - [ ] 2.1 Implement `src/sensor-result.ts`
+- [x] 2. Results, defaults and parameters
+  - [x] 2.1 Implement `src/sensor-result.ts`
     - `SensorReason` (every Core `Reason` plus the 19 of Req 11.1), `SensorFailure` with
       optional `field`, `id` and `reportedAccuracyM`, `SensorResult<T>`; internal `ok` and
       `err` (D2). Export the types, with the closed set documented.
     - Example test: a Core `Failure` is assignable to `SensorFailure` (type-level test) and
       passes through a function returning `SensorResult` unchanged.
     - _Requirements: 11.1_
-  - [ ] 2.2 Implement `src/defaults.ts`
+  - [x] 2.2 Implement `src/defaults.ts`
     - The twelve constants of Req 10.1 and `UNCALIBRATED_ALTITUDE` (§6 table), each
       documented with its source; `MIN_SAMPLE_COUNT` states the `10 Hz` assumption;
       `FRAME_RESET_RETENTION_MS` states the rule of Req 14.3.
     - Example test: each constant has its stated value, and
       `FRAME_RESET_RETENTION_MS ≥ YAW_REFERENCE_MAX_AGE_MS + SIGHTING_WINDOW_LENGTH_MS`.
     - _Requirements: 9.2, 10.1, 10.4, 14.3_
-  - [ ] 2.3 Implement `src/parameters.ts`
+  - [x] 2.3 Implement `src/parameters.ts`
     - Validators for durations, the Sighting window length (positive), sample counts,
       1-sigmas, confidence scales and limits in metres, each returning `invalid_number` naming
       the parameter (Req 10.3).
@@ -100,8 +103,8 @@ Package: `skeleton/sensors` (`@alidade/sensors`). Source of truth: `requirements
       needed, each rejected with the right `field`; the boundary values accepted.
     - _Requirements: 10.2, 10.3_
 
-- [ ] 3. Rotation, Camera axis and Off-axis rays
-  - [ ] 3.1 Implement `src/rotation.ts`
+- [x] 3. Rotation, Camera axis and Off-axis rays
+  - [x] 3.1 Implement `src/rotation.ts`
     - `DeviceRotation`, `EnuDirection`, `cameraAxis` (closed formula of Req 2.1),
       `rotationMatrix` (product of the elementary matrices, internal),
       `directionAzimuthRad` (`axis_vertical` below `1e-6`) and `directionApparentAltitudeRad`
@@ -110,11 +113,11 @@ Package: `skeleton/sensors` (`@alidade/sensors`). Source of truth: `requirements
     - Example test: the Camera axis of a rotation does not change with the sample's Screen
       angle (the axis functions take no Screen angle; Req 4.10).
     - _Requirements: 1.9, 2.1, 2.2, 2.3, 2.4, 2.6, 4.10_
-  - [ ] 3.2 Implement `src/ray.ts`
+  - [x] 3.2 Implement `src/ray.ts`
     - `RayOffset`, `offAxisRay` (`R · normalise(tan r, tan u, −1)`, offsets validated to
       `±80°`), `rayDirection` (§7.2).
     - _Requirements: 3.1, 3.2, 3.3_
-  - [ ] 3.3 Example tests in `src/rotation.test.ts` and `src/ray.test.ts`
+  - [x] 3.3 Example tests in `src/rotation.test.ts` and `src/ray.test.ts`
     - The gimbal-lock example of §9 (`beta = 90°`, `alpha` differing by `70°`, same azimuth);
       the known axes (north, west, face-up `axis_vertical` with altitude `−90°`); the ray
       examples at `(0°, 90°, 0°)`, including `80°` accepted and `80.0001°` and `NaN` rejected
@@ -122,7 +125,7 @@ Package: `skeleton/sensors` (`@alidade/sensors`). Source of truth: `requirements
       `90°`; `invalid_number` for each non-finite angle; a unit vector whose `up` exceeds `1`
       by more than `1e-12` rejected.
     - _Requirements: 2.2, 2.4, 2.6, 3.2, 3.3_
-  - [ ] 3.4 Test support: independent rotation and generators
+  - [x] 3.4 Test support: independent rotation and generators
     - `src/test-support/reference-rotation.ts`: the elementary-matrix product written
       separately from `rotation.ts` (D3). `src/test-support/angle-compare.ts`: wrapped-difference
       assertions that feed the error tracker.
@@ -132,36 +135,37 @@ Package: `skeleton/sensors` (`@alidade/sensors`). Source of truth: `requirements
       Measure and state the discard rate of `horizontalRotation`.
     - Example test: the generators reach their stated edge values (sampled with a fixed seed).
     - _Requirements: 2.7, 2.9, 2.10, 3.6_
-  - [ ] 3.5 Properties P-2.7 to P-2.10
+  - [x] 3.5 Properties P-2.7 to P-2.10
     - P-2.7 unit length within `1e-12`; P-2.8 agreement with `reference-rotation.ts` within
       `1e-12` per component; P-2.9 `alpha + δ` turns the azimuth by `−δ` within `1e-9`, altitude
       unchanged within `1e-12`; P-2.10 continuity bound `|Δα| + |Δβ| + |Δγ| + 1e-12`.
     - _Requirements: 2.7, 2.8, 2.9, 2.10_
-  - [ ] 3.6 Properties P-3.6 to P-3.9
+  - [x] 3.6 Properties P-3.6 to P-3.9
     - P-3.6 unit length; P-3.7 zero offset equals the closed-formula axis; P-3.8 the transpose
       gives back the offsets within `1e-9`; P-3.9 the angle to the axis is
       `atan(hypot(tan r, tan u))` within `1e-9`.
     - _Requirements: 3.6, 3.7, 3.8, 3.9_
 
-- [ ] 4. Checkpoint: geometry
+- [x] 4. Checkpoint: geometry
   - `test:deep` for P-2.7, P-2.8, P-2.9, P-2.10, P-3.6, P-3.7, P-3.8 and P-3.9 at 100 000
-    cases. Report counts, discards and worst errors; give the worst error near gimbal lock
-    (the log-scale draws) separately. Then the root checks. Stop for review.
+    cases. Record counts, discards and worst errors; give the worst error near gimbal lock
+    (the log-scale draws) separately. Then the root checks. Do not stop: the report goes into
+    checkpoint 6's.
 
-- [ ] 5. Samples, frames, windows and statistics
-  - [ ] 5.1 Implement `src/orientation-sample.ts`
+- [x] 5. Samples, frames, windows and statistics
+  - [x] 5.1 Implement `src/orientation-sample.ts`
     - `RawOrientationEvent`, `OrientationSample`, `orientationSampleFromEvent` (§7.3):
       `sensor_unavailable` for a `null` angle, `invalid_number` for a non-finite one, frame from
       the event alone, heading wrapped, accuracy kept with its sign, Screen angle wrapped or
       `null`, full rotation kept (Req 3.4).
     - Example tests: the sample-normalisation examples of §9.
     - _Requirements: 1.4, 1.7, 2.5, 2.6, 3.4, 4.3, 4.5, 4.9_
-  - [ ] 5.2 Implement `src/frame-reset.ts`
+  - [x] 5.2 Implement `src/frame-reset.ts`
     - `FrameResetCause`, `FrameResetEvent`, `invalidates(frame, cause)` (D9).
     - Example test: every cause invalidates a Relative frame; only `frame_change` invalidates an
       Absolute frame.
     - _Requirements: 4.7, 4.8, 5.17_
-  - [ ] 5.3 Implement `src/sighting-window.ts`
+  - [x] 5.3 Implement `src/sighting-window.ts`
     - `SightingWindow`, `selectWindow` (closed window, input order, `insufficient_samples`,
       `stale_samples`), `resetBetween` over a closed interval in either order (§7.4).
     - Example tests: samples at both window edges are included; one `1` ms outside each edge is
@@ -169,7 +173,7 @@ Package: `skeleton/sensors` (`@alidade/sensors`). Source of truth: `requirements
       with a `500` ms limit gives `stale_samples`, and `500` ms does not; `resetBetween` with
       `from > to`.
     - _Requirements: 8.1, 8.6, 8.7, 8.13_
-  - [ ] 5.4 Implement `src/circular-summary.ts`
+  - [x] 5.4 Implement `src/circular-summary.ts`
     - `summariseAzimuths` about the mean with `log1p` (D5), `undefined_mean` when
       `q ≥ 1 − 1e-9`; `summariseAltitudes` (arithmetic mean, standard deviation over `n`,
       D19); internal `rss`.
@@ -180,7 +184,7 @@ Package: `skeleton/sensors` (`@alidade/sensors`). Source of truth: `requirements
     - Statistical test: the wrapped-normal Spread of Req 8.16 at a fixed seed, within `5 %`
       of `1°`.
     - _Requirements: 8.1, 8.3, 8.14, 8.16, 9.1, 9.3_
-  - [ ] 5.5 Implement `src/simulator/direction-to-rotation.ts`
+  - [x] 5.5 Implement `src/simulator/direction-to-rotation.ts`
     - `rotationFromDirection(A, h, ρ)` with the extraction, gimbal-lock branch, `γ = π/2`
       identity and range rules of §7.12, and a helper that converts to degrees and re-ranges
       into the W3C ranges after rounding. Needed now: later generators build rotations with it.
@@ -188,14 +192,15 @@ Package: `skeleton/sensors` (`@alidade/sensors`). Source of truth: `requirements
       `0°`, not `360°`; a `γ` that would round to `90°` is mapped into the range.
     - Add the `cameraPose` generator of §8 (log-scale altitude and roll near gimbal lock).
     - _Requirements: 12.6_
-  - [ ] 5.6 Property P-12.6
+  - [x] 5.6 Property P-12.6
     - For `cameraPose`, the degree angles lie in the W3C ranges and give back the azimuth and
       altitude within `1e-9` through `cameraAxis` (not through `rotationMatrix`).
     - _Requirements: 12.6_
 
-- [ ] 6. Checkpoint: samples and statistics
+- [x] 6. Checkpoint: samples and statistics
   - `test:deep` for P-12.6 at 100 000 cases, with the worst errors of the log-scale draws
-    reported separately from the uniform ones. Then the root checks. Stop for review.
+    reported separately from the uniform ones, and include checkpoint 4's report. Then the root
+    checks. Stop for review.
 
 - [ ] 7. Yaw references
   - [ ] 7.1 Implement `src/yaw-reference.ts`
@@ -351,10 +356,14 @@ Package: `skeleton/sensors` (`@alidade/sensors`). Source of truth: `requirements
 
 - [ ] 14. Sensor source and browser Adapter
   - [ ] 14.1 Implement `src/sensor-source.ts` and `src/listener-set.ts`
-    - The `SensorSource`, `SensorSourceOptions` and `Unsubscribe` types (§6); `ListenerSet`
-      delivering over a snapshot with each call isolated by `try`/`catch` (D22).
-    - Example tests: a throwing listener among three; a listener that unsubscribes during
-      delivery; delivery order is registration order.
+    - The `SensorSource`, `SensorSourceOptions` (with the optional `onListenerError`) and
+      `Unsubscribe` types (§6); `ListenerSet` delivering over a snapshot with each call isolated
+      by `try`/`catch`, passing thrown values to the error callback and dropping what the
+      callback throws (D22).
+    - Example tests: a throwing listener among three; the error callback receives the thrown
+      value by identity; a throwing error callback is dropped and delivery continues; no
+      callback; a listener that unsubscribes during delivery; delivery order is registration
+      order.
     - _Requirements: 11.11_
   - [ ] 14.2 Implement `src/browser/browser-environment.ts`
     - `BrowserEnvironment` and `browserEnvironment()`, the only file that reads browser
@@ -370,8 +379,10 @@ Package: `skeleton/sensors` (`@alidade/sensors`). Source of truth: `requirements
     - `createBrowserSensorSource` per §7.11: permission only from
       `requestOrientationPermission()` (D14); frame choice by feature (D7); `frame_change`
       before a sample in a new frame; resets for `hidden`, `blur`, `pagehide` and `restart`;
-      the listening timeout with `permission_required` or `sensor_unavailable`; geolocation with
-      `enableHighAccuracy`, `maximumAge: 0` and the position timeout; starting twice per D21;
+      the listening and position timeouts measured by the Adapter, one deadline per start and one
+      timer per kind (D21), with `permission_required`, `sensor_unavailable` or
+      `position_timeout`; geolocation with `enableHighAccuracy` and `maximumAge: 0` and no
+      browser `timeout`; starting twice per D21;
       listeners through `ListenerSet`; `stop()` removes everything; every `env` call guarded.
     - _Requirements: 1.4, 1.5, 4.1, 4.2, 4.3, 4.5, 4.7, 4.8, 4.9, 7.1, 7.2, 7.6, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7, 11.9, 11.10, 11.11_
   - [ ] 14.5 Example tests in `src/browser/browser-sensor-source.test.ts`
@@ -380,8 +391,10 @@ Package: `skeleton/sensors` (`@alidade/sensors`). Source of truth: `requirements
       `permission_denied`, `permission_required`, `position_unavailable`, `position_timeout`),
       the frame choice, each reset cause, Clock time stamps, the geolocation options, `stop()`
       leaving zero listeners, watches and timers, starting twice (one of each listener and
-      timer, no reset, both promises settled; the watch cleared after a code-`1` error), and
-      throwing listeners for all three kinds.
+      timer, no reset, both promises settled; the watch cleared after a code-`1` error), the
+      position timeout with no browser callback, including a second `startPosition()` after a
+      timeout settling with `position_timeout` from its own deadline, and throwing listeners
+      for all three kinds, with and without `onListenerError` and with one that throws.
     - _Requirements: 4.2, 4.3, 4.7, 4.8, 7.6, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7, 11.9, 11.10, 11.11, 13.2, 13.3_
 
 - [ ] 15. Simulator source
@@ -407,12 +420,15 @@ Package: `skeleton/sensors` (`@alidade/sensors`). Source of truth: `requirements
       azimuth with no Declination; starting twice and throwing listeners. The seed check: three
       fixed seeds give three different sequences.
     - _Requirements: 4.7, 11.10, 11.11, 12.2, 12.3, 12.4_
-  - [ ] 15.4 Generator `simulatorScript` (with its `noiseFree` variant)
-    - As in §8.
+  - [ ] 15.4 Generators `simulatorScript` (with its `noiseFree` variant) and `compassCaptureScript`
+    - As in §8. `compassCaptureScript` places resets only before the Yaw reference window or
+      after the capture window, and holds the direction constant over the capture window.
     - _Requirements: 12.7, 12.8_
   - [ ] 15.5 Property P-12.7
-    - Compass reference then capture with the scripted Declination and a 1-sigma drawn from
-      `[0.26°, 2.72°]`: the scripted true azimuth within `1e-9`, and
+    - On `compassCaptureScript`: compass reference over `[Ty0, Ty1]` (the direction may move),
+      then capture over `[Tc0, Tc1]` (constant direction, no reset in `[Ty0, Tc1]`) with the
+      scripted Declination and a 1-sigma drawn from `[0.26°, 2.72°]`: the scripted true azimuth
+      within `1e-9`, and
       `azimuthSigmaRad = max(0.01°, rss(headingSigmaRad, drawn))` within `1e-12`.
     - _Requirements: 12.7_
   - [ ] 15.6 Property P-12.8
@@ -421,8 +437,8 @@ Package: `skeleton/sensors` (`@alidade/sensors`). Source of truth: `requirements
     - _Requirements: 12.4, 12.8_
 
 - [ ] 16. Checkpoint: sources
-  - `test:deep` for P-12.7 and P-12.8 at 10 000 cases. Report counts, discards and worst
-    errors. Then the root checks. Stop for review.
+  - `test:deep` for P-12.7 and P-12.8 at 10 000 cases. Record counts, discards and worst
+    errors. Then the root checks. Do not stop: the report goes into checkpoint 18's.
 
 - [ ] 17. Totality, purity and packaging
   - [ ] 17.1 Generator `hostileInput` and property P-11.8
@@ -449,7 +465,7 @@ Package: `skeleton/sensors` (`@alidade/sensors`). Source of truth: `requirements
 
 - [ ] 18. Final checkpoint
   - Run `test:deep` for every property of §8 at its stated case count, and report counts,
-    discards and worst errors for each. Run `pnpm test`, `pnpm typecheck` and `pnpm lint` from
+    discards and worst errors for each, together with checkpoint 16's report. Run `pnpm test`, `pnpm typecheck` and `pnpm lint` from
     the repo root. Confirm that every property P-2.7 through P-14.7 in `design.md` §8 has a
     test, that each names the property and its requirements in a comment, and that each runs at
     least 200 cases in `pnpm test`. Give a table of every requirement criterion and the tests

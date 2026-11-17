@@ -1,0 +1,70 @@
+// Summaries of the angles in a Sighting window (design §7.5, D5, D19).
+
+import { circularMean, wrapPi } from '@alidade/core';
+import { err, ok, type SensorResult } from './sensor-result';
+
+/** Below this mean resultant length (`q = 1 - R̄` at or above `1 - 1e-9`) the mean is undefined. */
+const MIN_MEAN_RESULTANT_LENGTH = 1e-9;
+
+export interface AzimuthSummary {
+  /** The circular mean, in [0, 2π). */
+  readonly meanRad: number;
+  /** The circular standard deviation `sqrt(-2 ln R̄)`. */
+  readonly spreadRad: number;
+}
+
+/**
+ * The circular mean and the Spread of a set of angles (D5).
+ *
+ * The direct formula, `R̄ = |Σ e^{iθ}| / n` then `sqrt(-2 ln R̄)`, cancels catastrophically near
+ * `R̄ = 1`: for identical angles it can return about `1e-8` instead of `0`. Here the mean `μ` is
+ * found first, then `q = 1 - R̄ = (2/n) Σ sin²(wrapPi(θᵢ - μ)/2)` without cancellation, and the
+ * Spread is `sqrt(-2 · log1p(-q))`. The two are equal in exact arithmetic, because
+ * `R̄ = (1/n) Σ cos(θᵢ - μ)` when `μ` is the direction of the resultant.
+ *
+ * Fails with `invalid_number` for a non-finite angle, `insufficient_samples` for an empty set,
+ * and Core's `undefined_mean` when the mean is undefined.
+ */
+export function summariseAzimuths(anglesRad: readonly number[]): SensorResult<AzimuthSummary> {
+  if (anglesRad.length === 0) return err('insufficient_samples');
+  const mean = circularMean(anglesRad);
+  if (!mean.ok) return mean;
+  let sumSquares = 0;
+  for (const angleRad of anglesRad) {
+    const difference = wrapPi(angleRad - mean.value);
+    if (!difference.ok) return difference;
+    const half = Math.sin(difference.value / 2);
+    sumSquares += half * half;
+  }
+  const q = (2 * sumSquares) / anglesRad.length;
+  if (q >= 1 - MIN_MEAN_RESULTANT_LENGTH) return err('undefined_mean');
+  return ok({ meanRad: mean.value, spreadRad: Math.sqrt(-2 * Math.log1p(-q)) });
+}
+
+export interface AltitudeSummary {
+  readonly meanRad: number;
+  /** `sqrt((1/n) Σ (hᵢ - mean)²)`, computed about the mean (D19). */
+  readonly stdDevRad: number;
+}
+
+/**
+ * The arithmetic mean and the standard deviation of a set of altitudes (Req 9.1, D19). Altitudes
+ * lie in [-π/2, π/2] and do not wrap, so the arithmetic mean is the right one.
+ */
+export function summariseAltitudes(altitudesRad: readonly number[]): SensorResult<AltitudeSummary> {
+  if (altitudesRad.length === 0) return err('insufficient_samples');
+  let sum = 0;
+  for (const altitudeRad of altitudesRad) {
+    if (!Number.isFinite(altitudeRad)) return err('invalid_number');
+    sum += altitudeRad;
+  }
+  const meanRad = sum / altitudesRad.length;
+  let sumSquares = 0;
+  for (const altitudeRad of altitudesRad) sumSquares += (altitudeRad - meanRad) ** 2;
+  return ok({ meanRad, stdDevRad: Math.sqrt(sumSquares / altitudesRad.length) });
+}
+
+/** Combines independent 1-sigmas as the square root of the sum of squares. */
+export function rss(...sigmas: readonly number[]): number {
+  return Math.hypot(...sigmas);
+}

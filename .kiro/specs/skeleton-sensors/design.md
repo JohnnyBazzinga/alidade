@@ -225,8 +225,9 @@ the `H` that `magvar` returns for the same position and time.
   timeUtcMs, confidenceScale)` stores both `reportedAccuracyM` and
   `sigmaM = reportedAccuracyM / confidenceScale` (Req 7.3). The Sensor source receives the scale
   when it is created. A fix therefore never exists without its 1-sigma. The Adapter calls
-  `watchPosition` with `enableHighAccuracy: true`, `maximumAge: 0` (so a cached reading cannot
-  arrive with a receipt time that hides its age) and `timeout` set to the position timeout.
+  `watchPosition` with `enableHighAccuracy: true` and `maximumAge: 0` (so a cached reading cannot
+  arrive with a receipt time that hides its age), and no `timeout`: the Adapter measures the
+  position timeout itself (D21, Req 7.6).
 
 - **D14 — Permission flow.** The Sensor source's `requestOrientationPermission()` is the only
   code that calls `DeviceOrientationEvent.requestPermission` (Req 11.2), and it does so once per
@@ -268,27 +269,40 @@ the `H` that `magvar` returns for the same position and time.
   environment. A callback from the environment that throws (a fake, or a browser bug) is
   caught at the Adapter boundary and reported as `sensor_unavailable`.
 
-- **D21 — Starting twice joins the start in progress (Req 11.10).** Each kind (orientation,
-  position) has a state: stopped, or started. A start on a started kind adds nothing: no
-  listener, no watch, no Frame reset. Its promise joins the list of waiting starts, which all
-  settle together with the next valid sample (or fix) or with the timeout's failure.
-  - *Orientation.* There is at most one listening timer. If it is running, the new start waits
-    on it. If it already fired or was cleared (the first start settled), the new start arms it
-    again. The timer then exists once, as before, so no second timer is added.
-  - *Position.* There is no Adapter timer; the watch's own `timeout` produces
-    `position_timeout` errors, and the browser repeats them while the watch runs, so a waiting
-    start always settles. A `permission_denied` error (code `1`) is final: the browser calls the
-    watch no more. The Adapter then clears the watch and marks positions stopped, so that a
-    later start is a first start and gets the browser's answer again instead of waiting for
-    ever. The `restart` reset concerns orientation only.
-  - The `restart` reset is emitted only by a start that follows `stop()` (Req 4.7).
+- **D21 — Starting twice joins the start in progress; every start has its own deadline
+  (Req 7.6, 11.5, 11.10).** Each kind (orientation, position) has a state: stopped, or started.
+  A start on a started kind adds no listener, no watch and no Frame reset. Its promise joins the
+  list of waiting starts. Each waiting start records its own deadline, the time of its call plus
+  the timeout of its kind (`listeningTimeoutMs` or `positionTimeoutMs`), measured by the
+  Adapter itself.
+  - *One timer per kind.* The kind keeps at most one timer, set for the earliest deadline among
+    its waiting starts. When it fires, every start whose deadline has passed settles with the
+    timeout's failure, and the timer is set again for the next deadline, if any. A new start
+    with a later deadline does not move the timer; one with an earlier deadline cannot occur,
+    since deadlines are call time plus a fixed duration. So a second start never adds a second
+    timer, and it always settles, by a sample or fix or by its own deadline.
+  - *Settling by data.* The next valid sample (orientation) or the next Position fix or
+    geolocation error (position) settles every waiting start and clears the timer.
+  - *Position timeout.* `position_timeout` comes from the Adapter's timer; the Adapter does not
+    pass a `timeout` to `watchPosition` and does not rely on the browser to report or repeat one
+    (Req 7.6). A code-`3` error that a browser sends anyway is still mapped to
+    `position_timeout`. A timeout does not end the watch: a later fix still reaches the
+    listeners.
+  - *Final errors.* A `permission_denied` error (code `1`) is final: the browser calls the
+    watch no more. The Adapter clears the watch and marks positions stopped, so that a later
+    start is a first start and asks the browser again.
+  - The `restart` reset is emitted only by an orientation start that follows `stop()`
+    (Req 4.7).
 
-- **D22 — Listeners are isolated (Req 11.11).** `listener-set.ts` holds the listeners of one
-  kind. `deliver(value)` iterates over a copy of the set taken before the first call, so a
-  listener that unsubscribes (itself or another) during delivery does not disturb the loop, and
-  wraps each call in `try`/`catch`. An exception from a listener is dropped: the other listeners
-  still receive the value, and the source keeps running. The Math layer has no console to report
-  it on (Section 10). The Adapter and the Simulator share this module.
+- **D22 — Listeners are isolated, and their errors are reported (Req 11.11).** `listener-set.ts`
+  holds the listeners of one kind. `deliver(value)` iterates over a copy of the set taken before
+  the first call, so a listener that unsubscribes (itself or another) during delivery does not
+  disturb the loop, and wraps each call in `try`/`catch`. A value thrown by a listener is passed
+  to `SensorSourceOptions.onListenerError`, when the caller gave one; that call is itself wrapped,
+  and a value it throws is dropped. Without a callback the value is dropped. In every case the
+  other listeners still receive the value, and the source keeps running. The Math layer has no
+  console (Section 10), so the callback is the only place the error can go. The Adapter and the
+  Simulator share this module.
 
 - **D23 — The Sample history is copy-on-write (Req 14).** A history is a frozen plain object
   holding frozen arrays. Each `add…` function validates the item's time, computes the new newest
@@ -350,7 +364,10 @@ skeleton/sensors/
       simulator.ts            createSimulator, SimulatorControls
     test-support/
       fast-check-setup.ts     sets numRuns from the provided propertyRuns
+      property-report.ts      checkProperty and ErrorTracker: case counts, discards, worst errors
       generators.ts           shared generators of Section 8
+      rotation-labels.ts      splits the reports near gimbal lock from the rest
+      result-helpers.ts       expectOk for example tests
       reference-rotation.ts   independent elementary-matrix product (D3)
       angle-compare.ts        wrapped-difference assertions
       fake-browser.ts         FakeBrowserEnvironment, records every call
@@ -519,7 +536,7 @@ export interface BearingCaptureInput {
   readonly positionStalenessMs: number;
   readonly coarseLocationLimitM: number;
 }
-export interface AltitudeCalibration {
+export interface AltitudeCalibration {  // declared in defaults.ts, next to UNCALIBRATED_ALTITUDE
   readonly offsetRad: number;
   readonly sigmaRad: number;
 }
@@ -557,6 +574,8 @@ export type Unsubscribe = () => void;
 export interface SensorSourceOptions {
   readonly listeningTimeoutMs: number;
   readonly positionTimeoutMs: number;
+  // Receives every value a listener throws (Req 11.11, D22); a value it throws is dropped.
+  readonly onListenerError?: (error: unknown) => void;
   readonly positionConfidenceScale: number;
 }
 export interface SensorSource {
@@ -927,16 +946,18 @@ own `ListenerSet`, and every delivery goes through it (D22, Req 11.11).
 `startOrientation()`:
 1. `isSecureContext` false gives `insecure_context`, before any other `env` call (Req 11.7).
 2. `hasDeviceOrientation` false gives `sensor_unavailable` (Req 11.6).
-3. If orientation is already started, join the waiting starts (D21, Req 11.10): arm the
-   listening timer if it is not running, and return. Nothing else below runs.
+3. If orientation is already started, join the waiting starts with a deadline of
+   `clock() + listeningTimeoutMs` (D21, Req 11.10), setting the timer if none is running, and
+   return. Nothing else below runs.
 4. If the source was started before and stopped, emit `{ cause: 'restart' }` at `clock()`
    (Req 4.7).
 5. Add one listener: `deviceorientationabsolute` if `supportsAbsoluteOrientation`, else
    `deviceorientation` (D7, Req 4.2, 4.3). Add `blur` and `pagehide` window listeners and a
    visibility listener.
-6. Start a timer of `listeningTimeoutMs`. If it fires before a valid sample, settle every
-   waiting start with `permission_required` or `sensor_unavailable` (D14, Req 11.5), keeping the
-   listeners (a late permission grant then still delivers samples).
+6. Record the deadline `clock() + listeningTimeoutMs` and set the timer for it. When the timer
+   fires, settle every start whose deadline has passed with `permission_required` or
+   `sensor_unavailable` (D14, Req 11.5), and set it again for the next deadline (D21). The
+   listeners stay (a late permission grant then still delivers samples).
 7. On each orientation event:
    - copy it into a `RawOrientationEvent` (non-numbers become `null`);
    - call `orientationSampleFromEvent(raw, clock(), env.screenAngleDeg())`;
@@ -949,17 +970,22 @@ own `ListenerSet`, and every delivery goes through it (D22, Req 11.11).
 `startPosition()`:
 - not secure gives `insecure_context`;
 - `geolocation === null` gives `sensor_unavailable`;
-- already started: join the waiting starts (D21) and return;
-- otherwise call `watchPosition(onReading, onError, { enableHighAccuracy: true, maximumAge: 0,
-  timeout: positionTimeoutMs })` (D13);
+- record the deadline `clock() + positionTimeoutMs` and set the position timer for the earliest
+  deadline (D21); when it fires, the starts past their deadline settle with `position_timeout`
+  (Req 7.6);
+- already started: join the waiting starts and return;
+- otherwise call `watchPosition(onReading, onError, { enableHighAccuracy: true, maximumAge: 0 })`
+  (D13), with no `timeout`;
 - each reading becomes `positionFixFromReading(copy, clock(), positionConfidenceScale)`;
 - each error maps by its code: `1` gives `permission_denied`, `2` `position_unavailable`, `3`
   `position_timeout` (Req 7.6), and any other code `position_unavailable`;
-- each Result settles every waiting start and goes to the listeners;
+- each Result settles every waiting start, clears the position timer, and goes to the listeners;
 - a `permission_denied` error also clears the watch and marks positions stopped (D21).
 
-`stop()` removes every listener added, clears the watch and the timer, and settles any pending
+`stop()` removes every listener added, clears the watch and both timers, and settles any pending
 start with `sensor_unavailable` (Req 11.9). A later start is a restart.
+
+Every `ListenerSet` of the source is built with `options.onListenerError` (D22).
 
 ### 7.12 Simulator (`simulator/`)
 
@@ -1100,7 +1126,10 @@ The 100 000-case list covers the places where floating-point behaviour is the ri
 
 The checkpoint report gives the count and the worst error for each.
 
-Shared generators (`test-support/generators.ts`, domains stated in each):
+Shared generators (`test-support/generators.ts`, domains stated in each). "Uniform" draws use
+53 unbiased random bits (`fc.noBias` on an integer), not `fc.double`: `fc.double` draws evenly
+over the representable doubles, so most of its draws are tiny and the phone would lie flat far
+more often than a uniform angle puts it there. Ends and special values are drawn explicitly.
 
 - **`deviceRotation`**: `alpha ∈ [0, 2π)`, `beta ∈ [−π, π)`, `gamma ∈ [−π/2, π/2)`, as in
   Req 2.7. Half the draws are uniform. The other half go to the edge cases:
@@ -1114,8 +1143,8 @@ Shared generators (`test-support/generators.ts`, domains stated in each):
   they test the exact value as the browser can deliver it.
 - **`horizontalRotation`**: `deviceRotation` filtered on a Camera axis horizontal part `≥ 1e-3`
   (Req 2.9), which removes the phone lying within about `0.06°` of flat (face up or face down).
-  The discard rate, including the biased `beta = 0`, `gamma = 0` draws, is measured and stated
-  when the generator is written.
+  Measured discard rate: 1 draw in 100 000 (seed `20261117`). P-2.9 applies the condition with
+  `fc.pre`, so its report counts the discards.
 - **`smallRotationChange`**: `Δα, Δβ, Δγ ∈ [−1e-3, 1e-3]` each, ends included.
 - **`rayOffset`**: `rightRad, upRad ∈ [−80°, 80°]`, ends and `0` included.
 - **`compassScenario`**: a relative azimuth in `[0, 2π)`, an offset in `(−π, π]`, 1 to 50
@@ -1145,10 +1174,28 @@ Shared generators (`test-support/generators.ts`, domains stated in each):
   of `±π/2` puts the phone on its side and `π` upside down.
 - **`geolocationReading`**: latitude in `[−89°, 89°]`, longitude in `(−180°, 180°]` and accuracy
   in `[0, 10 000]` m, ends included; confidence scale in `[0.1, 10]`.
+- **`compassCaptureScript`** (P-12.7, Req 12.7): a `noiseFree` Relative-frame script with a
+  heading (no bias, noise or jumps), Screen angle `0`, no altitude bias, a Declination in
+  `[−π/2, π/2]`, and two windows built on the script's timeline:
+  - *Timeline.* An event interval in `[5, 100]` ms. The Yaw reference window `[Ty0, Ty1]` and
+    the capture window `[Tc0, Tc1]` each have a length from `10` to `100` event intervals (so at
+    least `10` samples, the minimum count drawn in `[1, 10]`), with a gap `Tc0 − Ty1` in
+    `[0, 5000]` ms. Window ends fall on event times, so the newest sample is never Stale.
+  - *Resets.* 0 to 3 resets, each with a new zero in `[0, 2π)`, placed only before `Ty0` (in
+    `[start, Ty0)`) or after `Tc1` (in `(Tc1, Tc1 + 5000]`). None lies in `[Ty0, Tc1]`, which
+    covers the Yaw reference window, the span between it and the capture, and the capture
+    window, as Req 12.7 requires. Resets before `Ty0` change the zero that the reference then
+    measures; resets after `Tc1` are delivered but read by neither window.
+  - *Pose.* 1 to 4 moving keyframes before `Tc0`, anywhere from the start, so the direction may
+    move during the Yaw reference window. Then two keyframes with the same direction `D`, one at
+    a time in `[Ty1, Tc0]` and one at `Tc1` or later, so the direction is constant over the
+    capture window; optionally more moving keyframes after that. Altitudes in `[−30°, 30°]`,
+    rolls in `[−π, π)`, so every interpolated altitude stays in `[−30°, 30°]`.
+  - The capture's true azimuth is checked against `D`'s azimuth.
 - **`simulatorScript`**: valid scripts drawn over every field of Section 6, with event
   intervals of `5` to `100` ms, 1 to 5 keyframes, both frames, 0 to 3 resets, and headings
   present or not. A `noiseFree` variant sets every noise, bias, jump and frame error to zero
-  (P-12.6, P-12.7).
+  (P-12.8 uses both).
 - **`historySequence`** (P-14.6, P-14.7): 0 to 300 Orientation samples and 0 to 10 Frame reset
   events, interleaved in any order, with times that do not decrease and span up to `200 000 ms`
   (ties drawn on purpose), a sample retention in `[100, 10 000]` ms and a Frame reset retention
@@ -1205,7 +1252,7 @@ Shared generators (`test-support/generators.ts`, domains stated in each):
 | P-9.9 | 9.9 | `altitudeSet`; a random permutation | apparent altitude and sigma change by at most `1e-12` |
 | P-11.8 | 11.8 | `hostileInput` to every exported function, the Simulator and the browser source with a hostile fake environment | no call throws; every Result is a failure or a success whose numbers are all finite |
 | P-12.6 | 12.6 | `cameraPose`, including its log-scale draws near gimbal lock | the raw event's angles lie in the W3C ranges; through `cameraAxis` they give back azimuth and altitude within `1e-9` |
-| P-12.7 | 12.7 | `simulatorScript` `noiseFree`, Relative frame, altitudes `∈ [−30°, 30°]`, Screen angle `0`, heading present; a Declination 1-sigma drawn from `[0.26°, 2.72°]`, the range of the WMM error model above the blackout limit | `yawReferenceFromCompass` then `captureBearing` with `{ declinationRad: scripted, sigmaRad: drawn }` gives the scripted true azimuth within `1e-9` (wrapped), and `azimuthSigmaRad = max(0.01°, rss(headingSigmaRad, drawn))` within `1e-12` |
+| P-12.7 | 12.7 | `compassCaptureScript`; a Declination 1-sigma drawn from `[0.26°, 2.72°]`, the range of the WMM error model above the blackout limit | run the Simulator past `Tc1 + 5000`; `yawReferenceFromCompass` over `[Ty0, Ty1]`, then `captureBearing` over `[Tc0, Tc1]` with `{ declinationRad: scripted, sigmaRad: drawn }`, give `D`'s true azimuth within `1e-9` (wrapped), and `azimuthSigmaRad = max(0.01°, rss(headingSigmaRad, drawn))` within `1e-12` |
 | P-12.8 | 12.8 | `simulatorScript`; seed `∈ [0, 2³²)` | two runs of the same script and seed give deep-equal event sequences, with `Object.is` on every number |
 | P-14.6 | 14.6 | `historySequence` | after the last add, `samples` and `frameResets` are exactly the items of the sequence with `T − timeUtcMs ≤ retention` (`T` its last time), in the order added, compared with `Object.is` on every item; and the same holds after every intermediate add, with `T` the time so far |
 | P-14.7 | 14.7 | `historyCapture` | `captureBearing` on the history's samples and resets is deep-equal (`Object.is` on numbers) to `captureBearing` on the full sequence, failures included; the test counts the successes and fails if fewer than 10 % of cases succeed, so that it cannot pass on failures alone |
@@ -1222,6 +1269,10 @@ Notes on the properties:
 - **P-8.11 rotates through the Yaw reference.** Adding `δ` to the offset adds `δ` to every
   sample's true azimuth exactly as Req 8.11 states. It goes through the whole capture, not only
   `summariseAzimuths`.
+- **P-12.7 lets the direction move while the reference is taken.** Noise-free, every heading
+  minus its relative azimuth is the same number, `zero − declination`, whatever the direction,
+  so a moving camera still gives an exact reference. The capture window needs a constant
+  direction, because the property compares one azimuth with one scripted value.
 - **P-12.7's Declination 1-sigma.** The Simulator's Declination is a scripted value, not a WMM
   call, so the property draws its 1-sigma over the error model's range instead of computing it.
 - **P-14.7 is exact.** The history keeps exactly the samples a capture reads, in the same order
@@ -1395,8 +1446,15 @@ parses them through `import.meta.glob` `?raw` (as Core's purity test reads sourc
   - Every sample's `timeUtcMs` is the injected Clock's value at dispatch, not the event's
     `timeStamp`.
   - Geolocation:
-    - `watchPosition` is called with `enableHighAccuracy: true`, `maximumAge: 0` and
-      `timeout: 30 000`;
+    - `watchPosition` is called with `enableHighAccuracy: true` and `maximumAge: 0`, and with no
+      `timeout` field;
+    - with no browser callback at all, `startPosition()` settles with `position_timeout` at
+      `30 000` ms on the fake's clock, from the Adapter's own timer (Req 7.6);
+    - a second `startPosition()` made after the first timed out, again with no further browser
+      callback, settles with `position_timeout` `30 000` ms after its own call; two starts
+      `10 000` ms apart settle at `30 000` and `40 000` ms, and the fake shows at most one live
+      timer throughout;
+    - a fix arriving after a timeout still reaches the listeners;
     - error codes `1`, `2` and `3` map to `permission_denied`, `position_unavailable` and
       `position_timeout`;
     - a reading with accuracy `2000` is delivered as a fix with `reportedAccuracyM = 2000` and
@@ -1414,6 +1472,11 @@ parses them through `import.meta.glob` `?raw` (as Core's purity test reads sourc
     every call: over five events the first and third receive all five samples, in order, and the
     source keeps delivering. The same for Frame reset and position listeners. A listener that
     unsubscribes itself during delivery still lets the others receive that event.
+    - With `onListenerError`, it receives the thrown value itself (the same object, by
+      identity), once per throw, five times in all.
+    - Without `onListenerError`, the same run delivers the same samples and nothing escapes.
+    - An `onListenerError` that itself throws: delivery to the other listeners and later events
+      are unaffected.
 - **Simulator.**
   - A Relative-frame script with a reset at `t` delivers the `FrameResetEvent` before the sample
     at `t`.

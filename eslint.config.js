@@ -18,4 +18,11 @@ export default defineConfig(
       '@typescript-eslint/no-non-null-assertion': 'error',
     },
   },
+  {
+    // tech.md "No any" for skeleton/sensors (Req 1.8). The non-null rule stays specific to Core.
+    files: ['skeleton/sensors/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'error',
+    },
+  },
 );

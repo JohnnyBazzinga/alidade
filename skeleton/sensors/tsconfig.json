@@ -1,0 +1,9 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // DOM types are needed only by src/browser/browser-environment.ts; the purity test keeps
+    // every other file from naming a browser global (design §10).
+    "lib": ["ES2023", "DOM"]
+  },
+  "include": ["src", "vitest.config.ts", "vitest.deep.config.ts"]
+}
