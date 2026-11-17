@@ -160,13 +160,14 @@ The private folder `notes/` holds real locations and is not used. Every fixture 
 2. THE Math layer SHALL take Declination, with its 1-sigma, as data passed in by the caller, and SHALL NOT compute it inside the capture or Yaw reference functions.
 3. THE Math layer SHALL combine the 1-sigma of the Declination with the 1-sigma of the azimuth it corrects, as the square root of the sum of squares.
 4. IF a true azimuth is requested from a magnetic one and no Declination is given, THEN THE Math layer SHALL return a failure with reason `declination_unknown`, and SHALL NOT assume a Declination of zero.
-5. IF a Declination is `NaN`, infinite, or of magnitude above `π/2`, or its 1-sigma is `NaN`, infinite or negative, THEN THE Math layer SHALL return a failure with reason `invalid_number`.
+5. IF a Declination is `NaN`, infinite, or of magnitude above `π`, or its 1-sigma is `NaN`, infinite or negative, THEN THE Math layer SHALL return a failure with reason `invalid_number`.
 6. THE Sensors SHALL provide a function that returns the Declination at a Position and a `timeUtcMs` from the World Magnetic Model, through the pinned dependency, at a height of `0` above the WGS84 ellipsoid, with the 1-sigma of the WMM error model, `sqrt(0.26² + (5417 / H)²)` degrees, computed from the horizontal intensity `H` the model returns for that Position and time.
 7. IF the time is before `2025-01-01T00:00:00Z` or at or after `2030-01-01T00:00:00Z` (outside the WMM2025 validity dates), THEN the function of criterion 6 SHALL return a failure with reason `declination_unknown`.
 8. IF the Position lies in the WMM blackout zone, THEN the function of criterion 6 SHALL return a failure with reason `declination_unknown`.
 9. IF the Position is not a Supported position, THEN the function of criterion 6 SHALL return a failure with reason `unsupported_position`; IF the time is `NaN` or infinite, a failure with reason `invalid_number`.
 10. WHEN evaluated at each point of the official WMM2025 test values, the World Magnetic Model computation SHALL return the published declination within `0.01°`, the precision to which the values are published.
-11. FOR ALL magnetic azimuths in `[0, 2π)` and Declinations in `[-π/2, π/2]`, converting to a true azimuth and back with the negated Declination SHALL return the magnetic azimuth within `1e-12` rad, compared as a wrapped difference.
+11. FOR ALL magnetic azimuths in `[0, 2π)` and Declinations in `[-π, π]`, converting to a true azimuth and back with the negated Declination SHALL return the magnetic azimuth within `1e-12` rad, compared as a wrapped difference.
+12. FOR ALL Supported positions and times within the WMM2025 validity dates for which the function of criterion 6 succeeds, the Declination it returns SHALL have a magnitude of at most `π` and a 1-sigma between `0.26°` and `2.73°`, and the conversion of criterion 1 SHALL accept it. (Between a magnetic pole and the geographic pole the declination exceeds `90°` outside the blackout zone: about `140°` at 77.85°S 166.67°E.)
 
 ### Requirement 7: Position
 
@@ -175,14 +176,14 @@ The private folder `notes/` holds real locations and is not used. Every fixture 
 #### Acceptance Criteria
 
 1. THE Sensor source SHALL start geolocation only when the caller asks for positions, separately from orientation, so that an application that needs no position (Nonius) never requests it.
-2. THE Adapter SHALL produce a Position fix from each geolocation reading, converting `latitude` and `longitude` from degrees to radians, keeping the reported `accuracy` in metres, and setting its `timeUtcMs` from the Clock.
+2. THE Adapter SHALL produce a Position fix from each geolocation reading, converting `latitude` and `longitude` from degrees to radians, keeping the reported `accuracy` in metres, and setting its `timeUtcMs` from the Clock. A longitude of exactly `-180°` SHALL be taken as `180°`, the same meridian, so that the Position is a Supported position.
 3. THE Math layer SHALL derive the 1-sigma position accuracy of a Position fix as the reported accuracy divided by a confidence scale the caller passes in; the default scale is `1`, so that the reported accuracy is taken as the 1-sigma.
 4. IF the reported accuracy of a Position fix exceeds the limit the caller sets for the operation, THEN THE Sensors SHALL return a failure with reason `coarse_location` that carries the reported accuracy in metres, so that the caller can show it.
 5. IF the reported accuracy is `NaN`, infinite or negative, or the position is not a Supported position, THEN THE Sensors SHALL return a failure with reason `invalid_position`.
 6. IF the browser denies geolocation, THEN THE Adapter SHALL return a failure with reason `permission_denied`; IF it reports the position unavailable, a failure with reason `position_unavailable`; IF no reading arrives within the position timeout the caller sets, a failure with reason `position_timeout`. THE Adapter SHALL measure that timeout itself, from each start, and SHALL NOT rely on the browser to report it, so that a start always settles.
-7. IF a Position fix is Stale at the time the caller passes in, THEN THE Sensors SHALL return a failure with reason `stale_position`.
+7. IF a Position fix is Stale at the time the caller passes in, or was received more than the same limit after that time, THEN THE Sensors SHALL return a failure with reason `stale_position`.
 8. THE Sensors SHALL report the accuracy of every Position fix it returns, including those within the caller's limit, and SHALL NOT replace it with a default.
-9. FOR ALL latitudes in `[-89°, 89°]`, longitudes in `(-180°, 180°]` and reported accuracies in `[0, 10 000]` m, the Position fix SHALL hold the latitude and longitude in radians within `1e-15` rad of `degToRad` of the input, and the reported accuracy unchanged.
+9. FOR ALL latitudes in `[-89°, 89°]`, longitudes in `[-180°, 180°]` and reported accuracies in `[0, 10 000]` m, the Position fix SHALL hold the latitude and longitude in radians within `1e-15` rad of `degToRad` of the input (with `-180°` taken as `180°`), and the reported accuracy unchanged.
 10. FOR ALL reported accuracies in `[0, 10 000]` m and confidence scales in `[0.1, 10]`, the 1-sigma position accuracy SHALL equal the reported accuracy divided by the scale within a relative `1e-15`.
 
 ### Requirement 8: Sighting capture
@@ -265,7 +266,7 @@ The private folder `notes/` holds real locations and is not used. Every fixture 
 4. THE Simulator source SHALL be deterministic: on the same JavaScript engine, the same script and the same seed SHALL produce identical outputs, including every number bit for bit.
 5. THE Simulator source SHALL use only synthetic data, and no fixture of the package SHALL contain a recorded location.
 6. FOR ALL camera azimuths in `[0, 2π)`, camera altitudes in `[-80°, 80°]` and rolls in `[-π, π)`, the Raw orientation event the Simulator source generates without noise SHALL have `alpha` in `[0°, 360°)`, `beta` in `[-180°, 180°)` and `gamma` in `[-90°, 90°)`, and SHALL, through the Math layer of Requirement 2, give back the camera azimuth and altitude within `1e-9` rad.
-7. FOR ALL scripts with a Relative frame, a known zero, camera altitudes in `[-30°, 30°]`, Screen angle `0`, and noise-free Magnetic headings that include the scripted Declination, establishing a Yaw reference from the compass (while the camera direction may move) and capturing a bearing with the scripted Declination through the Math layer, over a Sighting window in which the scripted camera direction is constant and no Frame reset lies between the Yaw reference and the capture, SHALL give the scripted true azimuth within `1e-9` rad.
+7. FOR ALL scripts with a Relative frame, a known zero, generated samples whose Camera altitudes all lie in `[-30°, 30°]`, Screen angle `0`, and noise-free Magnetic headings that include the scripted Declination, establishing a Yaw reference from the compass (while the camera direction may move) and capturing a bearing with the scripted Declination through the Math layer, over a Sighting window in which the scripted camera direction is constant and no Frame reset lies between the Yaw reference and the capture, SHALL give the scripted true azimuth within `1e-9` rad.
 8. FOR ALL seeds, two runs of the same script SHALL produce identical output sequences.
 
 ### Requirement 13: Testing split

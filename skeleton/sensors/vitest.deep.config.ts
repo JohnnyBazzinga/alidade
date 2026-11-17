@@ -12,6 +12,8 @@ export default defineConfig({
     provide: { propertyRuns: DEEP_PROPERTY_RUNS },
     setupFiles: ['src/test-support/fast-check-setup.ts'],
     fileParallelism: false,
+    // The [deep] reports go to the console; never hide them, whatever the caller's settings.
+    silent: false,
     testTimeout: 0,
     hookTimeout: 0,
   },

@@ -59,7 +59,7 @@ function optionalWrappedRad(valueDeg: number | null): number | null {
  *   `sensor_unavailable` naming it (Req 2.5).
  * - A non-finite angle or time: `invalid_number` naming it (Req 2.6).
  * - The frame comes from the event alone: `deviceorientationabsolute`, or `absolute === true`,
- *   is Absolute; anything else is Relative (Req 4.3).
+ *   is Absolute; anything else, including a truthy non-boolean `absolute`, is Relative (Req 4.3).
  * - Angles outside the W3C ranges are accepted: the rotation formulas hold for any angle.
  * - The heading, its accuracy and the Screen angle are optional and never fail the sample.
  */
@@ -88,7 +88,9 @@ export function orientationSampleFromEvent(
 
   return ok({
     timeUtcMs,
-    frame: raw.type === 'deviceorientationabsolute' || raw.absolute ? 'absolute' : 'relative',
+    // `=== true`: the field comes from an untrusted event, and only a real `true` counts.
+    frame:
+      raw.type === 'deviceorientationabsolute' || raw.absolute === true ? 'absolute' : 'relative',
     rotation: { alphaRad: alpha.value, betaRad: beta.value, gammaRad: gamma.value },
     screenAngleRad: optionalWrappedRad(screenAngleDeg),
     magneticHeadingRad: optionalWrappedRad(raw.webkitCompassHeadingDeg),

@@ -186,3 +186,99 @@ export function cameraPose(): fc.Arbitrary<CameraPose> {
 export function isNearLockPose(pose: CameraPose): boolean {
   return Math.abs(pose.apparentAltitudeRad) <= 1e-2;
 }
+
+/** One sample of a compass scenario: its pose in the Relative frame. */
+export interface CompassScenarioSample {
+  readonly relativeAzimuthRad: number;
+  readonly apparentAltitudeRad: number;
+  readonly rollRad: number;
+  /** `null` or not negative: always usable (Req 5.8). */
+  readonly compassAccuracyRad: number | null;
+}
+
+export interface CompassScenario {
+  /** `wrapTwoPi(relative + offset)` is each sample's heading; in (-π, π]. */
+  readonly offsetRad: number;
+  readonly samples: readonly CompassScenarioSample[];
+}
+
+/**
+ * `compassScenario` (P-5.14, Req 5.14): an offset in (-π, π] (`π` drawn on purpose) and 1 to 50
+ * samples, each with a relative azimuth in [0, 2π), an altitude in [-30°, 30°] (ends drawn) and a
+ * roll in [-π, π), and a reported accuracy that is `null` or in [0°, 20°]. The test gives every
+ * sample Screen angle 0, the heading `wrapTwoPi(relative + offset)` exactly, and a window that
+ * contains every sample. Excludes negative accuracies (covered by examples).
+ *
+ * The altitude drawn is the pose's; the sample's Camera altitude is the one computed back from its
+ * rotation, which can differ by rounding. Req 5.14's domain is the computed altitude, so the test
+ * applies `fc.pre` to it: of the poses drawn at exactly ±30°, about 29 % come back outside the
+ * limit by at most 5.6e-16 rad, and those cases are discarded and counted.
+ */
+export function compassScenario(): fc.Arbitrary<CompassScenario> {
+  const limit = 30 * DEG;
+  const sample = fc.record({
+    relativeAzimuthRad: halfOpen(0, TWO_PI),
+    apparentAltitudeRad: closed(-limit, limit),
+    rollRad: halfOpen(-Math.PI, Math.PI),
+    compassAccuracyRad: fc.oneof(fc.constant(null), closed(0, 20 * DEG)),
+  });
+  const offset = fc.oneof(
+    { weight: 1, arbitrary: fc.constant(Math.PI) },
+    {
+      weight: 19,
+      arbitrary: uniform(-Math.PI, Math.PI).map((x) => (x === -Math.PI ? Math.PI : x)),
+    },
+  );
+  return fc.record({
+    offsetRad: offset,
+    samples: fc.array(sample, { minLength: 1, maxLength: 50 }),
+  });
+}
+
+export interface KnownAzimuthScenario {
+  readonly rotation: DeviceRotation;
+  readonly sampleCount: number;
+  readonly knownAzimuthRad: number;
+  readonly knownSigmaRad: number;
+  readonly northReference: 'true' | 'magnetic';
+}
+
+/**
+ * `knownAzimuthScenario` (P-5.15, Req 5.15): a `deviceRotation` repeated over 1 to 50 sample
+ * times, a known azimuth in [0, 2π), a known 1-sigma in [0, 45°] (ends drawn) and a North
+ * reference. The frame is given by the test, which runs once per frame. The horizontal-part
+ * condition of `horizontalRotation` is applied by the test with `fc.pre`, so that its discards are
+ * counted.
+ */
+export function knownAzimuthScenario(): fc.Arbitrary<KnownAzimuthScenario> {
+  return fc.record({
+    rotation: deviceRotation(),
+    sampleCount: fc.integer({ min: 1, max: 50 }),
+    knownAzimuthRad: halfOpen(0, TWO_PI),
+    knownSigmaRad: closed(0, 45 * DEG),
+    northReference: fc.constantFrom('true' as const, 'magnetic' as const),
+  });
+}
+
+/**
+ * `geolocationReading` (P-7.9, P-7.10): latitude in [-89°, 89°], longitude in (-180°, 180°] and
+ * accuracy in [0, 10 000] m, ends drawn on purpose, with a confidence scale in [0.1, 10] (ends
+ * drawn). Excludes latitudes beyond 89° and the longitude -180°, which the examples cover.
+ */
+export function geolocationReading(): fc.Arbitrary<{
+  readonly latitudeDeg: number;
+  readonly longitudeDeg: number;
+  readonly accuracyM: number;
+  readonly confidenceScale: number;
+}> {
+  const longitude = fc.oneof(
+    { weight: 1, arbitrary: fc.constant(180) },
+    { weight: 19, arbitrary: uniform(-180, 180).map((x) => (x === -180 ? 180 : x)) },
+  );
+  return fc.record({
+    latitudeDeg: closed(-89, 89),
+    longitudeDeg: longitude,
+    accuracyM: closed(0, 10_000),
+    confidenceScale: closed(0.1, 10),
+  });
+}

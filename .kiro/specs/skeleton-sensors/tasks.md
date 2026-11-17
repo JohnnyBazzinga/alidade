@@ -36,7 +36,7 @@ Package: `skeleton/sensors` (`@alidade/sensors`). Source of truth: `requirements
   properties of that layer (§8: 100 000 cases, or 10 000 for the properties listed there), and
   reports, for each property, the number of cases run, the number of discards and the worst
   error measured against its tolerance. It then runs `pnpm test`, `pnpm typecheck` and
-  `pnpm lint` from the root.
+  `pnpm lint` and `pnpm format:check` from the root.
 - **Stops for review** at checkpoints 6, 10, 13 and 18, and at any failing property. The
   checkpoints 4 and 16 do not stop: their `test:deep` reports are carried into the reports of
   checkpoints 6 and 18.
@@ -202,38 +202,39 @@ Package: `skeleton/sensors` (`@alidade/sensors`). Source of truth: `requirements
     reported separately from the uniform ones, and include checkpoint 4's report. Then the root
     checks. Stop for review.
 
-- [ ] 7. Yaw references
-  - [ ] 7.1 Implement `src/yaw-reference.ts`
+- [x] 7. Yaw references
+  - [x] 7.1 Implement `src/yaw-reference.ts`
     - `YawReference` with `frame`, `ReferencedAzimuth`, `yawReferenceFromCompass` (Relative
       samples only, the seven steps of §7.6), `yawReferenceFromKnownAzimuth` (one frame,
       `frame_reset` for mixed frames, resets judged by `invalidates`, §7.6), and
       `applyYawReference`.
     - Every azimuth leaves these functions labelled with its North reference (`ReferencedAzimuth`).
     - _Requirements: 4.6, 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8, 5.9, 5.10, 5.16, 5.17_
-  - [ ] 7.2 Example tests in `src/yaw-reference.test.ts`
+  - [x] 7.2 Example tests in `src/yaw-reference.test.ts`
     - The compass examples of §9 (accuracy does not change the sigma, a negative accuracy
-      excluded, all negative gives `compass_unreliable`, `30°` accepted and `30.0001°` refused,
+      excluded, all negative gives `compass_unreliable`, samples `1e-12 rad` inside `±30°` accepted and `30.0001°` refused, the exact-limit rotation (computed altitude `=== 30°`) accepted and the one that rounds one ulp over refused,
       Screen angles `90°` and `null` refused).
     - From the "Yaw references in both frames" examples: the recorded frames, the mixed window
       giving `frame_reset`, the compass constructor on Absolute samples only giving
       `insufficient_samples`; a `hidden` reset in the window of an Absolute known-azimuth
       reference accepted and a `frame_change` refused; any reset in a Relative window refused.
     - _Requirements: 5.2, 5.6, 5.7, 5.8, 5.9, 5.10, 5.16, 5.17_
-  - [ ] 7.3 Generators `compassScenario` and `knownAzimuthScenario(frame)`
+  - [x] 7.3 Generators `compassScenario` and `knownAzimuthScenario(frame)`
     - As in §8, built with `rotationFromDirection`.
     - _Requirements: 5.14, 5.15_
-  - [ ] 7.4 Property P-5.14
-    - The compass reference equals the scripted offset within `1e-9` and reproduces every
-      heading within `1e-9`.
+  - [x] 7.4 Property P-5.14
+    - With `fc.pre` on every sample's computed Camera altitude in `[−30°, 30°]` (discards
+      reported): the compass reference equals the scripted offset within `1e-9` and reproduces
+      every heading within `1e-9`.
     - _Requirements: 5.14_
-  - [ ] 7.5 Property P-5.15, in both frames
+  - [x] 7.5 Property P-5.15, in both frames
     - Two tests, `knownAzimuthScenario('relative')` and `knownAzimuthScenario('absolute')`:
       the reference records the frame, maps the samples' azimuth to the known azimuth within
       `1e-9`, and has the known sigma within `1e-12`.
     - _Requirements: 5.15, 5.16_
 
-- [ ] 8. Declination and the World Magnetic Model
-  - [ ] 8.1 Implement `src/wmm.ts` and `src/magvar.d.ts`
+- [x] 8. Declination and the World Magnetic Model
+  - [x] 8.1 Implement `src/wmm.ts` and `src/magvar.d.ts`
     - `decimalYearFromUtcMs` by `Date.UTC` over the years 2025 to 2029 (D12);
       `wmmField(decimalYear, latDeg, lonDeg, heightKm)` returning
       `{ declinationDeg, horizontalIntensityNt }` from magvar's `calculateMagneticField`, the
@@ -241,13 +242,13 @@ Package: `skeleton/sensors` (`@alidade/sensors`). Source of truth: `requirements
     - Example tests: the decimal-year values of §9 (`2025.0` exactly, `2027.5`, the leap year);
       the 112 published declinations within `0.01°` at their own heights.
     - _Requirements: 6.6, 6.10, 13.4_
-  - [ ] 8.2 Implement `src/declination.ts`
+  - [x] 8.2 Implement `src/declination.ts`
     - `Declination`, `trueAzimuthFromMagnetic` (`declination_unknown` without one,
       `invalid_number` for bad values), internal `wmmDeclinationSigmaRad` (the error model of
       §3 with its two named constants) and `declinationAt` (§7.7: time and position checks,
       validity dates, blackout below `2000 nT`, the error-model 1-sigma).
     - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.8, 6.9_
-  - [ ] 8.3 Example tests in `src/declination.test.ts`
+  - [x] 8.3 Example tests in `src/declination.test.ts`
     - `declinationAt` at the seven published points at height `0`: the declination within
       `0.01°`, and the 1-sigma within `[σ(H + 0.1 nT), σ(H − 0.1 nT)]` computed from the
       fixture's `H` (the table of §9).
@@ -258,12 +259,12 @@ Package: `skeleton/sensors` (`@alidade/sensors`). Source of truth: `requirements
     - `trueAzimuthFromMagnetic` without a Declination gives `declination_unknown`; a
       declination of `π/2 + 1e-12`, a `NaN` and a negative sigma give `invalid_number`.
     - _Requirements: 6.4, 6.5, 6.6, 6.7, 6.8, 6.9, 6.10_
-  - [ ] 8.4 Property P-6.11
+  - [x] 8.4 Property P-6.11
     - Magnetic to true and back with the negated declination within `1e-12`.
     - _Requirements: 6.11_
 
-- [ ] 9. Position fixes
-  - [ ] 9.1 Implement `src/position-fix.ts`
+- [x] 9. Position fixes
+  - [x] 9.1 Implement `src/position-fix.ts`
     - `GeolocationReading`, `PositionFix`, `positionFixFromReading` (D13), `checkPositionFix`
       (`stale_position`, then `coarse_location` with `reportedAccuracyM`, §7.8).
     - Example tests: the 2000 m coarse reading at the 100 m limit carries
@@ -271,12 +272,12 @@ Package: `skeleton/sensors` (`@alidade/sensors`). Source of truth: `requirements
       and a latitude of `89.5°`; staleness at `30 000` ms accepted and `30 001` ms refused; a
       scale of `2` halves `sigmaM` and leaves `reportedAccuracyM` unchanged.
     - _Requirements: 7.2, 7.3, 7.4, 7.5, 7.7, 7.8_
-  - [ ] 9.2 Generator `geolocationReading` and properties P-7.9, P-7.10
+  - [x] 9.2 Generator `geolocationReading` and properties P-7.9, P-7.10
     - P-7.9 radians within `1e-15` of `degToRad`, accuracy identical; P-7.10 `sigmaM` equals
       accuracy over scale within relative `1e-15`.
     - _Requirements: 7.9, 7.10_
 
-- [ ] 10. Checkpoint: references, declination and position
+- [x] 10. Checkpoint: references, declination and position
   - `test:deep` for P-5.14, P-5.15 (Relative and Absolute, 100 000 cases each), P-6.11, P-7.9
     and P-7.10. Report counts, discards and worst errors, and the result of the 112-point WMM
     fixture test. Then the root checks. Stop for review.
@@ -376,7 +377,8 @@ Package: `skeleton/sensors` (`@alidade/sensors`). Source of truth: `requirements
       advance its timers, and count live listeners, watches and timers. Synthetic only.
     - _Requirements: 13.2, 13.5_
   - [ ] 14.4 Implement `src/browser/browser-sensor-source.ts`
-    - `createBrowserSensorSource` per §7.11: permission only from
+    - `createBrowserSensorSource` per §7.11: the event copy sets `absolute` to
+      `event.absolute === true`; permission only from
       `requestOrientationPermission()` (D14); frame choice by feature (D7); `frame_change`
       before a sample in a new frame; resets for `hidden`, `blur`, `pagehide` and `restart`;
       the listening and position timeouts measured by the Adapter, one deadline per start and one
@@ -387,7 +389,8 @@ Package: `skeleton/sensors` (`@alidade/sensors`). Source of truth: `requirements
     - _Requirements: 1.4, 1.5, 4.1, 4.2, 4.3, 4.5, 4.7, 4.8, 4.9, 7.1, 7.2, 7.6, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7, 11.9, 11.10, 11.11_
   - [ ] 14.5 Example tests in `src/browser/browser-sensor-source.test.ts`
     - Every Adapter example of §9 against the fake, including each Adapter failure reason
-      (`insecure_context` with no sensor call recorded, `sensor_unavailable` in each case,
+      (an event whose `absolute` is a truthy non-boolean giving Relative samples,
+      `insecure_context` with no sensor call recorded, `sensor_unavailable` in each case,
       `permission_denied`, `permission_required`, `position_unavailable`, `position_timeout`),
       the frame choice, each reset cause, Clock time stamps, the geolocation options, `stop()`
       leaving zero listeners, watches and timers, starting twice (one of each listener and
@@ -425,7 +428,8 @@ Package: `skeleton/sensors` (`@alidade/sensors`). Source of truth: `requirements
       after the capture window, and holds the direction constant over the capture window.
     - _Requirements: 12.7, 12.8_
   - [ ] 15.5 Property P-12.7
-    - On `compassCaptureScript`: compass reference over `[Ty0, Ty1]` (the direction may move),
+    - On `compassCaptureScript`, with `fc.pre` on the computed Camera altitude of every sample
+      the two windows read (discards reported): compass reference over `[Ty0, Ty1]` (the direction may move),
       then capture over `[Tc0, Tc1]` (constant direction, no reset in `[Ty0, Tc1]`) with the
       scripted Declination and a 1-sigma drawn from `[0.26°, 2.72°]`: the scripted true azimuth
       within `1e-9`, and
@@ -450,7 +454,8 @@ Package: `skeleton/sensors` (`@alidade/sensors`). Source of truth: `requirements
   - [ ] 17.2 Implement `src/index.ts`
     - Re-export the public API of §6 only; nothing from `test-support`, and not the internal
       helpers (`ok`, `err`, `rotationMatrix`, `wmmField`, `wmmDeclinationSigmaRad`,
-      `ListenerSet`).
+      `ListenerSet`, `summariseAzimuths`, `summariseAltitudes`, `rss`). The three summaries are
+      not total on their own (design §7.5); export them only after making them total.
     - _Requirements: 1.6, 11.1_
   - [ ] 17.3 Purity and exports tests in `src/purity.test.ts`
     - The checks of §10: no browser globals, clock, timers, randomness or I/O in the Math layer;

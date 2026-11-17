@@ -341,7 +341,7 @@ skeleton/sensors/
     orientation-sample.ts RawOrientationEvent, OrientationSample, orientationSampleFromEvent
     frame-reset.ts        FrameResetCause, FrameResetEvent, invalidates (D9)
     sighting-window.ts    SightingWindow, selectWindow, resetBetween
-    circular-summary.ts   summariseAzimuths (D5), summariseAltitudes (D19)
+    circular-summary.ts   summariseAzimuths (D5), summariseAltitudes (D19), rss; internal
     yaw-reference.ts      YawReference, yawReferenceFromCompass, yawReferenceFromKnownAzimuth,
                           applyYawReference
     declination.ts        Declination, wmmDeclinationSigmaRad, trueAzimuthFromMagnetic,
@@ -772,6 +772,14 @@ spread = sqrt(−2 · log1p(−q))
 
 `rss(a, b) = hypot(a, b)` combines 1-sigmas (Req 5.3, 6.3, 8.3, 9.3).
 
+The three functions are internal and are not exported from `index.ts`. They are not total on
+their own: `summariseAltitudes([1e308, 1e308])` overflows to a success holding `Infinity`, `rss`
+overflows the same way, and `summariseAzimuths([1e300, 1e300])` gives a Spread of about
+`0.76 rad` for identical angles, because the remainder of `1e300 − μ` modulo `2π` does not
+match `sin` and `cos` of `1e300`. Their callers pass only angles in `[-π, 2π)` and 1-sigmas the
+parameter checks have bounded, so none of this is reachable through the public API. Exporting
+them would require making them total first.
+
 ### 7.6 Yaw reference (`yaw-reference.ts`)
 
 `yawReferenceFromCompass({ samples, frameResets, window, headingSigmaRad })` (Req 5.1), in
@@ -959,7 +967,8 @@ own `ListenerSet`, and every delivery goes through it (D22, Req 11.11).
    `sensor_unavailable` (D14, Req 11.5), and set it again for the next deadline (D21). The
    listeners stay (a late permission grant then still delivers samples).
 7. On each orientation event:
-   - copy it into a `RawOrientationEvent` (non-numbers become `null`);
+   - copy it into a `RawOrientationEvent` (non-numbers become `null`, and `absolute` is
+    `event.absolute === true`, so a truthy non-boolean is not Absolute);
    - call `orientationSampleFromEvent(raw, clock(), env.screenAngleDeg())`;
    - if the frame changed since the last valid sample, emit `frame_change` first (Req 4.8);
    - deliver the Result to the listeners;
@@ -1147,10 +1156,20 @@ more often than a uniform angle puts it there. Ends and special values are drawn
   `fc.pre`, so its report counts the discards.
 - **`smallRotationChange`**: `Δα, Δβ, Δγ ∈ [−1e-3, 1e-3]` each, ends included.
 - **`rayOffset`**: `rightRad, upRad ∈ [−80°, 80°]`, ends and `0` included.
-- **`compassScenario`**: a relative azimuth in `[0, 2π)`, an offset in `(−π, π]`, 1 to 50
-  samples, each with altitude in `[−30°, 30°]` and roll in `[−π, π)`. Each sample's rotation comes
+- **`compassScenario`**: a relative azimuth in `[0, 2π)`, an offset in `(−π, π]` (`π` drawn on
+  purpose), 1 to 50 samples, each with a pose altitude in `[−30°, 30°]` (ends drawn) and a roll in
+  `[−π, π)`, and a reported accuracy that is `null` or in `[0°, 20°]`. Each sample's rotation comes
   from `rotationFromDirection` (verified by P-12.6). The scenario has Screen angle `0`, headings
   `wrapTwoPi(relative + offset)` exactly, and a window that contains every sample (Req 5.14).
+  - *Domain on the computed altitude.* Req 5.14 limits the samples' Camera altitudes, which are
+    the ones computed back from the rotation, not the pose altitudes drawn. A pose built at exactly
+    `±30°` comes back outside the limit about 29 % of the time, by at most `5.6e-16 rad`
+    (measured on 100 000 poses at the ends). P-5.14 therefore applies `fc.pre` to every sample's
+    computed Camera altitude and counts the discarded cases; Req 5.6 and the code stay exact.
+    Because a case holds up to 50 samples and one draw in ten is an end value, a case often holds
+    several end samples, and one rounding out discards the whole case: at checkpoint 10 P-5.14
+    discarded 20 389 cases for its 100 000 (17 % of draws). The ends are still reached in most
+    cases kept.
 - **`knownAzimuthScenario(frame)`**: one `horizontalRotation` repeated over 1 to 50 sample times,
   all in the given frame, a known azimuth in `[0, 2π)`, a known sigma in `[0, 45°]` and a North
   reference `true` or `magnetic` (Req 5.15). P-5.15 runs it once with `'relative'` and once with
@@ -1189,8 +1208,14 @@ more often than a uniform angle puts it there. Ends and special values are drawn
   - *Pose.* 1 to 4 moving keyframes before `Tc0`, anywhere from the start, so the direction may
     move during the Yaw reference window. Then two keyframes with the same direction `D`, one at
     a time in `[Ty1, Tc0]` and one at `Tc1` or later, so the direction is constant over the
-    capture window; optionally more moving keyframes after that. Altitudes in `[−30°, 30°]`,
-    rolls in `[−π, π)`, so every interpolated altitude stays in `[−30°, 30°]`.
+    capture window; optionally more moving keyframes after that. Pose altitudes in
+    `[−30°, 30°]` (ends drawn), rolls in `[−π, π)`, so every interpolated pose altitude stays in
+    `[−30°, 30°]`.
+  - *Domain on the computed altitude.* Req 12.7's domain is scripts whose generated samples all
+    have Camera altitudes in `[−30°, 30°]`, computed back from each generated event's angles in
+    degrees. A pose at the limit can round just outside it, as for `compassScenario`. P-12.7 runs
+    the Simulator, then applies `fc.pre` to the computed Camera altitude of every sample the two
+    windows read, and counts the discarded scripts.
   - The capture's true azimuth is checked against `D`'s azimuth.
 - **`simulatorScript`**: valid scripts drawn over every field of Section 6, with event
   intervals of `5` to `100` ms, 1 to 5 keyframes, both frames, 0 to 3 resets, and headings
@@ -1237,7 +1262,7 @@ more often than a uniform angle puts it there. Ends and special values are drawn
 | P-3.7 | 3.7 | `deviceRotation` | `offAxisRay(r, (0, 0))` equals `cameraAxis(r)` within `1e-12` per component |
 | P-3.8 | 3.8 | `deviceRotation`; `rayOffset` | `Rᵀ · ray` gives back `rightRad`, `upRad` by `atan2(x, −z)`, `atan2(y, −z)` within `1e-9` |
 | P-3.9 | 3.9 | `deviceRotation`; `rayOffset` | angle(ray, axis) `= atan(hypot(tan r, tan u))` within `1e-9` |
-| P-5.14 | 5.14 | `compassScenario` | Yaw reference offset equals the offset within `1e-9` (wrapped); applying it reproduces every heading within `1e-9` |
+| P-5.14 | 5.14 | `compassScenario`; `fc.pre` on every sample's computed Camera altitude in `[−30°, 30°]`, discards counted | Yaw reference offset equals the offset within `1e-9` (wrapped); applying it reproduces every heading within `1e-9` |
 | P-5.15 | 5.15 | `knownAzimuthScenario('relative')` and `knownAzimuthScenario('absolute')`, as two tests | `frame` is the scenario's; applying the reference to the samples' Camera azimuth gives the known azimuth within `1e-9` (wrapped); `sigmaRad` equals the known sigma within `1e-12` |
 | P-6.11 | 6.11 | magnetic azimuth `∈ [0, 2π)`; declination `∈ [−π/2, π/2]` | true and back with the negated declination returns the input within `1e-12` (wrapped) |
 | P-7.9 | 7.9 | `geolocationReading` | `latRad`, `lonRad` within `1e-15` of `degToRad` of the input; reported accuracy identical |
@@ -1252,7 +1277,7 @@ more often than a uniform angle puts it there. Ends and special values are drawn
 | P-9.9 | 9.9 | `altitudeSet`; a random permutation | apparent altitude and sigma change by at most `1e-12` |
 | P-11.8 | 11.8 | `hostileInput` to every exported function, the Simulator and the browser source with a hostile fake environment | no call throws; every Result is a failure or a success whose numbers are all finite |
 | P-12.6 | 12.6 | `cameraPose`, including its log-scale draws near gimbal lock | the raw event's angles lie in the W3C ranges; through `cameraAxis` they give back azimuth and altitude within `1e-9` |
-| P-12.7 | 12.7 | `compassCaptureScript`; a Declination 1-sigma drawn from `[0.26°, 2.72°]`, the range of the WMM error model above the blackout limit | run the Simulator past `Tc1 + 5000`; `yawReferenceFromCompass` over `[Ty0, Ty1]`, then `captureBearing` over `[Tc0, Tc1]` with `{ declinationRad: scripted, sigmaRad: drawn }`, give `D`'s true azimuth within `1e-9` (wrapped), and `azimuthSigmaRad = max(0.01°, rss(headingSigmaRad, drawn))` within `1e-12` |
+| P-12.7 | 12.7 | `compassCaptureScript`; `fc.pre` on the computed Camera altitude of every sample the two windows read, in `[−30°, 30°]`, discards counted; a Declination 1-sigma drawn from `[0.26°, 2.72°]`, the range of the WMM error model above the blackout limit | run the Simulator past `Tc1 + 5000`; `yawReferenceFromCompass` over `[Ty0, Ty1]`, then `captureBearing` over `[Tc0, Tc1]` with `{ declinationRad: scripted, sigmaRad: drawn }`, give `D`'s true azimuth within `1e-9` (wrapped), and `azimuthSigmaRad = max(0.01°, rss(headingSigmaRad, drawn))` within `1e-12` |
 | P-12.8 | 12.8 | `simulatorScript`; seed `∈ [0, 2³²)` | two runs of the same script and seed give deep-equal event sequences, with `Object.is` on every number |
 | P-14.6 | 14.6 | `historySequence` | after the last add, `samples` and `frameResets` are exactly the items of the sequence with `T − timeUtcMs ≤ retention` (`T` its last time), in the order added, compared with `Object.is` on every item; and the same holds after every intermediate add, with `T` the time so far |
 | P-14.7 | 14.7 | `historyCapture` | `captureBearing` on the history's samples and resets is deep-equal (`Object.is` on numbers) to `captureBearing` on the full sequence, failures included; the test counts the successes and fails if fewer than 10 % of cases succeed, so that it cannot pass on failures alone |
@@ -1357,7 +1382,8 @@ parses them through `import.meta.glob` `?raw` (as Core's purity test reads sourc
   - A `null` `alpha` gives `sensor_unavailable`.
   - A `NaN` `beta` gives `invalid_number` naming `beta`.
   - `deviceorientation` with `absolute: true` is Absolute; with `absolute: false` it is
-    Relative; `deviceorientationabsolute` is Absolute.
+    Relative; `deviceorientationabsolute` is Absolute. A truthy non-boolean `absolute` (`1`,
+    `'true'`, an object) is Relative.
   - A heading of `−1` is wrapped to `359°`, and a `NaN` heading is `null` without failing the
     sample.
   - An accuracy of `−1` is kept as negative.
@@ -1367,7 +1393,14 @@ parses them through `import.meta.glob` `?raw` (as Core's purity test reads sourc
     of `50` have identical `sigmaRad` (Req 5.8).
   - One negative-accuracy sample among ten is excluded, and the reference is unchanged.
   - All negative gives `compass_unreliable`.
-  - A sample at `30°` altitude is accepted; at `30.0001°` it gives `compass_unreliable`.
+  - Samples built `1e-12 rad` inside `±30°` are accepted (a pose built at exactly `30°` can come
+    back one ulp over); at `30.0001°` they give `compass_unreliable`.
+  - *Exactly at the limit (`<=` against `<`).* The rotation `alphaRad 2.641964239832127`,
+    `betaRad −2.4484975052199363`, `gammaRad 0.8632578960821685` has a computed Camera altitude
+    equal to `30 · (π/180)` exactly (checked with `===`), and is accepted. The rotation
+    `alphaRad 4.48072343547989`, `betaRad −0.3785021413203012`, `gammaRad 1.0026314118313542`
+    (the pose of the shrunk P-5.14 counterexample, built at exactly `−30°`) comes back one ulp
+    below `−30°`, and is refused.
   - Screen angles `90°` and `null` give `compass_unreliable`.
 - **Capture order and each failure (D8).** Each of these is built so that it triggers exactly one
   reason, and one combined case checks the order (a stale position together with too few samples

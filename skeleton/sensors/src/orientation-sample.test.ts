@@ -64,6 +64,18 @@ describe('orientationSampleFromEvent (§7.3)', () => {
     );
   });
 
+  it('counts only a real true as absolute, whatever an untrusted event carries (Req 4.3)', () => {
+    // The static type says boolean, but the field is copied from a browser event; a truthy
+    // non-boolean must not switch the frame.
+    const frame = (absolute: unknown) =>
+      expectOk(orientationSampleFromEvent({ ...UPRIGHT, absolute: absolute as boolean }, 0, 0))
+        .frame;
+    expect(frame(1)).toBe('relative');
+    expect(frame('true')).toBe('relative');
+    expect(frame({})).toBe('relative');
+    expect(frame(true)).toBe('absolute');
+  });
+
   it('records the heading wrapped, the accuracy with its sign, and the Screen angle (Req 4.5, 4.9)', () => {
     const sample = expectOk(
       orientationSampleFromEvent(
