@@ -18,6 +18,7 @@ Every numeric name carries its unit as a suffix. Names such as `bearing`, `angle
 | Time instant | milliseconds since Unix epoch, UTC | `UtcMs` | `timeUtcMs` |
 | Duration | milliseconds | `Ms` | `windowLengthMs` |
 | Variance of a length | square metres | `M2` | `covEnM2` |
+| Magnetic field intensity | nanotesla | `Nt` | `horizontalIntensityNt` |
 
 - All math is done in radians. Degrees exist only in the wire format, fixtures and the UI. Conversion happens in one module.
 - All time is UTC. `skeleton/core` never reads the clock and never handles time zones.

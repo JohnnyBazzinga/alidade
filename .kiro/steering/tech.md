@@ -14,6 +14,7 @@ inclusion: always
 - **UI:** React, in `skeleton/ui` and the apps only.
 - **Maps:** MapLibre GL JS.
 - **Astronomy:** `astronomy-engine` for ephemerides. Do not hand-write planetary theory.
+- **Geomagnetism:** `magvar` 2.2.0 (MIT, WMM2025) for magnetic declination, in `skeleton/sensors` only, imported by one wrapper module. Do not hand-write the World Magnetic Model.
 - **Lint and format:** ESLint and Prettier, run from the repo root.
 
 Pin exact dependency versions in `package.json` (no `^` or `~`).

@@ -179,7 +179,7 @@ The private folder `notes/` holds real locations and is not used. Every fixture 
 3. THE Math layer SHALL derive the 1-sigma position accuracy of a Position fix as the reported accuracy divided by a confidence scale the caller passes in; the default scale is `1`, so that the reported accuracy is taken as the 1-sigma.
 4. IF the reported accuracy of a Position fix exceeds the limit the caller sets for the operation, THEN THE Sensors SHALL return a failure with reason `coarse_location` that carries the reported accuracy in metres, so that the caller can show it.
 5. IF the reported accuracy is `NaN`, infinite or negative, or the position is not a Supported position, THEN THE Sensors SHALL return a failure with reason `invalid_position`.
-6. IF the browser denies geolocation, THEN THE Adapter SHALL return a failure with reason `permission_denied`; IF it reports the position unavailable, a failure with reason `position_unavailable`; IF no reading arrives within the position timeout the caller sets, a failure with reason `position_timeout`.
+6. IF the browser denies geolocation, THEN THE Adapter SHALL return a failure with reason `permission_denied`; IF it reports the position unavailable, a failure with reason `position_unavailable`; IF no reading arrives within the position timeout the caller sets, a failure with reason `position_timeout`. THE Adapter SHALL measure that timeout itself, from each start, and SHALL NOT rely on the browser to report it, so that a start always settles.
 7. IF a Position fix is Stale at the time the caller passes in, THEN THE Sensors SHALL return a failure with reason `stale_position`.
 8. THE Sensors SHALL report the accuracy of every Position fix it returns, including those within the caller's limit, and SHALL NOT replace it with a default.
 9. FOR ALL latitudes in `[-89°, 89°]`, longitudes in `(-180°, 180°]` and reported accuracies in `[0, 10 000]` m, the Position fix SHALL hold the latitude and longitude in radians within `1e-15` rad of `degToRad` of the input, and the reported accuracy unchanged.
@@ -251,7 +251,7 @@ The private folder `notes/` holds real locations and is not used. Every fixture 
 8. THE Sensors SHALL NOT throw, and SHALL NOT return `NaN` or infinite values, for any input that passes type checking, including events whose fields are `null`, `NaN` or out of range.
 9. WHEN the caller stops a Sensor source, THE Adapter SHALL remove every listener, geolocation watch and timer it added.
 10. WHEN the caller starts orientation, or positions, on a Sensor source on which it is already started, THE Sensor source SHALL add no second listener, watch or timer of that kind and SHALL NOT emit a Frame reset; the call SHALL settle as a first start does, with the next valid sample or fix or with the timeout's failure.
-11. IF a listener the caller registered throws, THEN THE Sensor source SHALL still deliver the event to the other listeners and SHALL keep running.
+11. IF a listener the caller registered throws, THEN THE Sensor source SHALL still deliver the event to the other listeners and SHALL keep running. It SHALL pass the thrown value to an error callback the caller may give when it creates the Sensor source, so that the failure is not lost; without one the value is dropped.
 
 ### Requirement 12: Simulator source
 
@@ -265,7 +265,7 @@ The private folder `notes/` holds real locations and is not used. Every fixture 
 4. THE Simulator source SHALL be deterministic: on the same JavaScript engine, the same script and the same seed SHALL produce identical outputs, including every number bit for bit.
 5. THE Simulator source SHALL use only synthetic data, and no fixture of the package SHALL contain a recorded location.
 6. FOR ALL camera azimuths in `[0, 2π)`, camera altitudes in `[-80°, 80°]` and rolls in `[-π, π)`, the Raw orientation event the Simulator source generates without noise SHALL have `alpha` in `[0°, 360°)`, `beta` in `[-180°, 180°)` and `gamma` in `[-90°, 90°)`, and SHALL, through the Math layer of Requirement 2, give back the camera azimuth and altitude within `1e-9` rad.
-7. FOR ALL scripts with a Relative frame, a known zero, camera altitudes in `[-30°, 30°]`, Screen angle `0`, and noise-free Magnetic headings that include the scripted Declination, establishing a Yaw reference from the compass and capturing a bearing with the scripted Declination through the Math layer SHALL give the scripted true azimuth within `1e-9` rad.
+7. FOR ALL scripts with a Relative frame, a known zero, camera altitudes in `[-30°, 30°]`, Screen angle `0`, and noise-free Magnetic headings that include the scripted Declination, establishing a Yaw reference from the compass (while the camera direction may move) and capturing a bearing with the scripted Declination through the Math layer, over a Sighting window in which the scripted camera direction is constant and no Frame reset lies between the Yaw reference and the capture, SHALL give the scripted true azimuth within `1e-9` rad.
 8. FOR ALL seeds, two runs of the same script SHALL produce identical output sequences.
 
 ### Requirement 13: Testing split
