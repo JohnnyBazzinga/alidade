@@ -217,11 +217,11 @@ into the skeleton-sensors requirements.
     and worst errors, and the cost probe of task 7.2 with a proposal for the counts of the capped
     properties. **Stop for review.**
 
-- [ ] 9. The Session: types, parameters, transitions
-  - [ ] 9.1 `session.ts`, `session-events.ts`, `createSession` (§6, §7.6)
+- [x] 9. The Session: types, parameters, transitions
+  - [x] 9.1 `session.ts`, `session-events.ts`, `createSession` (§6, §7.6)
     - The types of §6; `createSession(kind, parameters)` validating the parameters.
     - _Requirements: 8.1, 8.2, 8.13_
-  - [ ] 9.2 `step` for the data events, the Notice and the transitions (D3, D5, D23)
+  - [x] 9.2 `step` for the data events, the Notice and the transitions (D3, D5, D23)
     - Every branch validates the event time first. The table of Req 8.3; the two kinds of event;
       a data event that carries a failure and fits no transition records its own reason in a
       Session of either kind; an action event that fits none gets `action_not_available`;
@@ -234,14 +234,14 @@ into the skeleton-sensors requirements.
       event with a `NaN` time, the Notice replaced and cleared as D23 says, an altitude Session
       never asks for positions or a Declination and never records them.
     - _Requirements: 8.3, 8.4, 8.5, 8.6, 8.7, 8.8, 8.13, 8.14, 21.4_
-  - [ ] 9.3 `yaw-status.ts` (§7.8) and properties P-11.8
+  - [x] 9.3 `yaw-status.ts` (§7.8) and properties P-11.8
     - `yawStatus` with Sensors' `resetBetween` and `invalidates`.
     - Examples: each status; `invalidated` over `stale`; a reset exactly at the established time
       and at `now`; a reference established inside the window (the other case of Req 11.7).
     - _Requirements: 11.3, 11.8_
 
-- [ ] 10. The Live readout
-  - [ ] 10.1 `readout.ts` (§7.7)
+- [x] 10. The Live readout
+  - [x] 10.1 `readout.ts` (§7.7)
     - `liveReadout`, `steadiness`, publication in `step` for samples and `tick`, `stale`.
     - Examples: the North reference of every case (Relative with and without a valid Yaw reference,
       Absolute with and without, with and without a Declination, a stale Yaw reference, an
@@ -249,57 +249,57 @@ into the skeleton-sensors requirements.
       are `frame_reset`; a vertical camera is `axis_vertical`; the readout decays to `null` on
       `tick`; a time stepping back.
     - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 9.6_
-  - [ ] 10.2 Properties P-9.9, P-9.10, P-9.11
+  - [x] 10.2 Properties P-9.9, P-9.10, P-9.11
     - P-9.9 compares with Sensors' `captureBearing` and `captureAltitude` (and the Spread through
       the capture's sigma); P-9.11 on azimuth sets built with `aim`.
     - _Requirements: 9.9, 9.10, 9.11_
 
-- [ ] 11. Freeze, mark, capture, establishing north
-  - [ ] 11.1 `freeze.ts`, `mark.ts` (§7.6, D6)
+- [x] 11. Freeze, mark, capture, establishing north
+  - [x] 11.1 `freeze.ts`, `mark.ts` (§7.6, D6)
     - `freeze` through `selectWindow`, then the Screen angle; the Frozen sighting; `mark` through
       `pointToRayOffset` and `imageAngularSigmaRad`, the earlier Mark kept on failure.
     - Examples: each failure of Req 10.1 and 10.2 (and their order); a `null` Screen angle; the
       Mark failures of Req 10.5; the Mark kept as an offset; leaving `frozen` drops the history and
       the Mark.
     - _Requirements: 10.1, 10.2, 10.3, 10.5, 10.6, 10.7_
-  - [ ] 11.2 `capture.ts` (§7.9)
+  - [x] 11.2 `capture.ts` (§7.9)
     - Bearing and altitude captures through Sensors; the sigma with a Mark; `position_unavailable`;
       `axis_vertical` beyond `80°`; `too_unsteady`; the result's details (Req 12.6).
     - Examples: no Mark equals Sensors' result deeply; with a Mark the sigma is the formula of
       Req 12.3 and 12.4 by hand; each failure passes through as a Notice and the Session stays
       `frozen`.
     - _Requirements: 12.1, 12.2, 12.3, 12.4, 12.5, 12.6, 12.7_
-  - [ ] 11.3 `establish-yaw.ts` (§7.8, D24)
+  - [x] 11.3 `establish-yaw.ts` (§7.8, D24)
     - The compass in `live`; a known azimuth in `live` and in `frozen` (with the Mark's offset and
       sigma; the Frozen sighting's Yaw reference replaced, nothing else).
     - Examples: each availability; a Sensors failure is a Notice and the held reference stays;
       with a Mark the sigma is `hypot(σ, ε / cos h)`; `compass_unreliable` at Screen angle `90°`
       and `null`.
     - _Requirements: 11.1, 11.2, 11.5, 11.6_
-  - [ ] 11.4 Properties P-10.1, P-10.9, P-10.10, P-11.7, P-12.8, P-12.10
+  - [x] 11.4 Properties P-10.1, P-10.9, P-10.10, P-11.7, P-12.8, P-12.10
     - P-11.7 with Yaw references established no later than the window's start.
     - _Requirements: 10.1, 10.9, 10.10, 11.7, 12.8, 12.10_
 
-- [ ] 12. The `sessionRun` generator and the Session properties
-  - [ ] 12.1 Generator `sessionRun` (§8)
+- [x] 12. The `sessionRun` generator and the Session properties
+  - [x] 12.1 Generator `sessionRun` (§8)
     - Intents resolved against the live Session by a runner, so that sequences reach `frozen` and
       `captured`; hostile events one in ten; times that step back one in ten; both kinds.
     - Example test: a fixed seed reaches every state, and the runner reports the count of runs
       that reach `frozen`, `captured` and `failed` (the properties fail if fewer than 10 % reach
       each, so that they cannot pass on `permission` alone).
     - _Requirements: 8.9_
-  - [ ] 12.2 Properties P-8.9, P-8.10, P-8.11, P-8.12, P-10.8, P-11.9, P-12.9
+  - [x] 12.2 Properties P-8.9, P-8.10, P-8.11, P-8.12, P-10.8, P-11.9, P-12.9
     - The counts of §8 as revised at checkpoint 8. P-8.11 runs on deeply frozen states. P-11.9
       contains `establishYaw`, an invalidating `frameReset` in every state, and `restart`.
     - _Requirements: 8.9, 8.10, 8.11, 8.12, 10.8, 11.9, 12.9_
 
-- [ ] 13. The Session driver
-  - [ ] 13.1 `components/timer.ts`, `session-driver.ts` (§7.14, D4, D9)
+- [x] 13. The Session driver
+  - [x] 13.1 `components/timer.ts`, `session-driver.ts` (§7.14, D4, D9)
     - `createSessionDriver`: `requestPermission` from the gesture, subscriptions, the readout
       `tick` through the Timer, effects, the Declination on every Position fix of a bearing
       Session, `stop`. `FakeTimer` in `test-support/`.
     - _Requirements: 9.7, 9.8_
-  - [ ] 13.2 Example tests against the real Simulator (Req 9.12)
+  - [x] 13.2 Example tests against the real Simulator (Req 9.12)
     - Permission denied, permission required, sensor missing, insecure context, a start that
       settles, a restart (the Yaw reference is invalidated by the source's `restart` reset), a
       failing start result delivered in `live`, the unsubscription (no listener or timer left,
@@ -307,12 +307,12 @@ into the skeleton-sensors requirements.
       `onSession` does not stop the driver.
     - _Requirements: 9.7, 9.8, 9.12, 21.4_
 
-- [ ] 14. Hostile totality of the Session and the Math layer so far
-  - [ ] 14.1 Property P-2.6 for every public function of tasks 2 to 12
+- [x] 14. Hostile totality of the Session and the Math layer so far
+  - [x] 14.1 Property P-2.6 for every public function of tasks 2 to 12
     - `hostileInput` to each; the Session through `step` with hostile events.
     - _Requirements: 2.1, 2.6_
 
-- [ ] 15. Checkpoint: the Session
+- [x] 15. Checkpoint: the Session
   - `test:deep` for the properties of tasks 9 to 14 (P-8.9 to P-8.12, P-9.9 to P-9.11, P-10.1, P-10.8
     to P-10.10, P-11.7 to P-11.9, P-12.8 to P-12.10, P-2.6). Report cases, discards, worst errors,
     the measured milliseconds per case of the capped ones, and the revised counts. Then the root

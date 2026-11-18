@@ -71,7 +71,9 @@ export function checkProperty<Ts extends [unknown, ...unknown[]]>(
   const details = fc.check(property, parameters);
   const elapsedMs = performance.now() - startMs;
   if (details.failed) {
-    throw new Error(fc.defaultReportMessage(details) ?? `${id} failed`);
+    const cause =
+      details.errorInstance instanceof Error ? `\nCause: ${details.errorInstance.message}` : '';
+    throw new Error(`${fc.defaultReportMessage(details) ?? `${id} failed`}${cause}`);
   }
   const report: PropertyReport = {
     id,

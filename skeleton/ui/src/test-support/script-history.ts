@@ -19,12 +19,18 @@ const DEG = Math.PI / 180;
  * azimuth in [0, 2π), apparent altitude in [-80°, 80°], roll in [-π, π)), and an end time 200 to
  * 6000 ms after the script's start, to which the Simulator is advanced. Excludes nothing the
  * Simulator accepts; scripts that deliver nothing (a missing sensor, a denied permission, an
- * insecure page) are drawn on purpose, and the properties that need samples discard them.
+ * insecure page) are drawn on purpose, and the properties that need samples discard them. With
+ * `ready` the script delivers what a capture needs (see `simulatorScript`), and `minEndOffsetMs`
+ * (at least 1200 for a full window at the slowest event interval of 100 ms) raises the end time.
  */
-export function scriptRun(noiseFree = false): fc.Arbitrary<ScriptRun> {
+export function scriptRun(
+  noiseFree = false,
+  ready = false,
+  minEndOffsetMs = 200,
+): fc.Arbitrary<ScriptRun> {
   return fc
     .record({
-      script: simulatorScript(noiseFree),
+      script: simulatorScript(noiseFree, ready),
       seed: uniformInteger(0, 2 ** 32 - 1),
       aims: fc.array(
         fc.record({
@@ -35,7 +41,7 @@ export function scriptRun(noiseFree = false): fc.Arbitrary<ScriptRun> {
         }),
         { maxLength: 3 },
       ),
-      endOffsetMs: uniformInteger(200, 6000),
+      endOffsetMs: uniformInteger(minEndOffsetMs, 6000),
     })
     .map(({ script, seed, aims, endOffsetMs }) => {
       const endUtcMs = script.startUtcMs + endOffsetMs;
@@ -61,9 +67,16 @@ export function scriptRun(noiseFree = false): fc.Arbitrary<ScriptRun> {
 }
 
 /** `scriptHistory`: `scriptRun` and the history it builds. */
-export function scriptHistory(noiseFree = false): fc.Arbitrary<{
+export function scriptHistory(
+  noiseFree = false,
+  ready = false,
+  minEndOffsetMs = 200,
+): fc.Arbitrary<{
   run: ScriptRun;
   built: ScriptHistory;
 }> {
-  return scriptRun(noiseFree).map((run) => ({ run, built: buildHistoryFromRun(run) }));
+  return scriptRun(noiseFree, ready, minEndOffsetMs).map((run) => ({
+    run,
+    built: buildHistoryFromRun(run),
+  }));
 }

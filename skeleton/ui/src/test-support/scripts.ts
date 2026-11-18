@@ -18,9 +18,12 @@ export const SCRIPT_START_UTC_MS = 1_790_000_000_000;
  * 0 to 3 resets, a heading present or not (with 0 to 2 jumps), a Screen angle of 0, 90° or
  * `null`, a Declination in [-π, π], a fix, a failure or no position, a missing orientation
  * sensor in one draw of ten, each permission kind, and an insecure page in one draw of ten.
- * With `noiseFree`, every noise, bias, jump and frame error is zero. Excludes invalid scripts.
+ * With `noiseFree`, every noise, bias, jump and frame error is zero. With `ready`, the script
+ * delivers what a capture needs: orientation available, no permission needed, a secure page, and a
+ * fix from the start with an accuracy of at most 100 m every at most 1000 ms (so the fix is
+ * never stale or coarse). Excludes invalid scripts.
  */
-export function simulatorScript(noiseFree = false): fc.Arbitrary<SimulatorScript> {
+export function simulatorScript(noiseFree = false, ready = false): fc.Arbitrary<SimulatorScript> {
   const start = SCRIPT_START_UTC_MS;
   const small = (maxDeg: number) =>
     noiseFree ? fc.constant(0) : closed(-maxDeg * DEG, maxDeg * DEG);
@@ -127,6 +130,13 @@ export function simulatorScript(noiseFree = false): fc.Arbitrary<SimulatorScript
       ),
     })
     .map((d) => {
+      const readyPosition = {
+        kind: 'fix' as const,
+        position: { latRad: 0.5, lonRad: -0.7 },
+        reportedAccuracyM: 5,
+        firstFixDelayMs: 0,
+        fixIntervalMs: 500,
+      };
       const times = [...new Set(d.keyframes.map((k) => start + k.offsetMs))].sort((x, y) => x - y);
       const pose = times.map((timeUtcMs, i) => {
         const k = d.keyframes[i] ?? d.keyframes[0];
@@ -147,10 +157,10 @@ export function simulatorScript(noiseFree = false): fc.Arbitrary<SimulatorScript
         heading: d.heading,
         screenAngleDeg: d.screenAngleDeg,
         declinationRad: d.declinationRad,
-        position: d.position,
-        orientation: d.orientation,
-        orientationPermission: d.orientationPermission,
-        secureContext: d.secureContext,
+        position: ready ? readyPosition : d.position,
+        orientation: ready ? ('available' as const) : d.orientation,
+        orientationPermission: ready ? ('not_required' as const) : d.orientationPermission,
+        secureContext: ready ? true : d.secureContext,
       };
     });
 }

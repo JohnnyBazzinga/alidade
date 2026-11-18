@@ -164,16 +164,34 @@ describe('P-4.6 checkCalibration', () => {
 });
 
 /**
- * Domain (P-4.7): a Source image size in [64, 8192] per side, `fovRad` in [20°, 150°] on the
- * `diagonal`, and a `fovSigmaRad` in [0.01°, 0.07°] shared by the three calibrations (the least
- * equivalent width or height field of view, at the 128:1 aspect ratio and 20°, is 0.158°, and
- * `fov - sigma` must stay above 0; the sigma plays no part in the focal length).
+ * Domain (P-4.7): a Source image size in [64, 8192] per side, and the diagonal calibration drawn
+ * from the full domain of Req 4.6 (`fovRad` in [20°, 150°], `fovSigmaRad` in [0.01°, 5°]). Each
+ * equivalent calibration (width, height) gets its own `fovSigmaRad`, drawn in
+ * [0.01°, min(5°, 0.9·fov')] so that it is valid for it (the least equivalent field of view, at
+ * the 128:1 aspect ratio and 20°, is 0.158°); the sigma plays no part in the focal length.
  */
-const equivalentCase = fc.tuple(
-  sourceSize(),
-  closed(20 * DEG, 150 * DEG),
-  closed(0.01 * DEG, 0.07 * DEG),
-);
+const equivalentCase = fc
+  .tuple(sourceSize(), validCalibration, uniform(0, 1), uniform(0, 1))
+  .map(([size, calibration, uWidth, uHeight]) => ({ size, calibration, uWidth, uHeight }));
+
+function equivalent(
+  size: { widthSourcePx: number; heightSourcePx: number },
+  fovRad: number,
+  sideSourcePx: number,
+  axis: FovAxis,
+  u: number,
+): CameraCalibration {
+  const diagonal = Math.hypot(size.widthSourcePx, size.heightSourcePx);
+  const fov = 2 * Math.atan((sideSourcePx / diagonal) * Math.tan(fovRad / 2));
+  const sigmaMax = Math.min(5 * DEG, 0.9 * fov);
+  return {
+    fovRad: fov,
+    fovAxis: axis,
+    fovSigmaRad: 0.01 * DEG + u * (sigmaMax - 0.01 * DEG),
+    imageWidthSourcePx: size.widthSourcePx,
+    imageHeightSourcePx: size.heightSourcePx,
+  };
+}
 
 // P-4.7 (Req 4.7): the focal length of a diagonal calibration equals that of the width and the
 // height calibrations with fov' = 2·atan((side / diagonal)·tan(fov / 2)), within a relative 1e-12.
@@ -182,22 +200,20 @@ describe('P-4.7 focalLengthSourcePx', () => {
     const tracker = new ErrorTracker();
     checkProperty(
       'P-4.7',
-      fc.property(equivalentCase, ([size, fovRad, fovSigmaRad]) => {
-        const w = size.widthSourcePx;
-        const h = size.heightSourcePx;
-        const diagonal = Math.hypot(w, h);
-        const base = { fovSigmaRad, imageWidthSourcePx: w, imageHeightSourcePx: h };
-        const viaDiagonal = focalLengthSourcePx({ ...base, fovRad, fovAxis: 'diagonal' });
-        const viaWidth = focalLengthSourcePx({
-          ...base,
-          fovRad: 2 * Math.atan((w / diagonal) * Math.tan(fovRad / 2)),
-          fovAxis: 'width',
-        });
-        const viaHeight = focalLengthSourcePx({
-          ...base,
-          fovRad: 2 * Math.atan((h / diagonal) * Math.tan(fovRad / 2)),
-          fovAxis: 'height',
-        });
+      fc.property(equivalentCase, ({ size, calibration, uWidth, uHeight }) => {
+        const diagonalCalibration = {
+          ...calibration,
+          fovAxis: 'diagonal' as const,
+          imageWidthSourcePx: size.widthSourcePx,
+          imageHeightSourcePx: size.heightSourcePx,
+        };
+        const viaDiagonal = focalLengthSourcePx(diagonalCalibration);
+        const viaWidth = focalLengthSourcePx(
+          equivalent(size, calibration.fovRad, size.widthSourcePx, 'width', uWidth),
+        );
+        const viaHeight = focalLengthSourcePx(
+          equivalent(size, calibration.fovRad, size.heightSourcePx, 'height', uHeight),
+        );
         if (!viaDiagonal.ok || !viaWidth.ok || !viaHeight.ok) return false;
         const errorWidth = Math.abs(viaWidth.value - viaDiagonal.value) / viaDiagonal.value;
         const errorHeight = Math.abs(viaHeight.value - viaDiagonal.value) / viaDiagonal.value;
