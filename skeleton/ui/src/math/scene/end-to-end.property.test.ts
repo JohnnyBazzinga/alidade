@@ -11,7 +11,7 @@ import { PARAMETERS, sessionFromHistory } from '../../test-support/session-fixtu
 import { SCRIPT_START_UTC_MS } from '../../test-support/scripts';
 import { pointToRayOffset } from '../image-geometry';
 import { step } from '../session/step';
-import { sceneFromOffsets, type TargetSpec } from './catalogue';
+import { sceneFromOffsets, type TargetSpec } from './scene-from-offsets';
 import { projectScene } from './project-scene';
 import { targetDirection } from './target-direction';
 

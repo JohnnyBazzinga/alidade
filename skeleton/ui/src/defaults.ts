@@ -70,3 +70,9 @@ export const SCREEN_ANGLE_TOLERANCE_RAD = 1e-9;
 
 /** A Mark whose Off-axis ray is steeper than this has no usable azimuth (Req 12.3): 80°. */
 export const MAX_MARK_ALTITUDE_RAD = fromDeg(80);
+
+/** An application may draw at most this many layers of its own on the map (Req 15.15): 8. */
+export const MAX_APP_LAYERS = 8;
+
+/** One application layer holds at most this many features (Req 15.15): 2 000. */
+export const MAX_LAYER_FEATURES = 2000;

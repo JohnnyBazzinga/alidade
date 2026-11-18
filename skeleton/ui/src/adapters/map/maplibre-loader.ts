@@ -8,6 +8,10 @@ import type { GeoJsonSourceLike, MapLibreLike, MapLike, MapOptionsLike } from '.
 interface RealMap {
   on(type: string, listener: (event: unknown) => void): { unsubscribe(): void };
   getSource(id: string): unknown;
+  addSource(id: string, source: unknown): unknown;
+  addLayer(layer: unknown, beforeId?: string): unknown;
+  removeLayer(id: string): unknown;
+  removeSource(id: string): unknown;
   fitBounds(bounds: unknown, options: unknown): unknown;
   remove(): void;
 }
@@ -24,6 +28,18 @@ function adapt(map: RealMap): MapLike {
       return source !== undefined && typeof source.setData === 'function'
         ? (source as unknown as GeoJsonSourceLike)
         : undefined;
+    },
+    addSource: (id, source) => {
+      map.addSource(id, source);
+    },
+    addLayer: (layer, beforeId) => {
+      map.addLayer(layer, beforeId);
+    },
+    removeLayer: (id) => {
+      map.removeLayer(id);
+    },
+    removeSource: (id) => {
+      map.removeSource(id);
     },
     fitBounds: (bounds, options) => {
       map.fitBounds(bounds, options);

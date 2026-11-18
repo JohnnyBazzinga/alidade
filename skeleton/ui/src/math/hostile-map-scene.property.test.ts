@@ -28,6 +28,8 @@ import { aimAfterDrag } from './scene/aim';
 import { buildCatalogue } from './scene/catalogue';
 import { projectScene } from './scene/project-scene';
 import { checkScene, type Station, type SyntheticScene, type Target } from './scene/scene';
+import { sceneFromOffsets, type SceneSpec } from './scene/scene-from-offsets';
+import { scriptForStation, type StationScriptOptions } from './scene/script-for-station';
 import { targetDirection } from './scene/target-direction';
 import { liveReadout, steadiness } from './session/readout';
 import type { SessionParameters } from './session/parameters';
@@ -357,6 +359,107 @@ describe('P-2.6 the Math layer of tasks 16 to 19 is total', () => {
       `[coverage] P-2.6 panelStep: ${reached} cases on the path of the old bug (a long tick that would run); slowest call ${slowestMs.toFixed(3)} ms`,
     );
     expect(reached).toBeGreaterThan(0);
+  });
+
+  // P-2.6 for scene building (Req 2.6, 17.13; design D31): `sceneFromOffsets` with hostile offsets,
+  // origins and calibrations, and `scriptForStation` with hostile options, hostile ids and, one
+  // case in two, a hostile scene, never throw and return finite numbers only. The other half
+  // uses the catalogue's valid first scene, so that the options are reached (a hostile scene is
+  // refused first). Domain: every number is `hostileNumber()`; ids are the scene's own or a
+  // string of 0 to 4 characters.
+  it('sceneFromOffsets and scriptForStation are total', () => {
+    const tracker = new ErrorTracker();
+    const catalogue = buildCatalogue();
+    const valid = catalogue.ok ? catalogue.value[0]?.scene : undefined;
+    expect(valid).toBeDefined();
+    const specStation = fc.record({
+      id: fc.string({ maxLength: 4 }),
+      name: fc.string({ maxLength: 4 }),
+      eastM: hostileNumber(),
+      northM: hostileNumber(),
+    });
+    const specTarget: fc.Arbitrary<SceneSpec['targets'][number]> = fc.oneof(
+      fc.record({
+        kind: fc.constant('landmark' as const),
+        id: fc.string({ maxLength: 4 }),
+        label: fc.string({ maxLength: 4 }),
+        eastM: hostileNumber(),
+        northM: hostileNumber(),
+        heightM: hostileNumber(),
+      }),
+      fc.record({
+        kind: fc.constant('sun' as const),
+        id: fc.string({ maxLength: 4 }),
+        label: fc.string({ maxLength: 4 }),
+        azimuthRad: hostileNumber(),
+        apparentAltitudeRad: hostileNumber(),
+        angularRadiusRad: hostileNumber(),
+      }),
+    );
+    const spec: fc.Arbitrary<SceneSpec> = fc.record({
+      id: fc.string({ maxLength: 4 }),
+      name: fc.string({ maxLength: 4 }),
+      origin: position,
+      calibration: hostileCalibration(),
+      stations: fc.array(specStation, { maxLength: 3 }),
+      targets: fc.array(specTarget, { maxLength: 3 }),
+    });
+    const options: fc.Arbitrary<StationScriptOptions> = fc.record(
+      {
+        startUtcMs: hostileNumber(),
+        fixAccuracyM: hostileNumber(),
+        orientationNoiseSigmaRad: hostileNumber(),
+        altitudeBiasRad: hostileNumber(),
+        eventIntervalMs: hostileNumber(),
+        screenAngleDeg: fc.oneof(fc.constant(null), hostileNumber()),
+        frame: fc.oneof(
+          hostileNumber().map((northErrorRad) => ({
+            kind: 'absolute' as const,
+            northErrorRad,
+            resets: [],
+          })),
+          hostileNumber().map((zeroRad) => ({ kind: 'relative' as const, zeroRad, resets: [] })),
+        ),
+        heading: fc.oneof(
+          fc.constant(null),
+          fc.record({
+            biasRad: hostileNumber(),
+            noiseSigmaRad: hostileNumber(),
+            jumps: fc.constant([]),
+            reportedAccuracyDeg: hostileNumber(),
+          }),
+        ),
+      },
+      { requiredKeys: [] },
+    );
+    checkProperty(
+      'P-2.6 scene building',
+      fc.property(
+        fc.record({
+          spec,
+          hostileScene: scene,
+          useValid: fc.boolean(),
+          stationId: fc.oneof(fc.constantFrom('west', 'east', 'nope'), fc.string({ maxLength: 4 })),
+          aimTargetId: fc.oneof(
+            fc.constantFrom('tower', 'sun', 'nope'),
+            fc.string({ maxLength: 4 }),
+          ),
+          options,
+        }),
+        (c) => {
+          const chosen = c.useValid && valid !== undefined ? valid : c.hostileScene;
+          const results: unknown[] = [
+            sceneFromOffsets(c.spec),
+            scriptForStation(chosen, c.stationId, c.aimTargetId, c.options),
+          ];
+          const good = results.every(isTotalResult);
+          tracker.record('non-total results (must be 0)', good ? 0 : 1, '0');
+          return good;
+        },
+      ),
+      tracker,
+      { numRuns: cappedRuns(RUNS) },
+    );
   });
 
   it('buildCatalogue is total', () => {

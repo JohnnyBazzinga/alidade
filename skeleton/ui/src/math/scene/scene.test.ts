@@ -3,12 +3,8 @@ import { fromDeg } from '../degrees';
 import { imageLayout } from '../image-layout';
 import { rotationOfPose } from '../../test-support/pose-rotation';
 import { aimAfterDrag } from './aim';
-import {
-  CATALOGUE_CALIBRATION,
-  CATALOGUE_ORIGIN,
-  sceneFromOffsets,
-  type TargetSpec,
-} from './catalogue';
+import { CATALOGUE_CALIBRATION, CATALOGUE_ORIGIN } from './catalogue';
+import { sceneFromOffsets, type TargetSpec } from './scene-from-offsets';
 import {
   clipLine,
   horizonByFoot,

@@ -7,20 +7,26 @@
 // and far from the magnetic poles (outside the blackout zone), which a test checks. The camera's
 // calibration (70° on the diagonal of a 720 × 1280 image) is an invented value, not a measured one.
 
-import { unprojectToLocalPlane, type Position } from '@alidade/core';
-import { declinationAt, type SimulatorScript } from '@alidade/sensors';
+import type { Position } from '@alidade/core';
+import type { SimulatorScript } from '@alidade/sensors';
 import { err, ok, type UiResult } from '../../result';
 import type { UiReason } from '../../reasons';
 import type { CameraCalibration } from '../camera-calibration';
 import { fromDeg } from '../degrees';
-import { checkScene, type Station, type SyntheticScene, type Target } from './scene';
-import { targetDirection } from './target-direction';
+import type { SyntheticScene } from './scene';
+import { sceneFromOffsets, type StationSpec, type TargetSpec } from './scene-from-offsets';
+import {
+  SCRIPT_EVENT_INTERVAL_MS,
+  SCRIPT_START_UTC_MS,
+  scriptForStation,
+  type StationScriptOptions,
+} from './script-for-station';
 
 /** The synthetic origin: 30° N, 40° W. */
 export const CATALOGUE_ORIGIN: Position = { latRad: fromDeg(30), lonRad: fromDeg(-40) };
 /** 2026-09-21, inside the WMM2025 validity window. */
-export const CATALOGUE_START_UTC_MS = 1_790_000_000_000;
-export const CATALOGUE_EVENT_INTERVAL_MS = 50;
+export const CATALOGUE_START_UTC_MS = SCRIPT_START_UTC_MS;
+export const CATALOGUE_EVENT_INTERVAL_MS = SCRIPT_EVENT_INTERVAL_MS;
 
 /** The synthetic camera: 70° on the diagonal of a 720 × 1280 image, 1-sigma 1°. Invented. */
 export const CATALOGUE_CALIBRATION: CameraCalibration = {
@@ -30,74 +36,6 @@ export const CATALOGUE_CALIBRATION: CameraCalibration = {
   imageWidthSourcePx: 720,
   imageHeightSourcePx: 1280,
 };
-
-export type StationSpec = {
-  readonly id: string;
-  readonly name: string;
-  readonly eastM: number;
-  readonly northM: number;
-};
-export type TargetSpec =
-  | {
-      readonly kind: 'landmark';
-      readonly id: string;
-      readonly label: string;
-      readonly eastM: number;
-      readonly northM: number;
-      readonly heightM: number;
-    }
-  | {
-      readonly kind: 'sun';
-      readonly id: string;
-      readonly label: string;
-      readonly azimuthRad: number;
-      readonly apparentAltitudeRad: number;
-      readonly angularRadiusRad: number;
-    };
-
-export interface SceneSpec {
-  readonly id: string;
-  readonly name: string;
-  readonly origin: Position;
-  readonly calibration: CameraCalibration;
-  readonly stations: readonly StationSpec[];
-  readonly targets: readonly TargetSpec[];
-}
-
-/** A scene from offsets in metres on the Local plane of `origin` (the catalogue's own builder). */
-export function sceneFromOffsets(spec: SceneSpec): UiResult<SyntheticScene> {
-  const at = (eastM: number, northM: number) =>
-    unprojectToLocalPlane(spec.origin, { eastM, northM });
-  const stations: Station[] = [];
-  for (const s of spec.stations) {
-    const position = at(s.eastM, s.northM);
-    if (!position.ok) return position;
-    stations.push({ id: s.id, name: s.name, position: position.value });
-  }
-  const targets: Target[] = [];
-  for (const t of spec.targets) {
-    if (t.kind === 'sun') {
-      targets.push(t);
-      continue;
-    }
-    const position = at(t.eastM, t.northM);
-    if (!position.ok) return position;
-    targets.push({
-      kind: 'landmark',
-      id: t.id,
-      label: t.label,
-      position: position.value,
-      heightM: t.heightM,
-    });
-  }
-  return checkScene({
-    id: spec.id,
-    name: spec.name,
-    calibration: spec.calibration,
-    stations,
-    targets,
-  });
-}
 
 export interface CatalogueScene {
   readonly scene: SyntheticScene;
@@ -110,12 +48,6 @@ export interface CatalogueScene {
   readonly failure: UiReason | null;
   readonly description: string;
 }
-
-type ScriptChange = Partial<
-  Omit<SimulatorScript, 'pose' | 'declinationRad' | 'position' | 'startUtcMs'>
-> & {
-  readonly position?: SimulatorScript['position'];
-};
 
 const STATIONS: readonly StationSpec[] = [
   { id: 'west', name: 'West post', eastM: -800, northM: 0 },
@@ -135,20 +67,7 @@ const SUN: TargetSpec = {
   angularRadiusRad: fromDeg(0.267),
 };
 
-const DEFAULT_SCRIPT: Omit<SimulatorScript, 'pose' | 'declinationRad' | 'position'> = {
-  startUtcMs: CATALOGUE_START_UTC_MS,
-  eventIntervalMs: CATALOGUE_EVENT_INTERVAL_MS,
-  orientationNoiseSigmaRad: 0,
-  altitudeBiasRad: 0,
-  frame: { kind: 'absolute', northErrorRad: 0, resets: [] },
-  heading: null,
-  screenAngleDeg: 0,
-  orientation: 'available',
-  orientationPermission: 'not_required',
-  secureContext: true,
-};
-
-const RELATIVE: ScriptChange = {
+const RELATIVE: StationScriptOptions = {
   frame: { kind: 'relative', zeroRad: 1.1, resets: [] },
   heading: { biasRad: 0, noiseSigmaRad: fromDeg(0.3), jumps: [], reportedAccuracyDeg: 10 },
 };
@@ -159,7 +78,7 @@ interface Entry {
   readonly kind: 'bearing' | 'altitude';
   readonly failure: UiReason | null;
   readonly description: string;
-  readonly change: ScriptChange;
+  readonly change: StationScriptOptions;
   readonly sun?: boolean;
   /** The reported accuracy of the Station's fix, 5 m unless stated. */
   readonly fixAccuracyM?: number;
@@ -298,31 +217,13 @@ export function buildCatalogue(): UiResult<readonly CatalogueScene[]> {
     if (aim === undefined) return err('invalid_number', { field: 'aimTargetId' });
     const scripts: Record<string, SimulatorScript> = {};
     for (const station of scene.stations) {
-      const direction = targetDirection(station, aim);
-      if (!direction.ok) return direction;
-      const declination = declinationAt(station.position, CATALOGUE_START_UTC_MS);
-      if (!declination.ok) return declination;
-      scripts[station.id] = {
-        ...DEFAULT_SCRIPT,
-        position: {
-          kind: 'fix',
-          position: station.position,
-          reportedAccuracyM: entry.fixAccuracyM ?? 5,
-          firstFixDelayMs: 0,
-          fixIntervalMs: 1000,
-        },
-        ...entry.change,
-        pose: [
-          {
-            timeUtcMs: CATALOGUE_START_UTC_MS,
-            azimuthRad: direction.value.azimuthRad,
-            apparentAltitudeRad: direction.value.apparentAltitudeRad,
-            rollRad: 0,
-          },
-        ],
-        declinationRad: declination.value.declinationRad,
+      const script = scriptForStation(scene, station.id, aimTargetId, {
         startUtcMs: CATALOGUE_START_UTC_MS,
-      };
+        ...(entry.fixAccuracyM === undefined ? {} : { fixAccuracyM: entry.fixAccuracyM }),
+        ...entry.change,
+      });
+      if (!script.ok) return script;
+      scripts[station.id] = script.value;
     }
     out.push({
       scene,

@@ -8,7 +8,7 @@ import {
   type TruePose,
 } from '@alidade/sensors';
 import fc from 'fast-check';
-import { sceneFromOffsets, type TargetSpec } from '../math/scene/catalogue';
+import { sceneFromOffsets, type TargetSpec } from '../math/scene/scene-from-offsets';
 import type { SyntheticScene } from '../math/scene/scene';
 import { targetDirection } from '../math/scene/target-direction';
 import { closed, layoutCase, uniform, uniformInteger, type LayoutCase } from './generators';

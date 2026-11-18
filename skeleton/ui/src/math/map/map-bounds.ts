@@ -1,7 +1,12 @@
 // The box that holds every coordinate of some feature collections (Req 14.6).
 
 import { err, ok, type UiResult } from '../../result';
-import type { FeatureCollection, Geometry, LonLat } from './geojson';
+import type { Geometry, LonLat } from './geojson';
+
+/** Anything with features that have a geometry: the skeleton's collections and an application's. */
+export interface HasGeometries {
+  readonly features: readonly { readonly geometry: Geometry }[];
+}
 
 export interface MapBounds {
   readonly westDeg: number;
@@ -21,7 +26,7 @@ function coordinatesOf(geometry: Geometry): readonly LonLat[] {
  * when there is none or one is not finite; `crosses_antimeridian` when the longitudes span more
  * than 180° (a set across ±180°, or simply too wide: the message says the area is too wide).
  */
-export function mapBounds(collections: readonly FeatureCollection[]): UiResult<MapBounds> {
+export function mapBounds(collections: readonly HasGeometries[]): UiResult<MapBounds> {
   let west = Number.POSITIVE_INFINITY;
   let east = Number.NEGATIVE_INFINITY;
   let south = Number.POSITIVE_INFINITY;

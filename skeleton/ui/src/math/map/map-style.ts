@@ -19,6 +19,13 @@ export interface TileSource {
   readonly tileSizePx: number;
 }
 
+/**
+ * The layer that application layers are added before (Req 15.16, design D31.4): the first layer of
+ * the skeleton that draws data. A layer added before it is under the Wedges, the lines, the
+ * observers and the Fix with its ellipse, and above the background and the tiles.
+ */
+export const APP_LAYERS_BEFORE_ID = 'wedges-fill';
+
 /** The ids of the GeoJSON sources the adapter writes. The Fix and its ellipse share `fix`. */
 export type GeoJsonSourceId = 'observers' | 'wedges' | 'bearings' | 'fix';
 export const GEOJSON_SOURCE_IDS: readonly GeoJsonSourceId[] = [
@@ -33,7 +40,7 @@ export interface MapLayer {
   readonly type: 'background' | 'raster' | 'fill' | 'line' | 'circle';
   readonly source?: string;
   readonly filter?: readonly unknown[];
-  readonly paint: Readonly<Record<string, string | number>>;
+  readonly paint: Readonly<Record<string, string | number | readonly number[]>>;
 }
 
 export interface MapStyle {

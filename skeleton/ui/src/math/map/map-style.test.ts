@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { contrastRatio, type Rgb } from '../contrast';
-import { buildMapStyle, MAP_DARK, MAP_FIX, MAP_LIGHT, type TileSource } from './map-style';
+import {
+  APP_LAYERS_BEFORE_ID,
+  buildMapStyle,
+  MAP_DARK,
+  MAP_FIX,
+  MAP_LIGHT,
+  type TileSource,
+} from './map-style';
 
 const TILES: TileSource = {
   tileUrlTemplates: ['https://tiles.invalid/{z}/{x}/{y}.png'],
@@ -99,5 +106,20 @@ describe('buildMapStyle (Req 15.4, 15.7, D12)', () => {
 
   it('writes no URL of its own (Req 15.2, 15.9)', () => {
     expect(JSON.stringify(buildMapStyle(null))).not.toMatch(/https?:/);
+  });
+});
+
+// D31.4 (Req 15.16): application layers are added before `APP_LAYERS_BEFORE_ID`, so that every
+// layer of the skeleton that draws data is above them. A skeleton layer added under it would be
+// hidden by an application layer, and this test notices.
+describe('where application layers go (Req 15.16, D31.4)', () => {
+  it('is the first layer that draws data, after the background and the tiles', () => {
+    for (const tiles of [null, TILES]) {
+      const ids = buildMapStyle(tiles).layers.map((l) => l.id);
+      const base = tiles === null ? ['background'] : ['background', 'tiles'];
+      expect(ids.slice(0, base.length)).toEqual(base);
+      expect(ids[base.length]).toBe(APP_LAYERS_BEFORE_ID);
+      expect(ids.indexOf(APP_LAYERS_BEFORE_ID)).toBe(base.length);
+    }
   });
 });

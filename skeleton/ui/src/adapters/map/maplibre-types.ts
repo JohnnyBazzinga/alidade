@@ -21,7 +21,7 @@
 //   `_setupPainter` when `getContext('webgl2')` is null. It is not emitted as an `error` event on
 //   first construction (it is emitted only when a lost context fails to be restored).
 
-import type { MapStyle } from '../../math/map/map-style';
+import type { MapLayer, MapStyle } from '../../math/map/map-style';
 
 /** What the adapter passes to the constructor. `attributionControl` is left out (its default). */
 export interface MapOptionsLike {
@@ -44,6 +44,16 @@ export interface SubscriptionLike {
 export interface MapLike {
   on(type: MapEventName, listener: (event: unknown) => void): SubscriptionLike;
   getSource(id: string): GeoJsonSourceLike | undefined;
+  /**
+   * Application layers (design D31.6), read in `maplibre-gl` 6.16's `Map`: `addSource(id,
+   * source)`, `addLayer(layer, beforeId?)` (puts the layer immediately below `beforeId`),
+   * `removeLayer(id)`, `removeSource(id)`. A call that cannot be honoured (a duplicate id, a
+   * `beforeId` that does not exist) fires an `error` event and returns; a throw is possible too.
+   */
+  addSource(id: string, source: { readonly type: 'geojson'; readonly data: unknown }): void;
+  addLayer(layer: MapLayer, beforeId: string): void;
+  removeLayer(id: string): void;
+  removeSource(id: string): void;
   fitBounds(
     bounds: readonly [readonly [number, number], readonly [number, number]],
     options: { readonly padding: number; readonly animate: false },

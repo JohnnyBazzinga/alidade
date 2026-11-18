@@ -290,13 +290,17 @@ describe('destroy (Req 15.10)', () => {
 describe('the API (Req 15.5, 15.9, D13)', () => {
   it('has no operation that draws a Position as a Fix, and adds no control', () => {
     const { adapter } = setUp();
+    // Req 15.14 adds `setLayer` and `clearLayer`: a general layer of the application's own, which
+    // refuses a feature of a skeleton kind (Req 15.15), so it cannot draw a Fix either.
     expect(Object.keys(adapter).sort()).toEqual([
       'clearFix',
+      'clearLayer',
       'destroy',
       'fitToFeatures',
       'onError',
       'setBearings',
       'setFix',
+      'setLayer',
       'setObservers',
     ]);
   });

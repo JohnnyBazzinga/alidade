@@ -7,15 +7,26 @@ import type { Bearing, Fix } from '@alidade/core';
 import {
   ELLIPSE_VERTEX_COUNT,
   MAP_ERROR_REPORT_INTERVAL_MS,
+  MAX_APP_LAYERS,
   WEDGE_ARC_STEP_RAD,
 } from '../../defaults';
 import { err, ok, type UiFailure, type UiResult } from '../../result';
 import type { Timer, TimerHandle } from '../../components/timer';
+import {
+  appLayerKey,
+  appLayerSpec,
+  checkLayerCollection,
+  checkLayerId,
+  checkLayerPaint,
+  type AppFeatureCollection,
+  type LayerPaint,
+} from '../../math/map/app-layer';
 import { bearingFeatures } from '../../math/map/bearing-features';
 import { fixFeatures, type FixFeatureCollection } from '../../math/map/fix-features';
 import { EMPTY_COLLECTION, type Feature, type FeatureCollection } from '../../math/map/geojson';
-import { mapBounds } from '../../math/map/map-bounds';
+import { mapBounds, type HasGeometries } from '../../math/map/map-bounds';
 import {
+  APP_LAYERS_BEFORE_ID,
   buildMapStyle,
   GEOJSON_SOURCE_IDS,
   type GeoJsonSourceId,
@@ -32,7 +43,21 @@ export interface MapAdapter {
   /** The only way to draw a Fix: its Point and its 95 % ellipse, together (Req 15.5, 15.6). */
   setFix(fix: Fix): UiResult<void>;
   clearFix(): UiResult<void>;
-  fitToFeatures(paddingPx: number): UiResult<void>;
+  /**
+   * Fits the map to what it draws. The application layers are included only through `extra`, the
+   * collections the caller passes (Req 15.16).
+   */
+  fitToFeatures(paddingPx: number, extra?: readonly HasGeometries[]): UiResult<void>;
+  /**
+   * Draws a layer of the application's own, under every layer of the skeleton, in the order in
+   * which the ids were first set (Req 15.14 to 15.16, design D31). `invalid_number` naming the
+   * field for an `id`, a `paint`, a ninth layer (`layers`) or a `collection` that is not valid
+   * (Req 15.15); the layer is then as it was. A feature of a skeleton kind is refused: a Fix is
+   * drawn by `setFix` alone.
+   */
+  setLayer(id: string, collection: AppFeatureCollection, paint: LayerPaint): UiResult<void>;
+  /** Removes an application layer; `ok` for an id that is not held. */
+  clearLayer(id: string): UiResult<void>;
   /** `tiles_unavailable` when a tile or a source fails, at most once per report interval. */
   onError(listener: (failure: UiFailure) => void): Unsubscribe;
   destroy(): void;
@@ -109,6 +134,13 @@ export function createMapAdapter(
   };
   let loaded = false;
   let destroyed = false;
+  // Application layers (D31.4): what the caller asked for, in the order its ids were first set, and
+  // what the live map holds (in order, with the paint and the data each was built or last written
+  // with). `syncAppLayers` makes the second equal the first.
+  const appLayers = new Map<string, { collection: AppFeatureCollection; paint: LayerPaint }>();
+  const mappedOrder: string[] = [];
+  const mappedPaint = new Map<string, string>();
+  const mappedData = new Map<string, AppFeatureCollection>();
   const listeners = new Set<(failure: UiFailure) => void>();
   let throttle: TimerHandle | null = null;
   const subscriptions: SubscriptionLike[] = [];
@@ -147,6 +179,84 @@ export function createMapAdapter(
     return ok(undefined);
   };
 
+  /** Removes one application layer and its source from the live map. Throws what the map throws. */
+  const removeMapped = (id: string): void => {
+    const key = appLayerKey(id);
+    try {
+      map.removeLayer(key);
+      map.removeSource(key);
+    } finally {
+      const at = mappedOrder.indexOf(id);
+      if (at !== -1) mappedOrder.splice(at, 1);
+      mappedPaint.delete(id);
+      mappedData.delete(id);
+    }
+  };
+
+  /** Adds one application layer, with its data, before the skeleton's first data layer. */
+  const addMapped = (
+    id: string,
+    layer: { collection: AppFeatureCollection; paint: LayerPaint },
+  ): void => {
+    const key = appLayerKey(id);
+    map.addSource(key, { type: 'geojson', data: layer.collection });
+    try {
+      map.addLayer(appLayerSpec(id, layer.paint), APP_LAYERS_BEFORE_ID);
+    } catch (error) {
+      try {
+        map.removeSource(key);
+      } catch {
+        // The source is left behind; the failure below is what the caller sees.
+      }
+      throw error;
+    }
+    mappedOrder.push(id);
+    mappedPaint.set(id, JSON.stringify(layer.paint));
+    mappedData.set(id, layer.collection);
+  };
+
+  /**
+   * Makes the live map hold the layers in `appLayers`, in their order (D31.4): finds the first
+   * place where the two differ in id or paint, removes the mapped layers from there to the end,
+   * adds the wanted ones from there, and writes new data to the ones before it. Nothing is done
+   * before the map has loaded. Throws what the map throws; the state it keeps is true.
+   */
+  const syncAppLayers = (): void => {
+    if (!loaded) return;
+    const wanted = [...appLayers.keys()];
+    let same = 0;
+    while (same < mappedOrder.length && same < wanted.length) {
+      const id = wanted[same] as string;
+      const layer = appLayers.get(id);
+      if (
+        mappedOrder[same] !== id ||
+        layer === undefined ||
+        mappedPaint.get(id) !== JSON.stringify(layer.paint)
+      )
+        break;
+      same += 1;
+    }
+    while (mappedOrder.length > same) removeMapped(mappedOrder[mappedOrder.length - 1] as string);
+    for (const id of wanted.slice(same)) {
+      const layer = appLayers.get(id);
+      if (layer !== undefined) addMapped(id, layer);
+    }
+    for (const id of wanted.slice(0, same)) {
+      const layer = appLayers.get(id);
+      if (layer === undefined || mappedData.get(id) === layer.collection) continue;
+      mappedData.set(id, layer.collection);
+      try {
+        const source = map.getSource(appLayerKey(id));
+        const pending = source?.setData(layer.collection);
+        if (pending !== undefined && typeof pending.then === 'function') {
+          pending.then(undefined, (error: unknown) => report(error));
+        }
+      } catch (error) {
+        report(error);
+      }
+    }
+  };
+
   const store = (id: GeoJsonSourceId, collection: FeatureCollection): UiResult<void> => {
     latest[id] = collection;
     return write(id);
@@ -158,6 +268,11 @@ export function createMapAdapter(
         if (destroyed || loaded) return;
         loaded = true;
         for (const id of GEOJSON_SOURCE_IDS) write(id);
+        try {
+          syncAppLayers();
+        } catch (error) {
+          report(error);
+        }
       }),
       map.on('error', (event) => report(event)),
     );
@@ -208,11 +323,14 @@ export function createMapAdapter(
       if (destroyed) return gone();
       return store('fix', EMPTY_COLLECTION);
     },
-    fitToFeatures(paddingPx) {
+    fitToFeatures(paddingPx, extra) {
       if (destroyed) return gone();
       if (!Number.isFinite(paddingPx) || paddingPx < 0)
         return err('invalid_number', { field: 'paddingPx' });
-      const bounds = mapBounds(GEOJSON_SOURCE_IDS.map((id) => latest[id]));
+      const bounds = mapBounds([
+        ...GEOJSON_SOURCE_IDS.map((id) => latest[id]),
+        ...(Array.isArray(extra) ? extra : []),
+      ]);
       if (!bounds.ok) return bounds;
       const b = bounds.value;
       try {
@@ -226,6 +344,47 @@ export function createMapAdapter(
       } catch (error) {
         const name = nameOf(error);
         return err('map_unavailable', name === undefined ? {} : { errorName: name });
+      }
+      return ok(undefined);
+    },
+    setLayer(id, collection, paint) {
+      if (destroyed) return gone();
+      const checkedId = checkLayerId(id);
+      if (!checkedId.ok) return checkedId;
+      const checkedPaint = checkLayerPaint(paint);
+      if (!checkedPaint.ok) return checkedPaint;
+      if (!appLayers.has(id) && appLayers.size >= MAX_APP_LAYERS)
+        return err('invalid_number', { field: 'layers' });
+      const checkedCollection = checkLayerCollection(collection);
+      if (!checkedCollection.ok) return checkedCollection;
+      const previous = appLayers.get(id);
+      appLayers.set(id, { collection: checkedCollection.value, paint: checkedPaint.value });
+      try {
+        syncAppLayers();
+      } catch (error) {
+        if (previous === undefined) appLayers.delete(id);
+        else appLayers.set(id, previous);
+        try {
+          syncAppLayers();
+        } catch {
+          // The map is left as it is; the next call makes it match again.
+        }
+        const name = nameOf(error);
+        return err('map_unavailable', name === undefined ? {} : { errorName: name });
+      }
+      return ok(undefined);
+    },
+    clearLayer(id) {
+      if (destroyed) return gone();
+      const checkedId = checkLayerId(id);
+      if (!checkedId.ok) return checkedId;
+      if (!appLayers.delete(id)) return ok(undefined);
+      if (mappedPaint.has(id)) {
+        try {
+          removeMapped(id);
+        } catch (error) {
+          report(error);
+        }
       }
       return ok(undefined);
     },
@@ -247,6 +406,10 @@ export function createMapAdapter(
         }
       }
       listeners.clear();
+      appLayers.clear();
+      mappedOrder.length = 0;
+      mappedPaint.clear();
+      mappedData.clear();
       try {
         map.remove();
       } catch {

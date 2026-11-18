@@ -480,3 +480,60 @@ into the skeleton-sensors requirements.
     ones at their stated counts). Write `coverage.md` (a table of every criterion and the tests that
     cover it, as for Sensors). List the device checks of the requirements for the Playground and the
     publication date of every dependency. Report and stop.
+
+- [x] 27. Application layers on the map, and scenes of an app's own (design D31)
+  - Added after the skeleton was finished, for Vigia and Nonius. Tests before code in every step;
+    each step ends with its tests, `pnpm typecheck`, `pnpm lint` and `pnpm format:check`. No new
+    dependency. `timeout` in front of every test run, no `pkill`, no commit.
+  - [x] 27.1 Freeze the catalogue, and its regression test (Req 17.14)
+    - `fixtures/catalogue-before-task-27.json`: `buildCatalogue()` as it is, written once, before
+      any change, read-only afterwards. `math/scene/catalogue-regression.test.ts`: the eleven
+      scenes and their scripts equal it deeply after a JSON round trip, scene by scene, naming the
+      one that differs. It passes on the unchanged code now, and again after 27.3.
+    - _Requirements: 17.14_
+  - [x] 27.2 Scene building: tests first (Req 17.13, 17.15)
+    - `script-for-station.test.ts` (each refusal with its field, the clamp, each option, the
+      defaults, a start time outside the model's years), the generator `stationScriptCase`
+      (design §8) and P-17.15 with its report of clamped cases. All fail (no module yet).
+    - _Requirements: 17.13, 17.15_
+  - [x] 27.3 Scene building: code
+    - Move `sceneFromOffsets`, `SceneSpec`, `StationSpec`, `TargetSpec` to
+      `math/scene/scene-from-offsets.ts` (code unchanged; imports of tests and generators
+      updated); new `math/scene/script-for-station.ts`; the catalogue built through both.
+      27.1's regression and P-17.15 pass. `scriptForStation` and `sceneFromOffsets` join the
+      hostile properties' list (P-2.6).
+    - _Requirements: 17.13, 17.14, 17.15, 2.6_
+  - [x] 27.4 Application layers: tests first (Req 15.14 to 15.17)
+    - `FakeMap` gains `addSource`, `addLayer`, `removeLayer`, `removeSource`, the ordered
+      `layerIds()`, the call logs, and the two failure modes (D31.6). `math/map/app-layer.test.ts`
+      and P-15.15 (`app-layer.property.test.ts`), `map-style.test.ts` (the position of
+      `APP_LAYERS_BEFORE_ID`), `adapters/map/map-adapter.layers.test.ts`, P-15.17 in
+      `map-adapter.property.test.ts` with the generator `appLayerOp`, `MapView.test.tsx` (the
+      `layers` prop). All fail.
+    - _Requirements: 15.14, 15.15, 15.16, 15.17_
+  - [x] 27.5 Application layers: code
+    - `defaults.ts` (`MAX_APP_LAYERS`, `MAX_LAYER_FEATURES`), `math/map/app-layer.ts`,
+      `map-style.ts` (`APP_LAYERS_BEFORE_ID`, the wider `MapLayer.paint`), `maplibre-types.ts`,
+      the loader's adaptation, `map-adapter.ts` (`setLayer`, `clearLayer`, `fitToFeatures`' second
+      argument, `sync`), `MapView` (`layers`). The tests of 27.4 pass.
+    - _Requirements: 15.14, 15.15, 15.16, 15.17_
+  - [x] 27.6 Exports, purity, README, coverage
+    - `src/index.ts` (the types and constants of D31, `setLayer` through `MapAdapter`,
+      `sceneFromOffsets`, `scriptForStation` and their types); the file list and the two new
+      rules of `purity.test.ts`; `README.md` (a section on application layers and one on scenes of
+      an app's own); `coverage.md` (rows 15.14 to 15.17 and 17.13 to 17.15, regenerated).
+    - _Requirements: 1.6, 1.7_
+  - [x] 27.7 Checkpoint: group 27 (stops for review)
+    - `test:deep` for the files touched; the new properties' cases, discards and worst errors; the
+      regression of the eleven scenes; the mutation checks (each run against the real tests, each
+      expected to fail, the source restored after): `setLayer` accepts a feature of kind `fix`; an
+      application layer drawn above the Fix; `clearLayer` that clears the Fix; `scriptForStation`
+      aimed at the wrong Target. `pnpm test`, `pnpm typecheck`, `pnpm lint`,
+      `pnpm format:check` from the root, and `pnpm --filter @alidade/ui build:playground` once.
+      Report and stop.
+  - [x] 27.8 The builder of features and the fit flag (design D31.12; closes H1 and H2)
+    - Tests first: `math/map/app-feature.test.ts`, P-15.18 (`adapters/map/app-feature.property.test.ts`),
+      the fit tests of `MapView.test.tsx`. Then `math/map/app-feature.ts`, `AppLayer.fit`, `MapView`,
+      the exports, the purity list, the README, `coverage.md`. One mutation check each: the builder
+      writing latitude first; `MapView` fitting to a layer that did not ask for it.
+    - _Requirements: 15.14_

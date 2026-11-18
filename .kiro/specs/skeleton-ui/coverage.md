@@ -1,6 +1,6 @@
 # Requirement coverage — skeleton-ui
 
-Generated at checkpoint 26, and again after the corrections of D29 and D30, from the test files: a criterion is listed against every test file that
+Generated at checkpoint 26, again after the corrections of D29 and D30, and extended by hand for task group 27 (criteria 15.14 to 15.17 and 17.13 to 17.15, checked against the test files with the same rule), from the test files: a criterion is listed against every test file that
 cites it (`Req N.M`, lists, ranges and a whole requirement `Req N`) or names its property
 (`P-N.M`). File names are relative to `skeleton/ui/src` (or `playground/`), without `.test`.
 Criteria no test cites by number are listed with what covers them.
@@ -170,6 +170,10 @@ Criteria no test cites by number are listed with what covers them.
 | 15.11 | adapters/map/map-adapter.property |
 | 15.12 | adapters/map/map-adapter.property |
 | 15.13 | *not cited:* adapters/map/map-adapter (example tests against `FakeMapLibre`, by criterion 15.1 to 15.10) |
+| 15.14 | math/map/app-feature, adapters/map/app-feature.property (P-15.18), adapters/map/map-adapter.layers, adapters/map/map-adapter, components/MapView, math/map/app-layer, math/map/app-layer.property (P-15.15) |
+| 15.15 | adapters/map/map-adapter.layers, adapters/map/map-adapter.property (P-15.17), math/map/app-layer, math/map/app-layer.property (P-15.15) |
+| 15.16 | adapters/map/map-adapter.layers, adapters/map/map-adapter.property (P-15.17), math/map/map-style |
+| 15.17 | adapters/map/map-adapter.property (P-15.17, with P-15.11 and P-15.12 on the same sequences), components/MapView |
 | 16.1 | math/scene/scene |
 | 16.2 | math/scene/scene |
 | 16.3 | math/scene/end-to-end.property, math/scene/scene, math/scene/scene.property |
@@ -193,6 +197,9 @@ Criteria no test cites by number are listed with what covers them.
 | 17.10 | components/ImageSurface, components/SimulatorPanel, math/scene/scene |
 | 17.11 | components/ImageSurface, components/SimulatorPanel |
 | 17.12 | math/scene/scene.property |
+| 17.13 | math/scene/script-for-station, math/hostile-map-scene.property (P-2.6) |
+| 17.14 | math/scene/catalogue-regression (against `fixtures/catalogue-before-task-27.json`) |
+| 17.15 | math/scene/script-for-station, math/scene/script-for-station.property (P-17.15) |
 | 18.1 | *not cited:* purity (the fixed file list; index.ts exports nothing from `playground`), `build:playground` at checkpoint 26 |
 | 18.2 | playground/Playground.integration |
 | 18.3 | playground/Playground.integration |

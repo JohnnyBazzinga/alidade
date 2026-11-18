@@ -14,6 +14,8 @@ export type { UiOnlyReason, UiReason } from './reasons';
 export {
   ELLIPSE_VERTEX_COUNT,
   MAP_ERROR_REPORT_INTERVAL_MS,
+  MAX_APP_LAYERS,
+  MAX_LAYER_FEATURES,
   MAX_MARK_ALTITUDE_RAD,
   MAX_PANEL_ELAPSED_MS,
   MAX_PANEL_TICK_MS,
@@ -91,6 +93,9 @@ export type { MapObserver } from './math/map/observer-features';
 export { bearingFeatures, MAX_LINE_LENGTH_M } from './math/map/bearing-features';
 export { fixFeatures } from './math/map/fix-features';
 export type { FixFeatureCollection } from './math/map/fix-features';
+export { appFeature } from './math/map/app-feature';
+export type { AppShape } from './math/map/app-feature';
+export type { AppFeature, AppFeatureCollection, AppLayer, LayerPaint } from './math/map/app-layer';
 export { mapBounds } from './math/map/map-bounds';
 export type { MapBounds } from './math/map/map-bounds';
 export { buildMapStyle } from './math/map/map-style';
@@ -106,6 +111,10 @@ export { projectScene } from './math/scene/project-scene';
 export type { HorizonLine, ProjectedScene, ProjectedTarget } from './math/scene/project-scene';
 export { aimAfterDrag } from './math/scene/aim';
 export { buildCatalogue, CATALOGUE_CALIBRATION, CATALOGUE_ORIGIN } from './math/scene/catalogue';
+export { sceneFromOffsets } from './math/scene/scene-from-offsets';
+export type { SceneSpec, StationSpec, TargetSpec } from './math/scene/scene-from-offsets';
+export { scriptForStation } from './math/scene/script-for-station';
+export type { StationScriptOptions } from './math/scene/script-for-station';
 export type { CatalogueScene } from './math/scene/catalogue';
 export { panelStep } from './math/panel/panel-state';
 export type {

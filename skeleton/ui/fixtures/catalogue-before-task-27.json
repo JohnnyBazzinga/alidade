@@ -1,0 +1,1581 @@
+[
+  {
+    "scene": {
+      "id": "steady",
+      "name": "Steady phone",
+      "calibration": {
+        "fovRad": 1.2217304763960306,
+        "fovAxis": "diagonal",
+        "fovSigmaRad": 0.017453292519943295,
+        "imageWidthSourcePx": 720,
+        "imageHeightSourcePx": 1280
+      },
+      "stations": [
+        {
+          "id": "west",
+          "name": "West post",
+          "position": {
+            "latRad": 0.523598771046606,
+            "lonRad": -0.6982766951711636
+          }
+        },
+        {
+          "id": "east",
+          "name": "East post",
+          "position": {
+            "latRad": 0.523598771046606,
+            "lonRad": -0.6979867064242999
+          }
+        }
+      ],
+      "targets": [
+        {
+          "kind": "landmark",
+          "id": "tower",
+          "label": "Tower",
+          "position": {
+            "latRad": 0.5240696586396156,
+            "lonRad": -0.6981317007977318
+          },
+          "heightM": 60
+        },
+        {
+          "kind": "landmark",
+          "id": "mast",
+          "label": "Mast",
+          "position": {
+            "latRad": 0.5239126531596028,
+            "lonRad": -0.6976785112354148
+          },
+          "heightM": 120
+        },
+        {
+          "kind": "landmark",
+          "id": "ridge",
+          "label": "Ridge",
+          "position": {
+            "latRad": 0.5242265555987813,
+            "lonRad": -0.6986756269226733
+          },
+          "heightM": 300
+        }
+      ]
+    },
+    "scripts": {
+      "west": {
+        "startUtcMs": 1790000000000,
+        "eventIntervalMs": 50,
+        "orientationNoiseSigmaRad": 0.0008726646259971648,
+        "altitudeBiasRad": 0,
+        "frame": {
+          "kind": "absolute",
+          "northErrorRad": 0,
+          "resets": []
+        },
+        "heading": null,
+        "screenAngleDeg": 0,
+        "orientation": "available",
+        "orientationPermission": "not_required",
+        "secureContext": true,
+        "position": {
+          "kind": "fix",
+          "position": {
+            "latRad": 0.523598771046606,
+            "lonRad": -0.6982766951711636
+          },
+          "reportedAccuracyM": 5,
+          "firstFixDelayMs": 0,
+          "fixIntervalMs": 1000
+        },
+        "pose": [
+          {
+            "timeUtcMs": 1790000000000,
+            "azimuthRad": 0.26052987550557055,
+            "apparentAltitudeRad": 0.01932229381411477,
+            "rollRad": 0
+          }
+        ],
+        "declinationRad": -0.20734511513692636
+      },
+      "east": {
+        "startUtcMs": 1790000000000,
+        "eventIntervalMs": 50,
+        "orientationNoiseSigmaRad": 0.0008726646259971648,
+        "altitudeBiasRad": 0,
+        "frame": {
+          "kind": "absolute",
+          "northErrorRad": 0,
+          "resets": []
+        },
+        "heading": null,
+        "screenAngleDeg": 0,
+        "orientation": "available",
+        "orientationPermission": "not_required",
+        "secureContext": true,
+        "position": {
+          "kind": "fix",
+          "position": {
+            "latRad": 0.523598771046606,
+            "lonRad": -0.6979867064242999
+          },
+          "reportedAccuracyM": 5,
+          "firstFixDelayMs": 0,
+          "fixIntervalMs": 1000
+        },
+        "pose": [
+          {
+            "timeUtcMs": 1790000000000,
+            "azimuthRad": 6.022655431674016,
+            "apparentAltitudeRad": 0.01932229381411477,
+            "rollRad": 0
+          }
+        ],
+        "declinationRad": -0.20734511513692636
+      }
+    },
+    "aimTargetId": "tower",
+    "kind": "bearing",
+    "failure": null,
+    "description": "An Absolute-frame phone held still on the tower."
+  },
+  {
+    "scene": {
+      "id": "iphone",
+      "name": "iPhone with a compass",
+      "calibration": {
+        "fovRad": 1.2217304763960306,
+        "fovAxis": "diagonal",
+        "fovSigmaRad": 0.017453292519943295,
+        "imageWidthSourcePx": 720,
+        "imageHeightSourcePx": 1280
+      },
+      "stations": [
+        {
+          "id": "west",
+          "name": "West post",
+          "position": {
+            "latRad": 0.523598771046606,
+            "lonRad": -0.6982766951711636
+          }
+        },
+        {
+          "id": "east",
+          "name": "East post",
+          "position": {
+            "latRad": 0.523598771046606,
+            "lonRad": -0.6979867064242999
+          }
+        }
+      ],
+      "targets": [
+        {
+          "kind": "landmark",
+          "id": "tower",
+          "label": "Tower",
+          "position": {
+            "latRad": 0.5240696586396156,
+            "lonRad": -0.6981317007977318
+          },
+          "heightM": 60
+        },
+        {
+          "kind": "landmark",
+          "id": "mast",
+          "label": "Mast",
+          "position": {
+            "latRad": 0.5239126531596028,
+            "lonRad": -0.6976785112354148
+          },
+          "heightM": 120
+        },
+        {
+          "kind": "landmark",
+          "id": "ridge",
+          "label": "Ridge",
+          "position": {
+            "latRad": 0.5242265555987813,
+            "lonRad": -0.6986756269226733
+          },
+          "heightM": 300
+        }
+      ]
+    },
+    "scripts": {
+      "west": {
+        "startUtcMs": 1790000000000,
+        "eventIntervalMs": 50,
+        "orientationNoiseSigmaRad": 0,
+        "altitudeBiasRad": -0.05759586531581287,
+        "frame": {
+          "kind": "relative",
+          "zeroRad": 1.1,
+          "resets": []
+        },
+        "heading": {
+          "biasRad": 0,
+          "noiseSigmaRad": 0.005235987755982988,
+          "jumps": [],
+          "reportedAccuracyDeg": 10
+        },
+        "screenAngleDeg": 0,
+        "orientation": "available",
+        "orientationPermission": "not_required",
+        "secureContext": true,
+        "position": {
+          "kind": "fix",
+          "position": {
+            "latRad": 0.523598771046606,
+            "lonRad": -0.6982766951711636
+          },
+          "reportedAccuracyM": 5,
+          "firstFixDelayMs": 0,
+          "fixIntervalMs": 1000
+        },
+        "pose": [
+          {
+            "timeUtcMs": 1790000000000,
+            "azimuthRad": 0.26052987550557055,
+            "apparentAltitudeRad": 0.01932229381411477,
+            "rollRad": 0
+          }
+        ],
+        "declinationRad": -0.20734511513692636
+      },
+      "east": {
+        "startUtcMs": 1790000000000,
+        "eventIntervalMs": 50,
+        "orientationNoiseSigmaRad": 0,
+        "altitudeBiasRad": -0.05759586531581287,
+        "frame": {
+          "kind": "relative",
+          "zeroRad": 1.1,
+          "resets": []
+        },
+        "heading": {
+          "biasRad": 0,
+          "noiseSigmaRad": 0.005235987755982988,
+          "jumps": [],
+          "reportedAccuracyDeg": 10
+        },
+        "screenAngleDeg": 0,
+        "orientation": "available",
+        "orientationPermission": "not_required",
+        "secureContext": true,
+        "position": {
+          "kind": "fix",
+          "position": {
+            "latRad": 0.523598771046606,
+            "lonRad": -0.6979867064242999
+          },
+          "reportedAccuracyM": 5,
+          "firstFixDelayMs": 0,
+          "fixIntervalMs": 1000
+        },
+        "pose": [
+          {
+            "timeUtcMs": 1790000000000,
+            "azimuthRad": 6.022655431674016,
+            "apparentAltitudeRad": 0.01932229381411477,
+            "rollRad": 0
+          }
+        ],
+        "declinationRad": -0.20734511513692636
+      }
+    },
+    "aimTargetId": "tower",
+    "kind": "bearing",
+    "failure": "no_yaw_reference",
+    "description": "A Relative-frame phone with a compass and an altitude bias of -3.3°: north must be set first."
+  },
+  {
+    "scene": {
+      "id": "compass-jumps",
+      "name": "A compass that jumps",
+      "calibration": {
+        "fovRad": 1.2217304763960306,
+        "fovAxis": "diagonal",
+        "fovSigmaRad": 0.017453292519943295,
+        "imageWidthSourcePx": 720,
+        "imageHeightSourcePx": 1280
+      },
+      "stations": [
+        {
+          "id": "west",
+          "name": "West post",
+          "position": {
+            "latRad": 0.523598771046606,
+            "lonRad": -0.6982766951711636
+          }
+        },
+        {
+          "id": "east",
+          "name": "East post",
+          "position": {
+            "latRad": 0.523598771046606,
+            "lonRad": -0.6979867064242999
+          }
+        }
+      ],
+      "targets": [
+        {
+          "kind": "landmark",
+          "id": "tower",
+          "label": "Tower",
+          "position": {
+            "latRad": 0.5240696586396156,
+            "lonRad": -0.6981317007977318
+          },
+          "heightM": 60
+        },
+        {
+          "kind": "landmark",
+          "id": "mast",
+          "label": "Mast",
+          "position": {
+            "latRad": 0.5239126531596028,
+            "lonRad": -0.6976785112354148
+          },
+          "heightM": 120
+        },
+        {
+          "kind": "landmark",
+          "id": "ridge",
+          "label": "Ridge",
+          "position": {
+            "latRad": 0.5242265555987813,
+            "lonRad": -0.6986756269226733
+          },
+          "heightM": 300
+        }
+      ]
+    },
+    "scripts": {
+      "west": {
+        "startUtcMs": 1790000000000,
+        "eventIntervalMs": 50,
+        "orientationNoiseSigmaRad": 0,
+        "altitudeBiasRad": 0,
+        "frame": {
+          "kind": "relative",
+          "zeroRad": 1.1,
+          "resets": []
+        },
+        "heading": {
+          "biasRad": 0,
+          "noiseSigmaRad": 0.005235987755982988,
+          "jumps": [
+            {
+              "startUtcMs": 1790000001000,
+              "durationMs": 500,
+              "sizeRad": 2.0943951023931953
+            }
+          ],
+          "reportedAccuracyDeg": 10
+        },
+        "screenAngleDeg": 0,
+        "orientation": "available",
+        "orientationPermission": "not_required",
+        "secureContext": true,
+        "position": {
+          "kind": "fix",
+          "position": {
+            "latRad": 0.523598771046606,
+            "lonRad": -0.6982766951711636
+          },
+          "reportedAccuracyM": 5,
+          "firstFixDelayMs": 0,
+          "fixIntervalMs": 1000
+        },
+        "pose": [
+          {
+            "timeUtcMs": 1790000000000,
+            "azimuthRad": 0.26052987550557055,
+            "apparentAltitudeRad": 0.01932229381411477,
+            "rollRad": 0
+          }
+        ],
+        "declinationRad": -0.20734511513692636
+      },
+      "east": {
+        "startUtcMs": 1790000000000,
+        "eventIntervalMs": 50,
+        "orientationNoiseSigmaRad": 0,
+        "altitudeBiasRad": 0,
+        "frame": {
+          "kind": "relative",
+          "zeroRad": 1.1,
+          "resets": []
+        },
+        "heading": {
+          "biasRad": 0,
+          "noiseSigmaRad": 0.005235987755982988,
+          "jumps": [
+            {
+              "startUtcMs": 1790000001000,
+              "durationMs": 500,
+              "sizeRad": 2.0943951023931953
+            }
+          ],
+          "reportedAccuracyDeg": 10
+        },
+        "screenAngleDeg": 0,
+        "orientation": "available",
+        "orientationPermission": "not_required",
+        "secureContext": true,
+        "position": {
+          "kind": "fix",
+          "position": {
+            "latRad": 0.523598771046606,
+            "lonRad": -0.6979867064242999
+          },
+          "reportedAccuracyM": 5,
+          "firstFixDelayMs": 0,
+          "fixIntervalMs": 1000
+        },
+        "pose": [
+          {
+            "timeUtcMs": 1790000000000,
+            "azimuthRad": 6.022655431674016,
+            "apparentAltitudeRad": 0.01932229381411477,
+            "rollRad": 0
+          }
+        ],
+        "declinationRad": -0.20734511513692636
+      }
+    },
+    "aimTargetId": "tower",
+    "kind": "bearing",
+    "failure": "too_unsteady",
+    "description": "The compass jumps by 120° for half a second: north set across the jump is too uncertain to use."
+  },
+  {
+    "scene": {
+      "id": "frame-reset",
+      "name": "North lost after a page switch",
+      "calibration": {
+        "fovRad": 1.2217304763960306,
+        "fovAxis": "diagonal",
+        "fovSigmaRad": 0.017453292519943295,
+        "imageWidthSourcePx": 720,
+        "imageHeightSourcePx": 1280
+      },
+      "stations": [
+        {
+          "id": "west",
+          "name": "West post",
+          "position": {
+            "latRad": 0.523598771046606,
+            "lonRad": -0.6982766951711636
+          }
+        },
+        {
+          "id": "east",
+          "name": "East post",
+          "position": {
+            "latRad": 0.523598771046606,
+            "lonRad": -0.6979867064242999
+          }
+        }
+      ],
+      "targets": [
+        {
+          "kind": "landmark",
+          "id": "tower",
+          "label": "Tower",
+          "position": {
+            "latRad": 0.5240696586396156,
+            "lonRad": -0.6981317007977318
+          },
+          "heightM": 60
+        },
+        {
+          "kind": "landmark",
+          "id": "mast",
+          "label": "Mast",
+          "position": {
+            "latRad": 0.5239126531596028,
+            "lonRad": -0.6976785112354148
+          },
+          "heightM": 120
+        },
+        {
+          "kind": "landmark",
+          "id": "ridge",
+          "label": "Ridge",
+          "position": {
+            "latRad": 0.5242265555987813,
+            "lonRad": -0.6986756269226733
+          },
+          "heightM": 300
+        }
+      ]
+    },
+    "scripts": {
+      "west": {
+        "startUtcMs": 1790000000000,
+        "eventIntervalMs": 50,
+        "orientationNoiseSigmaRad": 0,
+        "altitudeBiasRad": 0,
+        "frame": {
+          "kind": "relative",
+          "zeroRad": 1.1,
+          "resets": [
+            {
+              "timeUtcMs": 1790000004000,
+              "cause": "hidden",
+              "newZeroRad": 2.5
+            }
+          ]
+        },
+        "heading": {
+          "biasRad": 0,
+          "noiseSigmaRad": 0.005235987755982988,
+          "jumps": [],
+          "reportedAccuracyDeg": 10
+        },
+        "screenAngleDeg": 0,
+        "orientation": "available",
+        "orientationPermission": "not_required",
+        "secureContext": true,
+        "position": {
+          "kind": "fix",
+          "position": {
+            "latRad": 0.523598771046606,
+            "lonRad": -0.6982766951711636
+          },
+          "reportedAccuracyM": 5,
+          "firstFixDelayMs": 0,
+          "fixIntervalMs": 1000
+        },
+        "pose": [
+          {
+            "timeUtcMs": 1790000000000,
+            "azimuthRad": 0.26052987550557055,
+            "apparentAltitudeRad": 0.01932229381411477,
+            "rollRad": 0
+          }
+        ],
+        "declinationRad": -0.20734511513692636
+      },
+      "east": {
+        "startUtcMs": 1790000000000,
+        "eventIntervalMs": 50,
+        "orientationNoiseSigmaRad": 0,
+        "altitudeBiasRad": 0,
+        "frame": {
+          "kind": "relative",
+          "zeroRad": 1.1,
+          "resets": [
+            {
+              "timeUtcMs": 1790000004000,
+              "cause": "hidden",
+              "newZeroRad": 2.5
+            }
+          ]
+        },
+        "heading": {
+          "biasRad": 0,
+          "noiseSigmaRad": 0.005235987755982988,
+          "jumps": [],
+          "reportedAccuracyDeg": 10
+        },
+        "screenAngleDeg": 0,
+        "orientation": "available",
+        "orientationPermission": "not_required",
+        "secureContext": true,
+        "position": {
+          "kind": "fix",
+          "position": {
+            "latRad": 0.523598771046606,
+            "lonRad": -0.6979867064242999
+          },
+          "reportedAccuracyM": 5,
+          "firstFixDelayMs": 0,
+          "fixIntervalMs": 1000
+        },
+        "pose": [
+          {
+            "timeUtcMs": 1790000000000,
+            "azimuthRad": 6.022655431674016,
+            "apparentAltitudeRad": 0.01932229381411477,
+            "rollRad": 0
+          }
+        ],
+        "declinationRad": -0.20734511513692636
+      }
+    },
+    "aimTargetId": "tower",
+    "kind": "bearing",
+    "failure": "frame_reset",
+    "description": "North is set, then the page is hidden at 4 s and the Relative frame moves: the capture is refused."
+  },
+  {
+    "scene": {
+      "id": "coarse",
+      "name": "Coarse location",
+      "calibration": {
+        "fovRad": 1.2217304763960306,
+        "fovAxis": "diagonal",
+        "fovSigmaRad": 0.017453292519943295,
+        "imageWidthSourcePx": 720,
+        "imageHeightSourcePx": 1280
+      },
+      "stations": [
+        {
+          "id": "west",
+          "name": "West post",
+          "position": {
+            "latRad": 0.523598771046606,
+            "lonRad": -0.6982766951711636
+          }
+        },
+        {
+          "id": "east",
+          "name": "East post",
+          "position": {
+            "latRad": 0.523598771046606,
+            "lonRad": -0.6979867064242999
+          }
+        }
+      ],
+      "targets": [
+        {
+          "kind": "landmark",
+          "id": "tower",
+          "label": "Tower",
+          "position": {
+            "latRad": 0.5240696586396156,
+            "lonRad": -0.6981317007977318
+          },
+          "heightM": 60
+        },
+        {
+          "kind": "landmark",
+          "id": "mast",
+          "label": "Mast",
+          "position": {
+            "latRad": 0.5239126531596028,
+            "lonRad": -0.6976785112354148
+          },
+          "heightM": 120
+        },
+        {
+          "kind": "landmark",
+          "id": "ridge",
+          "label": "Ridge",
+          "position": {
+            "latRad": 0.5242265555987813,
+            "lonRad": -0.6986756269226733
+          },
+          "heightM": 300
+        }
+      ]
+    },
+    "scripts": {
+      "west": {
+        "startUtcMs": 1790000000000,
+        "eventIntervalMs": 50,
+        "orientationNoiseSigmaRad": 0,
+        "altitudeBiasRad": 0,
+        "frame": {
+          "kind": "absolute",
+          "northErrorRad": 0,
+          "resets": []
+        },
+        "heading": null,
+        "screenAngleDeg": 0,
+        "orientation": "available",
+        "orientationPermission": "not_required",
+        "secureContext": true,
+        "position": {
+          "kind": "fix",
+          "position": {
+            "latRad": 0.523598771046606,
+            "lonRad": -0.6982766951711636
+          },
+          "reportedAccuracyM": 840,
+          "firstFixDelayMs": 0,
+          "fixIntervalMs": 1000
+        },
+        "pose": [
+          {
+            "timeUtcMs": 1790000000000,
+            "azimuthRad": 0.26052987550557055,
+            "apparentAltitudeRad": 0.01932229381411477,
+            "rollRad": 0
+          }
+        ],
+        "declinationRad": -0.20734511513692636
+      },
+      "east": {
+        "startUtcMs": 1790000000000,
+        "eventIntervalMs": 50,
+        "orientationNoiseSigmaRad": 0,
+        "altitudeBiasRad": 0,
+        "frame": {
+          "kind": "absolute",
+          "northErrorRad": 0,
+          "resets": []
+        },
+        "heading": null,
+        "screenAngleDeg": 0,
+        "orientation": "available",
+        "orientationPermission": "not_required",
+        "secureContext": true,
+        "position": {
+          "kind": "fix",
+          "position": {
+            "latRad": 0.523598771046606,
+            "lonRad": -0.6979867064242999
+          },
+          "reportedAccuracyM": 840,
+          "firstFixDelayMs": 0,
+          "fixIntervalMs": 1000
+        },
+        "pose": [
+          {
+            "timeUtcMs": 1790000000000,
+            "azimuthRad": 6.022655431674016,
+            "apparentAltitudeRad": 0.01932229381411477,
+            "rollRad": 0
+          }
+        ],
+        "declinationRad": -0.20734511513692636
+      }
+    },
+    "aimTargetId": "tower",
+    "kind": "bearing",
+    "failure": "coarse_location",
+    "description": "The phone knows its position only to 840 m."
+  },
+  {
+    "scene": {
+      "id": "location-denied",
+      "name": "Location denied",
+      "calibration": {
+        "fovRad": 1.2217304763960306,
+        "fovAxis": "diagonal",
+        "fovSigmaRad": 0.017453292519943295,
+        "imageWidthSourcePx": 720,
+        "imageHeightSourcePx": 1280
+      },
+      "stations": [
+        {
+          "id": "west",
+          "name": "West post",
+          "position": {
+            "latRad": 0.523598771046606,
+            "lonRad": -0.6982766951711636
+          }
+        },
+        {
+          "id": "east",
+          "name": "East post",
+          "position": {
+            "latRad": 0.523598771046606,
+            "lonRad": -0.6979867064242999
+          }
+        }
+      ],
+      "targets": [
+        {
+          "kind": "landmark",
+          "id": "tower",
+          "label": "Tower",
+          "position": {
+            "latRad": 0.5240696586396156,
+            "lonRad": -0.6981317007977318
+          },
+          "heightM": 60
+        },
+        {
+          "kind": "landmark",
+          "id": "mast",
+          "label": "Mast",
+          "position": {
+            "latRad": 0.5239126531596028,
+            "lonRad": -0.6976785112354148
+          },
+          "heightM": 120
+        },
+        {
+          "kind": "landmark",
+          "id": "ridge",
+          "label": "Ridge",
+          "position": {
+            "latRad": 0.5242265555987813,
+            "lonRad": -0.6986756269226733
+          },
+          "heightM": 300
+        }
+      ]
+    },
+    "scripts": {
+      "west": {
+        "startUtcMs": 1790000000000,
+        "eventIntervalMs": 50,
+        "orientationNoiseSigmaRad": 0,
+        "altitudeBiasRad": 0,
+        "frame": {
+          "kind": "absolute",
+          "northErrorRad": 0,
+          "resets": []
+        },
+        "heading": null,
+        "screenAngleDeg": 0,
+        "orientation": "available",
+        "orientationPermission": "not_required",
+        "secureContext": true,
+        "position": {
+          "kind": "failure",
+          "reason": "permission_denied"
+        },
+        "pose": [
+          {
+            "timeUtcMs": 1790000000000,
+            "azimuthRad": 0.26052987550557055,
+            "apparentAltitudeRad": 0.01932229381411477,
+            "rollRad": 0
+          }
+        ],
+        "declinationRad": -0.20734511513692636
+      },
+      "east": {
+        "startUtcMs": 1790000000000,
+        "eventIntervalMs": 50,
+        "orientationNoiseSigmaRad": 0,
+        "altitudeBiasRad": 0,
+        "frame": {
+          "kind": "absolute",
+          "northErrorRad": 0,
+          "resets": []
+        },
+        "heading": null,
+        "screenAngleDeg": 0,
+        "orientation": "available",
+        "orientationPermission": "not_required",
+        "secureContext": true,
+        "position": {
+          "kind": "failure",
+          "reason": "permission_denied"
+        },
+        "pose": [
+          {
+            "timeUtcMs": 1790000000000,
+            "azimuthRad": 6.022655431674016,
+            "apparentAltitudeRad": 0.01932229381411477,
+            "rollRad": 0
+          }
+        ],
+        "declinationRad": -0.20734511513692636
+      }
+    },
+    "aimTargetId": "tower",
+    "kind": "bearing",
+    "failure": "position_unavailable",
+    "description": "Location access is refused, so a bearing has no observer position."
+  },
+  {
+    "scene": {
+      "id": "permission-required",
+      "name": "Motion permission required",
+      "calibration": {
+        "fovRad": 1.2217304763960306,
+        "fovAxis": "diagonal",
+        "fovSigmaRad": 0.017453292519943295,
+        "imageWidthSourcePx": 720,
+        "imageHeightSourcePx": 1280
+      },
+      "stations": [
+        {
+          "id": "west",
+          "name": "West post",
+          "position": {
+            "latRad": 0.523598771046606,
+            "lonRad": -0.6982766951711636
+          }
+        },
+        {
+          "id": "east",
+          "name": "East post",
+          "position": {
+            "latRad": 0.523598771046606,
+            "lonRad": -0.6979867064242999
+          }
+        }
+      ],
+      "targets": [
+        {
+          "kind": "landmark",
+          "id": "tower",
+          "label": "Tower",
+          "position": {
+            "latRad": 0.5240696586396156,
+            "lonRad": -0.6981317007977318
+          },
+          "heightM": 60
+        },
+        {
+          "kind": "landmark",
+          "id": "mast",
+          "label": "Mast",
+          "position": {
+            "latRad": 0.5239126531596028,
+            "lonRad": -0.6976785112354148
+          },
+          "heightM": 120
+        },
+        {
+          "kind": "landmark",
+          "id": "ridge",
+          "label": "Ridge",
+          "position": {
+            "latRad": 0.5242265555987813,
+            "lonRad": -0.6986756269226733
+          },
+          "heightM": 300
+        }
+      ]
+    },
+    "scripts": {
+      "west": {
+        "startUtcMs": 1790000000000,
+        "eventIntervalMs": 50,
+        "orientationNoiseSigmaRad": 0,
+        "altitudeBiasRad": 0,
+        "frame": {
+          "kind": "absolute",
+          "northErrorRad": 0,
+          "resets": []
+        },
+        "heading": null,
+        "screenAngleDeg": 0,
+        "orientation": "available",
+        "orientationPermission": "granted",
+        "secureContext": true,
+        "position": {
+          "kind": "fix",
+          "position": {
+            "latRad": 0.523598771046606,
+            "lonRad": -0.6982766951711636
+          },
+          "reportedAccuracyM": 5,
+          "firstFixDelayMs": 0,
+          "fixIntervalMs": 1000
+        },
+        "pose": [
+          {
+            "timeUtcMs": 1790000000000,
+            "azimuthRad": 0.26052987550557055,
+            "apparentAltitudeRad": 0.01932229381411477,
+            "rollRad": 0
+          }
+        ],
+        "declinationRad": -0.20734511513692636
+      },
+      "east": {
+        "startUtcMs": 1790000000000,
+        "eventIntervalMs": 50,
+        "orientationNoiseSigmaRad": 0,
+        "altitudeBiasRad": 0,
+        "frame": {
+          "kind": "absolute",
+          "northErrorRad": 0,
+          "resets": []
+        },
+        "heading": null,
+        "screenAngleDeg": 0,
+        "orientation": "available",
+        "orientationPermission": "granted",
+        "secureContext": true,
+        "position": {
+          "kind": "fix",
+          "position": {
+            "latRad": 0.523598771046606,
+            "lonRad": -0.6979867064242999
+          },
+          "reportedAccuracyM": 5,
+          "firstFixDelayMs": 0,
+          "fixIntervalMs": 1000
+        },
+        "pose": [
+          {
+            "timeUtcMs": 1790000000000,
+            "azimuthRad": 6.022655431674016,
+            "apparentAltitudeRad": 0.01932229381411477,
+            "rollRad": 0
+          }
+        ],
+        "declinationRad": -0.20734511513692636
+      }
+    },
+    "aimTargetId": "tower",
+    "kind": "bearing",
+    "failure": "permission_required",
+    "description": "The browser needs a tap to share motion (iOS); started without asking, it sends nothing."
+  },
+  {
+    "scene": {
+      "id": "permission-denied",
+      "name": "Motion permission denied",
+      "calibration": {
+        "fovRad": 1.2217304763960306,
+        "fovAxis": "diagonal",
+        "fovSigmaRad": 0.017453292519943295,
+        "imageWidthSourcePx": 720,
+        "imageHeightSourcePx": 1280
+      },
+      "stations": [
+        {
+          "id": "west",
+          "name": "West post",
+          "position": {
+            "latRad": 0.523598771046606,
+            "lonRad": -0.6982766951711636
+          }
+        },
+        {
+          "id": "east",
+          "name": "East post",
+          "position": {
+            "latRad": 0.523598771046606,
+            "lonRad": -0.6979867064242999
+          }
+        }
+      ],
+      "targets": [
+        {
+          "kind": "landmark",
+          "id": "tower",
+          "label": "Tower",
+          "position": {
+            "latRad": 0.5240696586396156,
+            "lonRad": -0.6981317007977318
+          },
+          "heightM": 60
+        },
+        {
+          "kind": "landmark",
+          "id": "mast",
+          "label": "Mast",
+          "position": {
+            "latRad": 0.5239126531596028,
+            "lonRad": -0.6976785112354148
+          },
+          "heightM": 120
+        },
+        {
+          "kind": "landmark",
+          "id": "ridge",
+          "label": "Ridge",
+          "position": {
+            "latRad": 0.5242265555987813,
+            "lonRad": -0.6986756269226733
+          },
+          "heightM": 300
+        }
+      ]
+    },
+    "scripts": {
+      "west": {
+        "startUtcMs": 1790000000000,
+        "eventIntervalMs": 50,
+        "orientationNoiseSigmaRad": 0,
+        "altitudeBiasRad": 0,
+        "frame": {
+          "kind": "absolute",
+          "northErrorRad": 0,
+          "resets": []
+        },
+        "heading": null,
+        "screenAngleDeg": 0,
+        "orientation": "available",
+        "orientationPermission": "denied",
+        "secureContext": true,
+        "position": {
+          "kind": "fix",
+          "position": {
+            "latRad": 0.523598771046606,
+            "lonRad": -0.6982766951711636
+          },
+          "reportedAccuracyM": 5,
+          "firstFixDelayMs": 0,
+          "fixIntervalMs": 1000
+        },
+        "pose": [
+          {
+            "timeUtcMs": 1790000000000,
+            "azimuthRad": 0.26052987550557055,
+            "apparentAltitudeRad": 0.01932229381411477,
+            "rollRad": 0
+          }
+        ],
+        "declinationRad": -0.20734511513692636
+      },
+      "east": {
+        "startUtcMs": 1790000000000,
+        "eventIntervalMs": 50,
+        "orientationNoiseSigmaRad": 0,
+        "altitudeBiasRad": 0,
+        "frame": {
+          "kind": "absolute",
+          "northErrorRad": 0,
+          "resets": []
+        },
+        "heading": null,
+        "screenAngleDeg": 0,
+        "orientation": "available",
+        "orientationPermission": "denied",
+        "secureContext": true,
+        "position": {
+          "kind": "fix",
+          "position": {
+            "latRad": 0.523598771046606,
+            "lonRad": -0.6979867064242999
+          },
+          "reportedAccuracyM": 5,
+          "firstFixDelayMs": 0,
+          "fixIntervalMs": 1000
+        },
+        "pose": [
+          {
+            "timeUtcMs": 1790000000000,
+            "azimuthRad": 6.022655431674016,
+            "apparentAltitudeRad": 0.01932229381411477,
+            "rollRad": 0
+          }
+        ],
+        "declinationRad": -0.20734511513692636
+      }
+    },
+    "aimTargetId": "tower",
+    "kind": "bearing",
+    "failure": "permission_denied",
+    "description": "The user refuses motion access."
+  },
+  {
+    "scene": {
+      "id": "sensor-missing",
+      "name": "No motion sensor",
+      "calibration": {
+        "fovRad": 1.2217304763960306,
+        "fovAxis": "diagonal",
+        "fovSigmaRad": 0.017453292519943295,
+        "imageWidthSourcePx": 720,
+        "imageHeightSourcePx": 1280
+      },
+      "stations": [
+        {
+          "id": "west",
+          "name": "West post",
+          "position": {
+            "latRad": 0.523598771046606,
+            "lonRad": -0.6982766951711636
+          }
+        },
+        {
+          "id": "east",
+          "name": "East post",
+          "position": {
+            "latRad": 0.523598771046606,
+            "lonRad": -0.6979867064242999
+          }
+        }
+      ],
+      "targets": [
+        {
+          "kind": "landmark",
+          "id": "tower",
+          "label": "Tower",
+          "position": {
+            "latRad": 0.5240696586396156,
+            "lonRad": -0.6981317007977318
+          },
+          "heightM": 60
+        },
+        {
+          "kind": "landmark",
+          "id": "mast",
+          "label": "Mast",
+          "position": {
+            "latRad": 0.5239126531596028,
+            "lonRad": -0.6976785112354148
+          },
+          "heightM": 120
+        },
+        {
+          "kind": "landmark",
+          "id": "ridge",
+          "label": "Ridge",
+          "position": {
+            "latRad": 0.5242265555987813,
+            "lonRad": -0.6986756269226733
+          },
+          "heightM": 300
+        }
+      ]
+    },
+    "scripts": {
+      "west": {
+        "startUtcMs": 1790000000000,
+        "eventIntervalMs": 50,
+        "orientationNoiseSigmaRad": 0,
+        "altitudeBiasRad": 0,
+        "frame": {
+          "kind": "absolute",
+          "northErrorRad": 0,
+          "resets": []
+        },
+        "heading": null,
+        "screenAngleDeg": 0,
+        "orientation": "missing",
+        "orientationPermission": "not_required",
+        "secureContext": true,
+        "position": {
+          "kind": "fix",
+          "position": {
+            "latRad": 0.523598771046606,
+            "lonRad": -0.6982766951711636
+          },
+          "reportedAccuracyM": 5,
+          "firstFixDelayMs": 0,
+          "fixIntervalMs": 1000
+        },
+        "pose": [
+          {
+            "timeUtcMs": 1790000000000,
+            "azimuthRad": 0.26052987550557055,
+            "apparentAltitudeRad": 0.01932229381411477,
+            "rollRad": 0
+          }
+        ],
+        "declinationRad": -0.20734511513692636
+      },
+      "east": {
+        "startUtcMs": 1790000000000,
+        "eventIntervalMs": 50,
+        "orientationNoiseSigmaRad": 0,
+        "altitudeBiasRad": 0,
+        "frame": {
+          "kind": "absolute",
+          "northErrorRad": 0,
+          "resets": []
+        },
+        "heading": null,
+        "screenAngleDeg": 0,
+        "orientation": "missing",
+        "orientationPermission": "not_required",
+        "secureContext": true,
+        "position": {
+          "kind": "fix",
+          "position": {
+            "latRad": 0.523598771046606,
+            "lonRad": -0.6979867064242999
+          },
+          "reportedAccuracyM": 5,
+          "firstFixDelayMs": 0,
+          "fixIntervalMs": 1000
+        },
+        "pose": [
+          {
+            "timeUtcMs": 1790000000000,
+            "azimuthRad": 6.022655431674016,
+            "apparentAltitudeRad": 0.01932229381411477,
+            "rollRad": 0
+          }
+        ],
+        "declinationRad": -0.20734511513692636
+      }
+    },
+    "aimTargetId": "tower",
+    "kind": "bearing",
+    "failure": "sensor_unavailable",
+    "description": "A device with no orientation sensor."
+  },
+  {
+    "scene": {
+      "id": "insecure",
+      "name": "Insecure page",
+      "calibration": {
+        "fovRad": 1.2217304763960306,
+        "fovAxis": "diagonal",
+        "fovSigmaRad": 0.017453292519943295,
+        "imageWidthSourcePx": 720,
+        "imageHeightSourcePx": 1280
+      },
+      "stations": [
+        {
+          "id": "west",
+          "name": "West post",
+          "position": {
+            "latRad": 0.523598771046606,
+            "lonRad": -0.6982766951711636
+          }
+        },
+        {
+          "id": "east",
+          "name": "East post",
+          "position": {
+            "latRad": 0.523598771046606,
+            "lonRad": -0.6979867064242999
+          }
+        }
+      ],
+      "targets": [
+        {
+          "kind": "landmark",
+          "id": "tower",
+          "label": "Tower",
+          "position": {
+            "latRad": 0.5240696586396156,
+            "lonRad": -0.6981317007977318
+          },
+          "heightM": 60
+        },
+        {
+          "kind": "landmark",
+          "id": "mast",
+          "label": "Mast",
+          "position": {
+            "latRad": 0.5239126531596028,
+            "lonRad": -0.6976785112354148
+          },
+          "heightM": 120
+        },
+        {
+          "kind": "landmark",
+          "id": "ridge",
+          "label": "Ridge",
+          "position": {
+            "latRad": 0.5242265555987813,
+            "lonRad": -0.6986756269226733
+          },
+          "heightM": 300
+        }
+      ]
+    },
+    "scripts": {
+      "west": {
+        "startUtcMs": 1790000000000,
+        "eventIntervalMs": 50,
+        "orientationNoiseSigmaRad": 0,
+        "altitudeBiasRad": 0,
+        "frame": {
+          "kind": "absolute",
+          "northErrorRad": 0,
+          "resets": []
+        },
+        "heading": null,
+        "screenAngleDeg": 0,
+        "orientation": "available",
+        "orientationPermission": "not_required",
+        "secureContext": false,
+        "position": {
+          "kind": "fix",
+          "position": {
+            "latRad": 0.523598771046606,
+            "lonRad": -0.6982766951711636
+          },
+          "reportedAccuracyM": 5,
+          "firstFixDelayMs": 0,
+          "fixIntervalMs": 1000
+        },
+        "pose": [
+          {
+            "timeUtcMs": 1790000000000,
+            "azimuthRad": 0.26052987550557055,
+            "apparentAltitudeRad": 0.01932229381411477,
+            "rollRad": 0
+          }
+        ],
+        "declinationRad": -0.20734511513692636
+      },
+      "east": {
+        "startUtcMs": 1790000000000,
+        "eventIntervalMs": 50,
+        "orientationNoiseSigmaRad": 0,
+        "altitudeBiasRad": 0,
+        "frame": {
+          "kind": "absolute",
+          "northErrorRad": 0,
+          "resets": []
+        },
+        "heading": null,
+        "screenAngleDeg": 0,
+        "orientation": "available",
+        "orientationPermission": "not_required",
+        "secureContext": false,
+        "position": {
+          "kind": "fix",
+          "position": {
+            "latRad": 0.523598771046606,
+            "lonRad": -0.6979867064242999
+          },
+          "reportedAccuracyM": 5,
+          "firstFixDelayMs": 0,
+          "fixIntervalMs": 1000
+        },
+        "pose": [
+          {
+            "timeUtcMs": 1790000000000,
+            "azimuthRad": 6.022655431674016,
+            "apparentAltitudeRad": 0.01932229381411477,
+            "rollRad": 0
+          }
+        ],
+        "declinationRad": -0.20734511513692636
+      }
+    },
+    "aimTargetId": "tower",
+    "kind": "bearing",
+    "failure": "insecure_context",
+    "description": "The page was opened over http."
+  },
+  {
+    "scene": {
+      "id": "sun",
+      "name": "The Sun for Nonius",
+      "calibration": {
+        "fovRad": 1.2217304763960306,
+        "fovAxis": "diagonal",
+        "fovSigmaRad": 0.017453292519943295,
+        "imageWidthSourcePx": 720,
+        "imageHeightSourcePx": 1280
+      },
+      "stations": [
+        {
+          "id": "west",
+          "name": "West post",
+          "position": {
+            "latRad": 0.523598771046606,
+            "lonRad": -0.6982766951711636
+          }
+        },
+        {
+          "id": "east",
+          "name": "East post",
+          "position": {
+            "latRad": 0.523598771046606,
+            "lonRad": -0.6979867064242999
+          }
+        }
+      ],
+      "targets": [
+        {
+          "kind": "sun",
+          "id": "sun",
+          "label": "Sun",
+          "azimuthRad": 3.490658503988659,
+          "apparentAltitudeRad": 0.6108652381980153,
+          "angularRadiusRad": 0.00466002910282486
+        },
+        {
+          "kind": "landmark",
+          "id": "tower",
+          "label": "Tower",
+          "position": {
+            "latRad": 0.5240696586396156,
+            "lonRad": -0.6981317007977318
+          },
+          "heightM": 60
+        },
+        {
+          "kind": "landmark",
+          "id": "mast",
+          "label": "Mast",
+          "position": {
+            "latRad": 0.5239126531596028,
+            "lonRad": -0.6976785112354148
+          },
+          "heightM": 120
+        },
+        {
+          "kind": "landmark",
+          "id": "ridge",
+          "label": "Ridge",
+          "position": {
+            "latRad": 0.5242265555987813,
+            "lonRad": -0.6986756269226733
+          },
+          "heightM": 300
+        }
+      ]
+    },
+    "scripts": {
+      "west": {
+        "startUtcMs": 1790000000000,
+        "eventIntervalMs": 50,
+        "orientationNoiseSigmaRad": 0.0008726646259971648,
+        "altitudeBiasRad": 0,
+        "frame": {
+          "kind": "absolute",
+          "northErrorRad": 0,
+          "resets": []
+        },
+        "heading": null,
+        "screenAngleDeg": 0,
+        "orientation": "available",
+        "orientationPermission": "not_required",
+        "secureContext": true,
+        "position": {
+          "kind": "fix",
+          "position": {
+            "latRad": 0.523598771046606,
+            "lonRad": -0.6982766951711636
+          },
+          "reportedAccuracyM": 5,
+          "firstFixDelayMs": 0,
+          "fixIntervalMs": 1000
+        },
+        "pose": [
+          {
+            "timeUtcMs": 1790000000000,
+            "azimuthRad": 3.490658503988659,
+            "apparentAltitudeRad": 0.6108652381980153,
+            "rollRad": 0
+          }
+        ],
+        "declinationRad": -0.20734511513692636
+      },
+      "east": {
+        "startUtcMs": 1790000000000,
+        "eventIntervalMs": 50,
+        "orientationNoiseSigmaRad": 0.0008726646259971648,
+        "altitudeBiasRad": 0,
+        "frame": {
+          "kind": "absolute",
+          "northErrorRad": 0,
+          "resets": []
+        },
+        "heading": null,
+        "screenAngleDeg": 0,
+        "orientation": "available",
+        "orientationPermission": "not_required",
+        "secureContext": true,
+        "position": {
+          "kind": "fix",
+          "position": {
+            "latRad": 0.523598771046606,
+            "lonRad": -0.6979867064242999
+          },
+          "reportedAccuracyM": 5,
+          "firstFixDelayMs": 0,
+          "fixIntervalMs": 1000
+        },
+        "pose": [
+          {
+            "timeUtcMs": 1790000000000,
+            "azimuthRad": 3.490658503988659,
+            "apparentAltitudeRad": 0.6108652381980153,
+            "rollRad": 0
+          }
+        ],
+        "declinationRad": -0.20734511513692636
+      }
+    },
+    "aimTargetId": "sun",
+    "kind": "altitude",
+    "failure": null,
+    "description": "The camera held on the Sun, 35° up."
+  }
+]
