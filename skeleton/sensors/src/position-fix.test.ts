@@ -25,7 +25,6 @@ describe('positionFixFromReading (Req 7.2, 7.3, 7.5)', () => {
       { ...READING, accuracyM: -1 },
       { ...READING, accuracyM: Number.NaN },
       { ...READING, latitudeDeg: 89.5 },
-      { ...READING, longitudeDeg: -180 },
     ];
     for (const reading of bad) {
       const result = positionFixFromReading(reading, T, 1);
@@ -35,6 +34,26 @@ describe('positionFixFromReading (Req 7.2, 7.3, 7.5)', () => {
     expect(
       positionFixFromReading({ ...READING, latitudeDeg: 89, longitudeDeg: 180 }, T, 1).ok,
     ).toBe(true);
+  });
+
+  it('takes a longitude of -180° as 180°, the same meridian (Req 7.2)', () => {
+    const fix = expectOk(positionFixFromReading({ ...READING, longitudeDeg: -180 }, T, 1));
+    expect(fix.position.lonRad).toBe(Math.PI);
+    expect(fix).toEqual(expectOk(positionFixFromReading({ ...READING, longitudeDeg: 180 }, T, 1)));
+    // Only -180° exactly: its neighbours are kept as they are.
+    const near = expectOk(positionFixFromReading({ ...READING, longitudeDeg: -179.999 }, T, 1));
+    expect(near.position.lonRad).toBeLessThan(0);
+  });
+
+  it('refuses a 1-sigma that overflows (Req 11.8)', () => {
+    // 1e308 m and a scale of 1e-300 are each valid; their quotient is Infinity.
+    expect(positionFixFromReading({ ...READING, accuracyM: 1e308 }, T, 1e-300)).toEqual({
+      ok: false,
+      reason: 'invalid_position',
+      field: 'sigmaM',
+    });
+    const large = expectOk(positionFixFromReading({ ...READING, accuracyM: 1e308 }, T, 1));
+    expect(Number.isFinite(large.sigmaM)).toBe(true);
   });
 
   it('refuses a bad scale or time as invalid_number (Req 10.3)', () => {
@@ -60,6 +79,18 @@ describe('checkPositionFix (Req 7.4, 7.7, 7.8)', () => {
       value: fix,
     });
     expect(checkPositionFix(fix, { ...LIMITS, atUtcMs: T + 30_001 })).toEqual({
+      ok: false,
+      reason: 'stale_position',
+    });
+  });
+
+  it('accepts a fix received 30 000 ms after the time of use and refuses 30 001 ms (Req 7.7)', () => {
+    // A frozen image captured at T - 30 000 with a fix that arrived at T.
+    expect(checkPositionFix(fix, { ...LIMITS, atUtcMs: T - 30_000 })).toEqual({
+      ok: true,
+      value: fix,
+    });
+    expect(checkPositionFix(fix, { ...LIMITS, atUtcMs: T - 30_001 })).toEqual({
       ok: false,
       reason: 'stale_position',
     });

@@ -258,16 +258,45 @@ the `H` that `magvar` returns for the same position and time.
   (Section 7.12). This is the inverse of the rotation, including the gimbal-lock case of an
   upright phone. Property P-12.6 checks it against the Camera axis formula.
 
-- **D19 — Altitude standard deviation divides by `n`.** The standard deviation of the
-  samples' altitudes in Req 9.3 is `sqrt((1/n) Σ (hᵢ − h̄)²)`, computed about the mean in two
-  passes. It is the arithmetic counterpart of the Spread, which also divides by `n`, so a still
-  hand reads as `0` either way.
+- **D19 — The altitude mean is taken about the first sample and clamped; the standard deviation
+  divides by `n`.**
+  - *Mean.* `h̄ = h₀ + Σ(hᵢ − h₀) / n`, then clamped to `[min hᵢ, max hᵢ]` (Req 9.1, 9.10). The
+    first version used `Σhᵢ / n`, which drifts by several ulps over a few hundred equal values:
+    199 copies of `−80° + 1 ulp` gave a mean `4 ulps` below `−80°`, and with an offset of `−10°`
+    the capture fell past `−π/2` and was refused as `invalid_altitude` (P-9.7 at checkpoint 13; the
+    reviewer found the mean of identical samples differing from the sample in 2868 of 3000 sets).
+    About the first sample, identical altitudes give back `h₀` exactly. The clamp is a guarantee
+    for any input: it keeps the mean inside the altitudes' range whatever the rounding, so no
+    offset can carry a capture across Req 9.6's limit by rounding alone. No input is known on
+    which the centred mean leaves the range (2 million adversarial sets searched), so the clamp
+    has no example of its own; P-9.8 and P-9.9 check the range on every case.
+  - *Standard deviation.* `sqrt((1/n) Σ (hᵢ − h̄)²)`, about the clamped mean, in a second pass. It
+    is the arithmetic counterpart of the Spread, which also divides by `n`, so a still hand reads
+    as `0` either way.
 
 - **D20 — Every exported function is total (Req 11.8).** For any type-correct input, every
   exported function returns a failure or a success whose numbers are all finite; none throws.
   This covers the Simulator's constructor with any script and the browser source with any
   environment. A callback from the environment that throws (a fake, or a browser bug) is
   caught at the Adapter boundary and reported as `sensor_unavailable`.
+  - *Data handed back.* A function that stores the caller's data and returns it must validate all
+    of it, not only the fields it computes with: the Sample history once kept a fix with a `NaN`
+    accuracy and returned it (P-11.8 at task 17). Each item type has one internal validity check,
+    shared by every function that validates that type, so the rules cannot drift apart:
+    `checkSampleValid` (finite time and rotation, the same `checkRotation` the captures apply;
+    Screen angle, heading and compass accuracy each `null` or finite) and `checkFixValid` (Req 7.5
+    and a finite, non-negative 1-sigma; `checkPositionFix` applies it before its staleness and
+    Coarse location tests). The captures' results are unchanged: they read only the fields they
+    already validate.
+  - *Termination.* The Simulator requires event and fix intervals of at least `1 ms` and refuses
+    a single `advanceTo` longer than one hour (`MAX_SIMULATOR_ADVANCE_MS`), which bounds the
+    events one call can deliver; a schedule whose next time rounds back onto the current one (near
+    `Number.MAX_VALUE`) ends instead of looping.
+  - *Clock.* `createBrowserSensorSource` reads the Clock once and refuses one that throws or is not
+    finite (`sensor_unavailable`, `field: 'clock'`); if it fails later, `now()` returns its last
+    good value.
+  - *iOS permission.* A synchronous throw from `requestPermission` is treated as a rejection:
+    `permission_denied` (Req 11.4).
 
 - **D21 — Starting twice joins the start in progress; every start has its own deadline
   (Req 7.6, 11.5, 11.10).** Each kind (orientation, position) has a state: stopped, or started.
@@ -305,9 +334,12 @@ the `H` that `magvar` returns for the same position and time.
   Simulator share this module.
 
 - **D23 — The Sample history is copy-on-write (Req 14).** A history is a frozen plain object
-  holding frozen arrays. Each `add…` function validates the item's time, computes the new newest
-  time, filters the old arrays against the two retentions, appends the item where it belongs,
-  freezes the result and returns it; the old history is untouched (Req 14.1).
+  holding frozen arrays. Each `add…` function validates the whole item (Req 14.4, D20), computes
+  the new newest time, filters the old arrays against the two retentions, appends the item where it
+  belongs, freezes the result and returns it; the old history is untouched (Req 14.1). An invalid
+  item is refused and the history passed in is unchanged, so a history never holds a `NaN` or an
+  infinity. The history does not judge whether a fix is Stale or a Coarse location: those depend
+  on the time and limits of the capture that uses it.
   - *Newest time.* It is the largest `timeUtcMs` of every item the history has received,
     Position fixes included, since all three are stamped by the same Clock. It never decreases.
     An item older than it is accepted (Req 14.4) and kept if it is within its retention.
@@ -338,7 +370,8 @@ skeleton/sensors/
     rotation.ts           DeviceRotation, EnuDirection, cameraAxis, rotationMatrix,
                           directionAzimuthRad, directionApparentAltitudeRad
     ray.ts                RayOffset, offAxisRay, rayDirection (axis or ray)
-    orientation-sample.ts RawOrientationEvent, OrientationSample, orientationSampleFromEvent
+    orientation-sample.ts RawOrientationEvent, OrientationSample, orientationSampleFromEvent,
+                          checkSampleValid (internal, D20)
     frame-reset.ts        FrameResetCause, FrameResetEvent, invalidates (D9)
     sighting-window.ts    SightingWindow, selectWindow, resetBetween
     circular-summary.ts   summariseAzimuths (D5), summariseAltitudes (D19), rss; internal
@@ -348,12 +381,15 @@ skeleton/sensors/
                           declinationAt
     wmm.ts                decimalYearFromUtcMs, wmmField (the only import of magvar)
     magvar.d.ts           type declaration of the one magvar function used
-    position-fix.ts       GeolocationReading, PositionFix, positionFixFromReading, checkPositionFix
+    position-fix.ts       GeolocationReading, PositionFix, positionFixFromReading, checkPositionFix,
+                          checkFixValid (internal, D20)
     capture.ts            captureBearing, captureAltitude
     sample-history.ts     SampleHistory, createSampleHistory, addOrientationSample,
                           addFrameReset, addPositionFix (D23)
     sensor-source.ts      SensorSource, SensorSourceOptions, Unsubscribe
     listener-set.ts       ListenerSet: isolated delivery (D22); internal
+    pending-starts.ts     PendingStarts: waiting starts and their deadlines (D21); internal,
+                          shared by the browser Adapter and the Simulator
     browser/
       browser-environment.ts  BrowserEnvironment, browserEnvironment(), systemClock
       browser-sensor-source.ts createBrowserSensorSource
@@ -372,6 +408,10 @@ skeleton/sensors/
       angle-compare.ts        wrapped-difference assertions
       fake-browser.ts         FakeBrowserEnvironment, records every call
       fixtures.ts             parsers for the WMM fixture files (import.meta.glob ?raw)
+      deep-same.ts            deep equality with Object.is on every number (P-12.8, P-14.7)
+      samples.ts, scripts.ts, wmm-points.ts  builders of synthetic samples, scripts, WMM inputs
+      hostile.ts              hostile inputs and the totality check of P-11.8
+      import-meta-glob.d.ts   the one Vite type the fixture and purity tests use
 ```
 
 Dependency direction inside `sensors` (nothing imports upward; only Core's `index.ts` is
@@ -503,7 +543,7 @@ export type ReferencedAzimuth =          // labelled with its North reference (R
 
 // declination.ts — Req 6
 export interface Declination {
-  readonly declinationRad: number;       // positive east, |·| <= π/2
+  readonly declinationRad: number;       // positive east, |·| <= π (Req 6.5)
   readonly sigmaRad: number;             // >= 0; from declinationAt: the WMM error model (Req 6.6)
 }
 
@@ -828,8 +868,14 @@ must pass an azimuth of `y.frame`; the capture guarantees it (§7.9 step 5).
 
 `trueAzimuthFromMagnetic(magneticAzimuthRad, declination | undefined)`:
 - no declination gives `declination_unknown` (Req 6.4);
-- invalid values give `invalid_number` (Req 6.5);
+- invalid values give `invalid_number`: a non-finite declination or one of magnitude above `π`,
+  or a non-finite or negative 1-sigma (Req 6.5);
 - otherwise `wrapTwoPi(m + declinationRad)` (Req 6.1).
+
+The limit is `π`, not `π/2`. Between a magnetic pole and the geographic pole the declination
+exceeds `90°` outside the blackout zone: `declinationAt` returns `140.09°` at 77.85°S 166.67°E
+(McMurdo, `H = 10 652 nT`, 2026.88). WMM declinations come from `atan2` and lie in
+`(−180°, 180°]`, so every one passes (Req 6.12).
 
 `declinationAt(position, timeUtcMs)`:
 
@@ -854,13 +900,19 @@ check the published points at their own heights (Req 6.10). It is internal.
 
 `positionFixFromReading(reading, timeUtcMs, confidenceScale)`:
 - validate the scale (`invalid_number`) and the time;
+- a longitude of exactly `−180°` is taken as `180°`, the same meridian, before conversion, so the
+  Position is Supported (Req 7.2); no other longitude is changed;
 - non-finite coordinates, a non-finite or negative accuracy, or a converted position that is not
   Supported give `invalid_position` (Req 7.5);
-- otherwise return the fix with `sigmaM = accuracyM / confidenceScale` (Req 7.3, D13).
+- `sigmaM = accuracyM / confidenceScale` (Req 7.3, D13). A finite accuracy over a valid scale can
+  still overflow (`1e308 / 1e-300`); a non-finite `sigmaM` gives `invalid_position` with
+  `field: 'sigmaM'` (Req 11.8).
 
 `checkPositionFix(fix, { atUtcMs, positionStalenessMs, coarseLocationLimitM })`:
 - re-validate the fix (`invalid_position`; the fix may come from anywhere, D20);
-- `atUtcMs − fix.timeUtcMs > positionStalenessMs` gives `stale_position` (Req 7.7);
+- `|atUtcMs − fix.timeUtcMs| > positionStalenessMs` gives `stale_position` (Req 7.7): a fix
+  older than the limit, or received more than the limit after the time of use (a frozen image
+  captured with a fix taken long after it);
 - `fix.reportedAccuracyM > coarseLocationLimitM` gives `coarse_location`, with
   `reportedAccuracyM` (Req 7.4).
 
@@ -1010,7 +1062,12 @@ is empty or not strictly increasing in time is `invalid_number` with `field: 'po
   page events (`hidden`, `blur`, `pagehide`); they do not change the frame's north.
 - Position readings start at `start + firstFixDelayMs` and repeat every `fixIntervalMs`, from
   `startPosition()` on.
-- `advanceTo(t)` fails with `invalid_number` if `t` is earlier than the current time. Otherwise
+- `advanceTo(t)` fails with `invalid_number` if `t` is earlier than the current time. A listener
+  may call `advanceTo` again while an outer call is delivering; the inner call delivers its events,
+  and the outer call then ends with the clock at the later of the two times, so the clock never
+  goes backwards (Req 12.2). The first version set it to the outer call's time, so a re-entrant
+  `advanceTo(T0 + 500)` inside `advanceTo(T0 + 100)` left `now()` at `T0 + 100` after samples up
+  to 500 had been delivered; the example test of that case is kept. Otherwise
   it delivers every event in `(now, t]` in time order, with ties ordered as in D16, through the
   same `ListenerSet` as the Adapter (D22).
 - Starting twice follows D21: a second `startOrientation()` or `startPosition()` schedules
@@ -1091,8 +1148,14 @@ returned `β = 90°`, `γ = 0` with an azimuth error of `0`.
 
 `addOrientationSample(h, s)`, `addFrameReset(h, e)` and `addPositionFix(h, f)` (D23):
 
-1. If the item's `timeUtcMs` is not finite, return `invalid_number` with `field: 'timeUtcMs'`;
-   `h` is unchanged (Req 14.4).
+1. Validate the whole item; on a failure, return it and leave `h` unchanged (Req 14.4):
+   - every item first: a `timeUtcMs` that is not finite gives `invalid_number`,
+     `field: 'timeUtcMs'`;
+   - a sample: `checkSampleValid`, giving `invalid_number` naming `alphaRad`, `betaRad`,
+     `gammaRad`, `screenAngleRad`, `magneticHeadingRad` or `compassAccuracyRad`; `null` optional
+     fields and a negative compass accuracy are valid;
+   - a fix: `checkFixValid`, giving `invalid_position` (no field, as `checkPositionFix` gives);
+   - a Frame reset has no other number to check.
 2. `newest = max(h.newestUtcMs ?? t, t)`.
 3. `samples` = the old samples, then the new one if it is a sample, keeping those with
    `newest − timeUtcMs ≤ sampleRetentionMs`. `frameResets` likewise with
@@ -1120,7 +1183,7 @@ The shared setup reads the value with Vitest's `inject` and passes it to
 `fc.configureGlobal`. Before each checkpoint, `pnpm --filter @alidade/sensors test:deep` runs:
 
 - at 100 000 cases: P-2.7, P-2.8, P-2.9, P-2.10, P-3.6, P-3.7, P-3.8, P-3.9, P-5.14, P-5.15
-  (once per frame, so 100 000 Relative and 100 000 Absolute cases), P-6.11, P-7.9, P-7.10,
+  (once per frame, so 100 000 Relative and 100 000 Absolute cases), P-6.11, P-6.12, P-7.9, P-7.10,
   P-8.11, P-8.12, P-8.14, P-8.15, P-9.7, P-9.8, P-9.9 and P-12.6;
 - at 10 000 cases, because each case runs a whole simulation, calls every exported function or
   builds a history of up to 310 items: P-8.13, P-11.8, P-12.7, P-12.8, P-14.6 and P-14.7. These
@@ -1180,22 +1243,39 @@ more often than a uniform angle puts it there. Ends and special values are drawn
   Position fix within the limits. Replacing the Yaw reference's offset by
   `wrapPi(offset + δ)`, which keeps it in `(−π, π]`, adds `δ` (modulo `2π`) to every true
   azimuth, which is how Req 8.11's rotation is applied end to end. A `straddling` variant puts the
-  centre within `30°` of `0` (Req 8.15). An `identical` variant repeats one rotation (Req 8.14).
+  true centre in `[−15°, 15°]` and sets the first two deviations to exactly `−30°` and `+30°`, so
+  every set lies on both sides of `0 / 2π` (Req 8.15). An `identical` variant repeats one pose
+  (Req 8.14). The samples are `5` ms apart, newest at the window's end, so every one is in the
+  `1000` ms window.
 - **`altitudeSet`**: 2 to 200 altitudes in `[−80°, 80°]`, each realised as a rotation through
   `rotationFromDirection` with a random azimuth and roll, plus a shift `δ` drawn from the range
-  that keeps every altitude in `[−80°, 80°]`. Calibration offsets lie in `[−10°, 10°]` and
-  calibration sigmas in `[0, 10°]`.
+  that keeps every altitude in `[−80°, 80°]`, its ends drawn. Calibration offsets lie in
+  `[−10°, 10°]` and calibration sigmas in `[0, 10°]`, ends drawn. An `identical` variant repeats
+  one pose (P-9.7). The altitude ends `±80°` are drawn in at most one pose per case, in one case of
+  five; drawn in any pose, they left most cases with several end poses, any of which could round
+  out of the domain (P-9.8 and P-9.9 discarded `3.3` cases per accepted case at checkpoint 13).
+  - *Domain on the computed altitude.* Req 9.7 to 9.9 speak of Camera altitudes, the ones
+    computed back from the rotations, as Req 5.14 does. A pose at `±80°` can round just outside;
+    P-9.7 to P-9.9 apply `fc.pre` to the computed altitudes and count the discards, and P-9.7
+    compares with the computed altitude, not the drawn one. `80°` plus `10°` in radians is exactly
+    `π/2`, so the corner of the domain is accepted by Req 9.6.
 - **`cameraPose`** (P-12.6): azimuth in `[0, 2π)`, altitude in `[−80°, 80°]`, roll in
   `[−π, π)`. Half the draws are uniform. The other half are near gimbal lock: the altitude is `0`
   exactly or `s · 10^k` with `s = ±1` and `k` uniform in `[−17, −2]`, and the roll is `0`,
   `±π/2` or `−π` exactly, or one of `0`, `±π/2` plus `s · 10^k`, or `π − 10^k`, `−π + 10^k`, on
   the same log scale. Upright with no roll is exactly the W3C gimbal lock (`beta = 90°`); a roll
   of `±π/2` puts the phone on its side and `π` upside down.
-- **`geolocationReading`**: latitude in `[−89°, 89°]`, longitude in `(−180°, 180°]` and accuracy
-  in `[0, 10 000]` m, ends included; confidence scale in `[0.1, 10]`.
+- **`geolocationReading`**: latitude in `[−89°, 89°]`, longitude in `[−180°, 180°]` and accuracy
+  in `[0, 10 000]` m, ends included (`−180°` drawn on purpose, Req 7.9); confidence scale in
+  `[0.1, 10]`.
+- **`wmmPositionAndTime`** (P-6.12): a Supported position, latitude in `[−89°, 89°]` and longitude
+  in `(−π, π]`, uniform on the sphere (latitude by `asin` of a uniform sine) with one draw in four
+  instead taken within `25°` of a pole, where the magnetic poles and the declinations above `90°`
+  are; and a time uniform over `[Date.UTC(2025,0,1), Date.UTC(2030,0,1))`, both ends' first and
+  last millisecond drawn on purpose.
 - **`compassCaptureScript`** (P-12.7, Req 12.7): a `noiseFree` Relative-frame script with a
   heading (no bias, noise or jumps), Screen angle `0`, no altitude bias, a Declination in
-  `[−π/2, π/2]`, and two windows built on the script's timeline:
+  `[−π, π]` (ends drawn; Req 6.5), and two windows built on the script's timeline:
   - *Timeline.* An event interval in `[5, 100]` ms. The Yaw reference window `[Ty0, Ty1]` and
     the capture window `[Tc0, Tc1]` each have a length from `10` to `100` event intervals (so at
     least `10` samples, the minimum count drawn in `[1, 10]`), with a gap `Tc0 − Ty1` in
@@ -1225,18 +1305,24 @@ more often than a uniform angle puts it there. Ends and special values are drawn
   events, interleaved in any order, with times that do not decrease and span up to `200 000 ms`
   (ties drawn on purpose), a sample retention in `[100, 10 000]` ms and a Frame reset retention
   in `[1000, 150 000]` ms, ends included (Req 14.6). Half the draws are *dense*: time steps of
-  `5` to `50` ms, so that a Sighting window holds enough samples for a capture to succeed.
+  `5` to `50` ms, so that a Sighting window holds enough samples for a capture to succeed
+  (`historyCapture` draws three dense sequences in four). Time steps are drawn without
+  fast-check's bias toward small integers (`uniformInteger`, `fc.noBias`); the counts keep it, so
+  empty and one-item sequences occur.
   Samples are in one frame per sequence (Relative or Absolute), clustered within `30°` like
   `clusteredCapture`; resets have any cause.
 - **`historyCapture`** (P-14.7): for a `historySequence` with newest time `T`, a bearing capture
   whose window start is drawn from `[T − min(sampleRetention, resetRetention), T]`, whose length
   is in `[1, 2000]` ms and whose minimum sample count is in `[1, 20]`; a Yaw reference of the
   sequence's frame, with `establishedUtcMs` drawn from `[T − resetRetention, T + 2000]` and a
-  maximum age large enough to cover it; a valid Position fix; and a Declination. For dense
-  sequences, half the captures instead end exactly at `T`, with a length drawn from
-  `[1, min(sampleRetention, resetRetention, 2000)]` ms, so that their samples are fresh. Every
-  draw meets the conditions of Req 14.7. The success fraction is measured when the generator is
-  written and stated in its comment.
+  maximum age large enough to cover it; a valid Position fix at the window's end; and a
+  Declination. The North reference is `true` or `magnetic`. For dense sequences, three captures in
+  four instead end exactly at `T`, with a length drawn from
+  `[1, min(sampleRetention, resetRetention, 2000)]` ms, so that their samples are fresh. Times and
+  lengths are drawn with `uniformInteger`: with fast-check's integer bias most windows were a few
+  milliseconds long and only 6 % of captures succeeded. Every draw meets the conditions of
+  Req 14.7. Measured on four runs of 200: 16 % to 21 % of captures succeed; the failures are
+  `insufficient_samples`, `frame_reset` and `stale_samples`, which the property compares too.
 - **`hostileInput`**: for each exported function, inputs that are type-correct but hostile:
   - any double for a `number`: `NaN`, `±Infinity`, `±0`, subnormals, `±MAX_VALUE`, and the values
     just past every limit of the package (`80°`, `±30°`, `π/2`, `1e-6`, `2000 nT` boundary points,
@@ -1264,17 +1350,18 @@ more often than a uniform angle puts it there. Ends and special values are drawn
 | P-3.9 | 3.9 | `deviceRotation`; `rayOffset` | angle(ray, axis) `= atan(hypot(tan r, tan u))` within `1e-9` |
 | P-5.14 | 5.14 | `compassScenario`; `fc.pre` on every sample's computed Camera altitude in `[−30°, 30°]`, discards counted | Yaw reference offset equals the offset within `1e-9` (wrapped); applying it reproduces every heading within `1e-9` |
 | P-5.15 | 5.15 | `knownAzimuthScenario('relative')` and `knownAzimuthScenario('absolute')`, as two tests | `frame` is the scenario's; applying the reference to the samples' Camera azimuth gives the known azimuth within `1e-9` (wrapped); `sigmaRad` equals the known sigma within `1e-12` |
-| P-6.11 | 6.11 | magnetic azimuth `∈ [0, 2π)`; declination `∈ [−π/2, π/2]` | true and back with the negated declination returns the input within `1e-12` (wrapped) |
+| P-6.11 | 6.11 | magnetic azimuth `∈ [0, 2π)`; declination `∈ [−π, π]`, ends drawn | true and back with the negated declination returns the input within `1e-12` (wrapped) |
+| P-6.12 | 6.12 | `wmmPositionAndTime` | `declinationAt` either fails with `declination_unknown` (the blackout zone) or succeeds with `|declinationRad| ≤ π`, a 1-sigma in `[0.26°, 2.73°]`, and `trueAzimuthFromMagnetic` accepting it for a drawn magnetic azimuth; the test counts the successes and fails if fewer than half the cases succeed |
 | P-7.9 | 7.9 | `geolocationReading` | `latRad`, `lonRad` within `1e-15` of `degToRad` of the input; reported accuracy identical |
 | P-7.10 | 7.10 | `geolocationReading` and scale | `sigmaM = accuracy / scale` within relative `1e-15` |
 | P-8.11 | 8.11 | `clusteredCapture`; `δ ∈ [0, 2π)`, the Yaw reference offset replaced by `wrapPi(offset + δ)` | captured azimuth moves by `δ` within `1e-9` (wrapped); `azimuthSigmaRad` unchanged within `1e-12` |
 | P-8.12 | 8.12 | `clusteredCapture`; a random permutation | azimuth and sigma each change by at most `1e-12` |
 | P-8.13 | 8.13 | `clusteredCapture`; 1 to 50 extra samples timed outside the window, inserted anywhere | capture deep-equal to the original |
-| P-8.14 | 8.14 | `clusteredCapture` `identical` | Spread `0` within `1e-12`; sigma `= max(0.01°, σN)` within `1e-12` |
+| P-8.14 | 8.14 | `clusteredCapture` `identical` | Spread `0` within `1e-12`; sigma `= max(0.01°, σN)` within `1e-12`. The capture returns a Core Bearing, which holds no Spread, and the `0.01°` floor hides a Spread below it, so the Spread is checked with `summariseAzimuths` on the true azimuths built by the capture's own functions (`rayDirection`, `directionAzimuthRad`, `applyYawReference`) |
 | P-8.15 | 8.15 | `clusteredCapture` `straddling` | `capture(set)` equals `capture(set rotated π) − π` within `1e-9` (wrapped) |
-| P-9.7 | 9.7 | one altitude `∈ [−80°, 80°]` repeated 2 to 200 times; offset `∈ [−10°, 10°]`; calibration sigma | apparent altitude `= h + offset` within `1e-12`; sigma `=` calibration sigma within `1e-12` |
-| P-9.8 | 9.8 | `altitudeSet` with shift `δ` | apparent altitude moves by `δ` within `1e-12`; sigma unchanged within `1e-12` |
-| P-9.9 | 9.9 | `altitudeSet`; a random permutation | apparent altitude and sigma change by at most `1e-12` |
+| P-9.7 | 9.7 | `altitudeSet` `identical`; `fc.pre` on the computed altitude, discards counted | apparent altitude `= h + offset` exactly (`Object.is`, Req 9.10) and within `1e-12`; sigma `=` calibration sigma within `1e-12`; `summariseAltitudes` of the identical altitudes returns `h` exactly |
+| P-9.8 | 9.8 | `altitudeSet` with shift `δ`; `fc.pre` on the computed altitudes before and after the shift | apparent altitude moves by `δ` within `1e-12`; sigma unchanged within `1e-12`; the mean (`summariseAltitudes`) lies within `[min, max]` of the computed altitudes (Req 9.10) |
+| P-9.9 | 9.9 | `altitudeSet`; a random permutation; `fc.pre` on the computed altitudes | apparent altitude and sigma change by at most `1e-12`; the mean (`summariseAltitudes`) lies within `[min, max]` of the computed altitudes (Req 9.10) |
 | P-11.8 | 11.8 | `hostileInput` to every exported function, the Simulator and the browser source with a hostile fake environment | no call throws; every Result is a failure or a success whose numbers are all finite |
 | P-12.6 | 12.6 | `cameraPose`, including its log-scale draws near gimbal lock | the raw event's angles lie in the W3C ranges; through `cameraAxis` they give back azimuth and altitude within `1e-9` |
 | P-12.7 | 12.7 | `compassCaptureScript`; `fc.pre` on the computed Camera altitude of every sample the two windows read, in `[−30°, 30°]`, discards counted; a Declination 1-sigma drawn from `[0.26°, 2.72°]`, the range of the WMM error model above the blackout limit | run the Simulator past `Tc1 + 5000`; `yawReferenceFromCompass` over `[Ty0, Ty1]`, then `captureBearing` over `[Tc0, Tc1]` with `{ declinationRad: scripted, sigmaRad: drawn }`, give `D`'s true azimuth within `1e-9` (wrapped), and `azimuthSigmaRad = max(0.01°, rss(headingSigmaRad, drawn))` within `1e-12` |
@@ -1353,6 +1440,10 @@ parses them through `import.meta.glob` `?raw` (as Core's purity test reads sourc
 
   A synthetic check of the formula at its ends: `wmmDeclinationSigmaRad(2000)` is
   `degToRad(hypot(0.26, 2.7085))` (`2.7210°`), and the 1-sigma decreases as `H` grows.
+- **Declination above `90°` (Req 6.5, 6.12).** `declinationAt` at 77.85°S 166.67°E on
+  `2026-11-17` (decimal year about 2026.88) returns about `140.09°`, with `H` about `10 652 nT`
+  and so a 1-sigma of about `0.58°`; `trueAzimuthFromMagnetic` accepts it. A declination of
+  exactly `±π` is accepted and `π + 1e-12` refused.
 - `declinationAt` at a published point inside the blackout zone (89°N, 121°W, 2025.0,
   `H = 1504 nT`) returns `declination_unknown`.
 - Validity edges: `Date.UTC(2025,0,1) − 1` and `Date.UTC(2030,0,1)` return `declination_unknown`;
@@ -1558,8 +1649,32 @@ strips comments and string literals, and checks:
 - **Adapter:** inside `src/browser/`, only `browser-environment.ts` names browser globals or
   `Date.now`; `browser-sensor-source.ts` reaches the browser only through `BrowserEnvironment`.
 - **Everywhere:** no `userAgent`, `platform` or `vendor` (Req 4.1). The property reads
-  `.alphaRad` and `.gammaRad` appear only in `rotation.ts` and `simulator/simulator.ts` (which
-  converts the generated rotation to degrees), so Req 2.3 can be checked by reading two files.
+  `.alphaRad` and `.gammaRad` appear only in `rotation.ts` and `simulator/direction-to-rotation.ts`
+  (whose `eulerDegreesFromRotation` converts the generated rotation to degrees), so Req 2.3 can be
+  checked by reading two files. `webkitCompassHeading` is read in one place, the Adapter's event
+  copy, into the heading field only (Req 4.4).
+- **How names are matched.** A global such as `window` is matched on the code with property
+  accesses (`input.window`) and declared keys (`readonly window:`) removed, so that what remains
+  can only be a read of a variable; the Math layer therefore declares no parameter or local with a
+  global's name (the Sighting window parameter is `sightingWindow`). `Date.now`, `Math.random`,
+  `new Date`, `import(` and `import.meta` are matched on the whole code. Comments and string
+  contents are stripped first. The test also checks itself: each rule fails when its token is
+  added to a copy of a real source, and passes when the token is only in a comment or a string.
+- **Files:** the test lists the 25 non-test source files and fails if one is added or removed
+  without the list being updated.
+- **Defaults and Declination:** only `index.ts` imports values from `defaults.ts` (Req 10.2; other
+  modules may import its types), and neither `capture.ts` nor `yaw-reference.ts` imports `wmm.ts`
+  or calls `declinationAt` (Req 6.2).
+
+Two example tests outside the purity test cover packaging criteria directly: every value the
+browser Adapter hands out is a plain object that survives `structuredClone` unchanged (Req 1.5),
+and the Simulator's `source` has exactly the `SensorSource` type and keys, with `advanceTo` only on
+the separate controls (Req 12.1).
+
+The default `vitest.config.ts` sets a per-test timeout of `60 s`. Several properties take 2 to
+4 s each at 200 cases, and on the shared machine under load (average 16) one crossed Vitest's 5 s
+default; as with Core's timing test, that limit measured the machine, not the code. Case counts
+and tolerances are unchanged. `test:deep` has no per-test timeout.
 - **`package.json`:** runtime dependencies are exactly `@alidade/core` and `magvar`, at an exact
   version; the exports map is only `"."`.
 

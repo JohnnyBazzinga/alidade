@@ -8,7 +8,7 @@ import { decimalYearFromUtcMs, wmmField } from './wmm';
 
 /** The angle from true north to magnetic north, positive east, with its 1-sigma. */
 export interface Declination {
-  /** |·| ≤ π/2. */
+  /** |·| ≤ π (Req 6.5). Above π/2 between a magnetic pole and the geographic pole. */
   readonly declinationRad: number;
   /** Not negative. From `declinationAt`, the WMM error model (Req 6.6). */
   readonly sigmaRad: number;
@@ -35,10 +35,14 @@ export function wmmDeclinationSigmaRad(horizontalIntensityNt: number): number {
   );
 }
 
-/** Checks a Declination: finite, |declination| ≤ π/2, 1-sigma finite and not negative (Req 6.5). */
+/**
+ * Checks a Declination: finite, |declination| ≤ π, 1-sigma finite and not negative (Req 6.5).
+ * The limit is π because the declination exceeds 90° outside the blackout zone between a magnetic
+ * pole and the geographic pole (140° at 77.85°S 166.67°E); every WMM declination passes (Req 6.12).
+ */
 export function checkDeclination(declination: Declination): SensorResult<Declination> {
   const value = declination.declinationRad;
-  if (!Number.isFinite(value) || Math.abs(value) > Math.PI / 2) {
+  if (!Number.isFinite(value) || Math.abs(value) > Math.PI) {
     return err('invalid_number', { field: 'declinationRad' });
   }
   const sigma = checkSigma(declination.sigmaRad, 'declinationSigmaRad');

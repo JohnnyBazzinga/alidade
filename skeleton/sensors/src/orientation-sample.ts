@@ -3,7 +3,7 @@
 // it, so a simulated sample goes through exactly the code a real one does.
 
 import { degToRad, wrapTwoPi } from '@alidade/core';
-import type { DeviceRotation } from './rotation';
+import { checkRotation, type DeviceRotation } from './rotation';
 import { err, ok, type SensorResult } from './sensor-result';
 
 /** The frame of a sample: north-referenced (magnetic), or with an arbitrary zero. */
@@ -96,4 +96,22 @@ export function orientationSampleFromEvent(
     magneticHeadingRad: optionalWrappedRad(raw.webkitCompassHeadingDeg),
     compassAccuracyRad,
   });
+}
+
+/**
+ * Whether a sample is valid in itself (Req 14.4, 11.8; D20): a finite time, finite rotation angles
+ * (the same `checkRotation` the captures apply through `cameraAxis` and `rayDirection`), and a
+ * Screen angle, Magnetic heading and Reported compass accuracy that are each `null` or finite.
+ * Fails with `invalid_number` naming the first invalid field. A negative compass accuracy is valid:
+ * it only marks the heading as unusable (Req 5.8). Internal; the Sample history uses it.
+ */
+export function checkSampleValid(sample: OrientationSample): SensorResult<OrientationSample> {
+  if (!Number.isFinite(sample.timeUtcMs)) return err('invalid_number', { field: 'timeUtcMs' });
+  const rotation = checkRotation(sample.rotation);
+  if (!rotation.ok) return rotation;
+  for (const field of ['screenAngleRad', 'magneticHeadingRad', 'compassAccuracyRad'] as const) {
+    const value = sample[field];
+    if (value !== null && !Number.isFinite(value)) return err('invalid_number', { field });
+  }
+  return ok(sample);
 }

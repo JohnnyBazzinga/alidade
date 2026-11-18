@@ -91,6 +91,18 @@ describe('declinationAt at the published points (Req 6.6, 6.10)', () => {
   });
 });
 
+describe('declinationAt above 90° (Req 6.5, 6.12)', () => {
+  it('returns about 140° near McMurdo, outside the blackout zone, and the conversion accepts it', () => {
+    // 77.85°S 166.67°E on 2026-11-17 (decimal year about 2026.88), between the south magnetic
+    // pole and the geographic pole: H is about 10 652 nT, well above the 2000 nT blackout limit.
+    const mcmurdo = { latRad: rad(-77.85), lonRad: rad(166.67) };
+    const declination = expectOk(declinationAt(mcmurdo, Date.UTC(2026, 10, 17)));
+    expect(Math.abs(declination.declinationRad - rad(140.09))).toBeLessThan(rad(0.02));
+    expect(Math.abs(declination.sigmaRad - rad(expectedSigmaDeg(10_652)))).toBeLessThan(rad(0.001));
+    expect(trueAzimuthFromMagnetic(0, declination).ok).toBe(true);
+  });
+});
+
 describe('wmmDeclinationSigmaRad (Req 6.6)', () => {
   it('is 2.7210° at the blackout limit and falls as the field grows', () => {
     const atLimit = wmmDeclinationSigmaRad(2000);
@@ -124,9 +136,7 @@ describe('trueAzimuthFromMagnetic (Req 6.1, 6.4, 6.5)', () => {
   });
 
   it('refuses invalid declinations and azimuths', () => {
-    expect(
-      trueAzimuthFromMagnetic(1, { declinationRad: Math.PI / 2 + 1e-12, sigmaRad: 0 }),
-    ).toEqual({
+    expect(trueAzimuthFromMagnetic(1, { declinationRad: Math.PI + 1e-12, sigmaRad: 0 })).toEqual({
       ok: false,
       reason: 'invalid_number',
       field: 'declinationRad',
@@ -146,6 +156,8 @@ describe('trueAzimuthFromMagnetic (Req 6.1, 6.4, 6.5)', () => {
       reason: 'invalid_number',
       field: 'magneticAzimuthRad',
     });
-    expect(trueAzimuthFromMagnetic(1, { declinationRad: Math.PI / 2, sigmaRad: 0 }).ok).toBe(true);
+    expect(trueAzimuthFromMagnetic(1, { declinationRad: Math.PI, sigmaRad: 0 }).ok).toBe(true);
+    expect(trueAzimuthFromMagnetic(1, { declinationRad: -Math.PI, sigmaRad: 0 }).ok).toBe(true);
+    expect(trueAzimuthFromMagnetic(1, { declinationRad: rad(140), sigmaRad: 0 }).ok).toBe(true);
   });
 });

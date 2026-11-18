@@ -86,9 +86,9 @@ export function yawReferenceFromCompass(input: CompassYawInput): SensorResult<Ya
     const altitude = directionApparentAltitudeRad(axis.value);
     if (!altitude.ok) return altitude;
     if (Math.abs(altitude.value) > COMPASS_ALTITUDE_LIMIT_RAD) return err('compass_unreliable');
-    const screen = sample.screenAngleRad;
-    if (screen === null) return err('compass_unreliable');
-    const screenWrapped = wrapPi(screen);
+    const screenAngleRad = sample.screenAngleRad;
+    if (screenAngleRad === null) return err('compass_unreliable');
+    const screenWrapped = wrapPi(screenAngleRad);
     if (!screenWrapped.ok || Math.abs(screenWrapped.value) > SCREEN_ANGLE_ZERO_TOLERANCE_RAD) {
       return err('compass_unreliable');
     }

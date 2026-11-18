@@ -19,20 +19,20 @@ export interface SightingWindow {
 }
 
 /** Validates a window's numbers (Req 10.3), naming the offending field. */
-export function checkWindow(window: SightingWindow): SensorResult<SightingWindow> {
+export function checkWindow(sightingWindow: SightingWindow): SensorResult<SightingWindow> {
   const checks = [
-    checkTimeUtcMs(window.endUtcMs, 'endUtcMs'),
-    checkWindowLengthMs(window.windowLengthMs, 'windowLengthMs'),
-    checkSampleCount(window.minSampleCount, 'minSampleCount'),
-    checkDurationMs(window.sampleStalenessMs, 'sampleStalenessMs'),
+    checkTimeUtcMs(sightingWindow.endUtcMs, 'endUtcMs'),
+    checkWindowLengthMs(sightingWindow.windowLengthMs, 'windowLengthMs'),
+    checkSampleCount(sightingWindow.minSampleCount, 'minSampleCount'),
+    checkDurationMs(sightingWindow.sampleStalenessMs, 'sampleStalenessMs'),
   ];
   for (const check of checks) if (!check.ok) return check;
-  return ok(window);
+  return ok(sightingWindow);
 }
 
 /** The start of a window. */
-export function windowStartUtcMs(window: SightingWindow): number {
-  return window.endUtcMs - window.windowLengthMs;
+export function windowStartUtcMs(sightingWindow: SightingWindow): number {
+  return sightingWindow.endUtcMs - sightingWindow.windowLengthMs;
 }
 
 /**
@@ -43,18 +43,19 @@ export function windowStartUtcMs(window: SightingWindow): number {
  */
 export function selectWindow<T extends { readonly timeUtcMs: number }>(
   items: readonly T[],
-  window: SightingWindow,
+  sightingWindow: SightingWindow,
 ): SensorResult<readonly T[]> {
-  const checked = checkWindow(window);
+  const checked = checkWindow(sightingWindow);
   if (!checked.ok) return checked;
-  const startUtcMs = windowStartUtcMs(window);
+  const startUtcMs = windowStartUtcMs(sightingWindow);
   const selected = items.filter(
-    (item) => item.timeUtcMs >= startUtcMs && item.timeUtcMs <= window.endUtcMs,
+    (item) => item.timeUtcMs >= startUtcMs && item.timeUtcMs <= sightingWindow.endUtcMs,
   );
-  if (selected.length < window.minSampleCount) return err('insufficient_samples');
+  if (selected.length < sightingWindow.minSampleCount) return err('insufficient_samples');
   let newestUtcMs = Number.NEGATIVE_INFINITY;
   for (const item of selected) newestUtcMs = Math.max(newestUtcMs, item.timeUtcMs);
-  if (window.endUtcMs - newestUtcMs > window.sampleStalenessMs) return err('stale_samples');
+  if (sightingWindow.endUtcMs - newestUtcMs > sightingWindow.sampleStalenessMs)
+    return err('stale_samples');
   return ok(selected);
 }
 

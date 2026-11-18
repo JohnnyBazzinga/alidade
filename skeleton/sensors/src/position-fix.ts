@@ -26,9 +26,10 @@ export interface PositionFix {
 /**
  * A Position fix from a geolocation reading (Req 7.2, 7.3). Coordinates are converted with Core's
  * `degToRad`. Fails with `invalid_number` for a bad scale or time, and `invalid_position` for
- * non-finite coordinates, a non-finite or negative accuracy, or a position that is not Supported
- * (Req 7.5). A longitude of exactly -180° converts to -π, which is not Supported (Core's longitude
- * range is (-π, π]), so it is refused; the browser reports that meridian as +180°.
+ * non-finite coordinates, a non-finite or negative accuracy, a position that is not Supported
+ * (Req 7.5), or a 1-sigma that overflows (`1e308 / 1e-300`; Req 11.8). A longitude of exactly
+ * -180° is taken as 180°, the same meridian, so that the Position is Supported: Core's longitudes
+ * lie in (-π, π] (Req 7.2).
  */
 export function positionFixFromReading(
   reading: GeolocationReading,
@@ -43,12 +44,31 @@ export function positionFixFromReading(
   if (!Number.isFinite(accuracyM) || accuracyM < 0)
     return err('invalid_position', { field: 'accuracyM' });
   const latRad = degToRad(reading.latitudeDeg);
-  const lonRad = degToRad(reading.longitudeDeg);
+  const lonRad = degToRad(reading.longitudeDeg === -180 ? 180 : reading.longitudeDeg);
   if (!latRad.ok) return err('invalid_position', { field: 'latitudeDeg' });
   if (!lonRad.ok) return err('invalid_position', { field: 'longitudeDeg' });
   const position = { latRad: latRad.value, lonRad: lonRad.value };
   if (!isSupportedPosition(position)) return err('invalid_position', { field: 'position' });
-  return ok({ position, reportedAccuracyM: accuracyM, sigmaM: accuracyM / scale.value, timeUtcMs });
+  const sigmaM = accuracyM / scale.value;
+  if (!Number.isFinite(sigmaM)) return err('invalid_position', { field: 'sigmaM' });
+  return ok({ position, reportedAccuracyM: accuracyM, sigmaM, timeUtcMs });
+}
+
+/**
+ * Whether a fix is valid in itself, without judging its age or accuracy against limits (§7.8,
+ * D20): a Supported position, a reported accuracy and a 1-sigma that are finite and not negative
+ * (Req 7.5), and a finite time. Fails with `invalid_position`. Internal: `checkPositionFix` and the
+ * Sample history share it, so their rules cannot drift apart.
+ */
+export function checkFixValid(fix: PositionFix): SensorResult<PositionFix> {
+  const valid =
+    isSupportedPosition(fix.position) &&
+    Number.isFinite(fix.reportedAccuracyM) &&
+    fix.reportedAccuracyM >= 0 &&
+    Number.isFinite(fix.sigmaM) &&
+    fix.sigmaM >= 0 &&
+    Number.isFinite(fix.timeUtcMs);
+  return valid ? ok(fix) : err('invalid_position');
 }
 
 export interface PositionFixLimits {
@@ -60,7 +80,8 @@ export interface PositionFixLimits {
 
 /**
  * Checks a fix before it is used (§7.8). The fix may come from anywhere, so it is validated again
- * (`invalid_position`). Then `stale_position` if it is older than the limit at `atUtcMs` (Req 7.7),
+ * (`invalid_position`). Then `stale_position` if it is older than the limit at `atUtcMs`, or was
+ * received more than the limit after `atUtcMs` (Req 7.7),
  * then `coarse_location`, carrying the reported accuracy, if that exceeds the limit (Req 7.4). The
  * Coarse location test uses the reported accuracy: it is the figure the browser shows.
  */
@@ -74,17 +95,11 @@ export function checkPositionFix(
   if (!staleness.ok) return staleness;
   const coarse = checkLimitM(limits.coarseLocationLimitM, 'coarseLocationLimitM');
   if (!coarse.ok) return coarse;
-  if (
-    !isSupportedPosition(fix.position) ||
-    !Number.isFinite(fix.reportedAccuracyM) ||
-    fix.reportedAccuracyM < 0 ||
-    !Number.isFinite(fix.sigmaM) ||
-    fix.sigmaM < 0 ||
-    !Number.isFinite(fix.timeUtcMs)
-  ) {
-    return err('invalid_position');
+  const valid = checkFixValid(fix);
+  if (!valid.ok) return valid;
+  if (Math.abs(limits.atUtcMs - fix.timeUtcMs) > limits.positionStalenessMs) {
+    return err('stale_position');
   }
-  if (limits.atUtcMs - fix.timeUtcMs > limits.positionStalenessMs) return err('stale_position');
   if (fix.reportedAccuracyM > limits.coarseLocationLimitM) {
     return err('coarse_location', { reportedAccuracyM: fix.reportedAccuracyM });
   }

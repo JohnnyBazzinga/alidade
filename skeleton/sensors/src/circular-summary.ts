@@ -48,17 +48,30 @@ export interface AltitudeSummary {
 }
 
 /**
- * The arithmetic mean and the standard deviation of a set of altitudes (Req 9.1, D19). Altitudes
- * lie in [-π/2, π/2] and do not wrap, so the arithmetic mean is the right one.
+ * The arithmetic mean and the standard deviation of a set of altitudes (Req 9.1, 9.10, D19).
+ * Altitudes lie in [-π/2, π/2] and do not wrap, so the arithmetic mean is the right one.
+ *
+ * The mean is taken about the first altitude, `h₀ + Σ(hᵢ − h₀) / n`, so that identical altitudes
+ * give back `h₀` exactly; the plain `Σhᵢ / n` drifts by several ulps over a few hundred equal
+ * values. It is then clamped to the [min, max] of the altitudes, so rounding can never carry it
+ * outside their range (Req 9.10) and, with an offset, across the limit of Req 9.6.
  */
 export function summariseAltitudes(altitudesRad: readonly number[]): SensorResult<AltitudeSummary> {
-  if (altitudesRad.length === 0) return err('insufficient_samples');
-  let sum = 0;
+  const first = altitudesRad[0];
+  if (first === undefined) return err('insufficient_samples');
+  let lowest = first;
+  let highest = first;
+  let sumOfDifferences = 0;
   for (const altitudeRad of altitudesRad) {
     if (!Number.isFinite(altitudeRad)) return err('invalid_number');
-    sum += altitudeRad;
+    lowest = Math.min(lowest, altitudeRad);
+    highest = Math.max(highest, altitudeRad);
+    sumOfDifferences += altitudeRad - first;
   }
-  const meanRad = sum / altitudesRad.length;
+  const meanRad = Math.min(
+    highest,
+    Math.max(lowest, first + sumOfDifferences / altitudesRad.length),
+  );
   let sumSquares = 0;
   for (const altitudeRad of altitudesRad) sumSquares += (altitudeRad - meanRad) ** 2;
   return ok({ meanRad, stdDevRad: Math.sqrt(sumSquares / altitudesRad.length) });

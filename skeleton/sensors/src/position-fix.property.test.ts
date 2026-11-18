@@ -13,9 +13,9 @@ function rad(degrees: number): number {
 }
 
 describe('Position fix properties', () => {
-  // P-7.9 — validates Req 7.9: latitudes in [-89°, 89°], longitudes in (-180°, 180°] and reported
+  // P-7.9 — validates Req 7.9: latitudes in [-89°, 89°], longitudes in [-180°, 180°] and reported
   // accuracies in [0, 10 000] m: the fix holds the coordinates within 1e-15 rad of `degToRad` of
-  // the input, and the reported accuracy unchanged.
+  // the input, with -180° taken as 180°, and the reported accuracy unchanged.
   it('P-7.9: the fix keeps the reading', () => {
     const tracker = new ErrorTracker();
     checkProperty(
@@ -24,7 +24,8 @@ describe('Position fix properties', () => {
         const fix = positionFixFromReading(reading, T, 1);
         if (!fix.ok) return false;
         const latError = Math.abs(fix.value.position.latRad - rad(reading.latitudeDeg));
-        const lonError = Math.abs(fix.value.position.lonRad - rad(reading.longitudeDeg));
+        const expectedLonDeg = reading.longitudeDeg === -180 ? 180 : reading.longitudeDeg;
+        const lonError = Math.abs(fix.value.position.lonRad - rad(expectedLonDeg));
         tracker.record('latitude error', latError, '1e-15');
         tracker.record('longitude error', lonError, '1e-15');
         return (

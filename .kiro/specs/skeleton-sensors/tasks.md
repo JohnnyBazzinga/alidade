@@ -257,11 +257,19 @@ Package: `skeleton/sensors` (`@alidade/sensors`). Source of truth: `requirements
       beyond `89°`; `invalid_number` for a `NaN` time.
     - `wmmDeclinationSigmaRad(2000)` is `2.7210°` and the 1-sigma decreases as `H` grows.
     - `trueAzimuthFromMagnetic` without a Declination gives `declination_unknown`; a
-      declination of `π/2 + 1e-12`, a `NaN` and a negative sigma give `invalid_number`.
-    - _Requirements: 6.4, 6.5, 6.6, 6.7, 6.8, 6.9, 6.10_
+      declination of `π + 1e-12`, a `NaN` and a negative sigma give `invalid_number`; `±π`
+      is accepted.
+    - The McMurdo point (77.85°S 166.67°E, 2026.88): about `140.09°`, accepted by the conversion.
+    - _Requirements: 6.4, 6.5, 6.6, 6.7, 6.8, 6.9, 6.10, 6.12_
   - [x] 8.4 Property P-6.11
-    - Magnetic to true and back with the negated declination within `1e-12`.
+    - Magnetic to true and back with the negated declination within `1e-12`, declinations in
+      `[−π, π]`.
     - _Requirements: 6.11_
+  - [x] 8.5 Generator `wmmPositionAndTime` and property P-6.12
+    - Every Declination `declinationAt` returns is accepted by the conversion, with a 1-sigma in
+      `[0.26°, 2.73°]`; failures only `declination_unknown`; successes counted and at least
+      half. 100 000 cases at the checkpoints.
+    - _Requirements: 6.12_
 
 - [x] 9. Position fixes
   - [x] 9.1 Implement `src/position-fix.ts`
@@ -269,12 +277,14 @@ Package: `skeleton/sensors` (`@alidade/sensors`). Source of truth: `requirements
       (`stale_position`, then `coarse_location` with `reportedAccuracyM`, §7.8).
     - Example tests: the 2000 m coarse reading at the 100 m limit carries
       `reportedAccuracyM: 2000`; `invalid_position` for `NaN` coordinates, a negative accuracy
-      and a latitude of `89.5°`; staleness at `30 000` ms accepted and `30 001` ms refused; a
-      scale of `2` halves `sigmaM` and leaves `reportedAccuracyM` unchanged.
+      and a latitude of `89.5°`; staleness at `30 000` ms accepted and `30 001` ms refused, on
+      both sides of the time of use (a fix from the future too, Req 7.7); a scale of `2` halves
+      `sigmaM` and leaves `reportedAccuracyM` unchanged; a longitude of `−180°` taken as `180°`;
+      an accuracy of `1e308` over a scale of `1e-300` refused as `invalid_position`.
     - _Requirements: 7.2, 7.3, 7.4, 7.5, 7.7, 7.8_
   - [x] 9.2 Generator `geolocationReading` and properties P-7.9, P-7.10
-    - P-7.9 radians within `1e-15` of `degToRad`, accuracy identical; P-7.10 `sigmaM` equals
-      accuracy over scale within relative `1e-15`.
+    - P-7.9 radians within `1e-15` of `degToRad` (with `−180°` taken as `180°`), accuracy
+      identical; P-7.10 `sigmaM` equals accuracy over scale within relative `1e-15`.
     - _Requirements: 7.9, 7.10_
 
 - [x] 10. Checkpoint: references, declination and position
@@ -282,19 +292,19 @@ Package: `skeleton/sensors` (`@alidade/sensors`). Source of truth: `requirements
     and P-7.10. Report counts, discards and worst errors, and the result of the 112-point WMM
     fixture test. Then the root checks. Stop for review.
 
-- [ ] 11. Captures
-  - [ ] 11.1 Implement `captureBearing` in `src/capture.ts`
+- [x] 11. Captures
+  - [x] 11.1 Implement `captureBearing` in `src/capture.ts`
     - The ten steps of §7.9 in order, with the four cases of its table: Relative windows
       require a Relative reference; Absolute windows use an Absolute reference when given (no
       Heading 1-sigma, Declination only if magnetic) and the magnetic azimuth with the Heading
       1-sigma otherwise; a reference of the other frame is `frame_reset`.
     - _Requirements: 5.11, 5.12, 5.13, 5.18, 8.1, 8.2, 8.3, 8.4, 8.5, 8.6, 8.7, 8.8, 8.9, 8.10_
-  - [ ] 11.2 Implement `captureAltitude` in `src/capture.ts`
+  - [x] 11.2 Implement `captureAltitude` in `src/capture.ts`
     - §7.10: arithmetic mean plus the required calibration offset, the 1-sigma as the `rss`
       of the samples' standard deviation and the calibration sigma, `invalid_altitude` outside
       `[−π/2, π/2]`.
     - _Requirements: 3.5, 9.1, 9.2, 9.3, 9.4, 9.5, 9.6_
-  - [ ] 11.3 Example tests in `src/capture.test.ts`
+  - [x] 11.3 Example tests in `src/capture.test.ts`
     - Each failure of the "Capture order and each failure" list of §9, each triggering exactly
       one reason, and the combined order case (`stale_position` before
       `insufficient_samples`).
@@ -311,52 +321,62 @@ Package: `skeleton/sensors` (`@alidade/sensors`). Source of truth: `requirements
       (`UNCALIBRATED_ALTITUDE` gives `3.5°`; `89°` plus `2°` gives `invalid_altitude`;
       calibration `NaN` and negative sigma give `invalid_number`).
     - _Requirements: 3.5, 5.11, 5.12, 5.13, 5.18, 8.2, 8.3, 8.4, 8.5, 8.8, 8.9, 8.10, 9.2, 9.3, 9.5, 9.6_
-  - [ ] 11.4 Generators `clusteredCapture` (with its `straddling` and `identical` variants) and `altitudeSet`
+  - [x] 11.4 Generators `clusteredCapture` (with its `straddling` and `identical` variants) and `altitudeSet`
     - As in §8. `clusteredCapture` applies `δ` by replacing the offset with
       `wrapPi(offset + δ)`.
     - _Requirements: 8.11, 8.15, 8.14, 9.8_
-  - [ ] 11.5 Properties P-8.11 to P-8.15
+  - [x] 11.5 Properties P-8.11 to P-8.15
     - P-8.11 rotation through the wrapped Yaw reference offset; P-8.12 reordering; P-8.13 samples
       outside the window change nothing (deep equality); P-8.14 identical samples give a Spread
       of `0` and `σ = max(0.01°, σN)`; P-8.15 the `0 / 2π` boundary.
     - _Requirements: 8.11, 8.12, 8.13, 8.14, 8.15_
-  - [ ] 11.6 Properties P-9.7 to P-9.9
-    - P-9.7 constant altitude plus offset, sigma equal to the calibration sigma; P-9.8 a shift;
-      P-9.9 reordering; all within `1e-12`.
-    - _Requirements: 9.7, 9.8, 9.9_
+  - [x] 11.6 Properties P-9.7 to P-9.9
+    - P-9.7 constant altitude plus offset, exactly (Req 9.10) and within `1e-12`, sigma equal to
+      the calibration sigma; P-9.8 a shift; P-9.9 reordering; all within `1e-12`; in P-9.8 and
+      P-9.9 the mean lies within the altitudes' range (Req 9.10).
+    - The shrunk P-9.7 counterexample (199 copies of `−80° + 1 ulp`, offset `−10°`) is an example
+      test; the mean is taken about the first sample and clamped (D19).
+    - _Requirements: 9.7, 9.8, 9.9, 9.10_
 
-- [ ] 12. Sample history
-  - [ ] 12.1 Implement `src/sample-history.ts`
+- [x] 12. Sample history
+  - [x] 12.1 Implement `src/sample-history.ts`
     - `SampleHistory`, `createSampleHistory`, `addOrientationSample`, `addFrameReset`,
       `addPositionFix` (§7.13, D23): copy-on-write, frozen, newest time over every item,
       inclusive retention limits, clock steps back accepted, the most recently added fix kept.
-    - _Requirements: 14.1, 14.2, 14.3, 14.4, 14.5_
-  - [ ] 12.2 Example tests in `src/sample-history.test.ts`
+    - Each add validates the whole item first and refuses an invalid one with the history
+      unchanged (Req 14.4): `checkSampleValid` for a sample, `checkFixValid` for a fix, the same
+      checks `checkPositionFix` and the captures apply (D20). The history does not judge Stale or
+      Coarse location. Added after P-11.8 found a fix with a `NaN` accuracy kept and returned; the
+      shrunk counterexample, a refused sample and a refused fix are example tests.
+    - _Requirements: 14.1, 14.2, 14.3, 14.4, 14.5, 11.8_
+  - [x] 12.2 Example tests in `src/sample-history.test.ts`
     - The Sample history examples of §9: non-finite times leave the history unchanged; the
       retention boundaries for samples and resets; a step back of `200` ms; a fix prunes old
       samples; a handed-out history is frozen and unchanged after ten more adds; the frozen-image
       capture; invalid retentions.
     - _Requirements: 14.1, 14.2, 14.4, 14.5_
-  - [ ] 12.3 Generators `historySequence` and `historyCapture`
+  - [x] 12.3 Generators `historySequence` and `historyCapture`
     - As in §8, with the dense half. Measure and state in the comment the fraction of
       `historyCapture` draws whose capture succeeds.
     - _Requirements: 14.6, 14.7_
-  - [ ] 12.4 Property P-14.6
+  - [x] 12.4 Property P-14.6
     - After every add, the history holds exactly the items the retention rule states, in the
       order added (`Object.is` on items).
     - _Requirements: 14.6_
-  - [ ] 12.5 Property P-14.7
+  - [x] 12.5 Property P-14.7
     - The capture from the history is deep-equal to the capture from the full sequence,
       failures included; the test fails if fewer than 10 % of its cases succeed.
     - _Requirements: 14.7_
 
-- [ ] 13. Checkpoint: captures and history
-  - `test:deep` for P-8.11, P-8.12, P-8.14, P-8.15, P-9.7, P-9.8 and P-9.9 at 100 000 cases, and
+- [x] 13. Checkpoint: captures and history
+  - `test:deep` for P-6.12 (added at checkpoint 13 for the amended Req 6.12), P-6.11 with its
+    widened domain, P-7.9 with `−180°`, P-8.11, P-8.12, P-8.14, P-8.15, P-9.7, P-9.8 and P-9.9 at
+    100 000 cases, and
     P-8.13, P-14.6 and P-14.7 at 10 000. Report counts, discards, worst errors, and the success
     fraction of P-14.7. Then the root checks. Stop for review.
 
-- [ ] 14. Sensor source and browser Adapter
-  - [ ] 14.1 Implement `src/sensor-source.ts` and `src/listener-set.ts`
+- [x] 14. Sensor source and browser Adapter
+  - [x] 14.1 Implement `src/sensor-source.ts` and `src/listener-set.ts`
     - The `SensorSource`, `SensorSourceOptions` (with the optional `onListenerError`) and
       `Unsubscribe` types (§6); `ListenerSet` delivering over a snapshot with each call isolated
       by `try`/`catch`, passing thrown values to the error callback and dropping what the
@@ -366,17 +386,17 @@ Package: `skeleton/sensors` (`@alidade/sensors`). Source of truth: `requirements
       callback; a listener that unsubscribes during delivery; delivery order is registration
       order.
     - _Requirements: 11.11_
-  - [ ] 14.2 Implement `src/browser/browser-environment.ts`
+  - [x] 14.2 Implement `src/browser/browser-environment.ts`
     - `BrowserEnvironment` and `browserEnvironment()`, the only file that reads browser
       globals, feature detection only (`'ondeviceorientationabsolute' in window`,
       `DeviceOrientationEvent.requestPermission`), and `systemClock`. No user-agent reads.
     - _Requirements: 1.2, 4.1, 4.2_
-  - [ ] 14.3 Test support: `FakeBrowserEnvironment`
+  - [x] 14.3 Test support: `FakeBrowserEnvironment`
     - `src/test-support/fake-browser.ts`: an in-memory environment that records every call,
       lets a test dispatch orientation, visibility, `blur`, `pagehide` and geolocation events,
       advance its timers, and count live listeners, watches and timers. Synthetic only.
     - _Requirements: 13.2, 13.5_
-  - [ ] 14.4 Implement `src/browser/browser-sensor-source.ts`
+  - [x] 14.4 Implement `src/browser/browser-sensor-source.ts`
     - `createBrowserSensorSource` per §7.11: the event copy sets `absolute` to
       `event.absolute === true`; permission only from
       `requestOrientationPermission()` (D14); frame choice by feature (D7); `frame_change`
@@ -387,7 +407,7 @@ Package: `skeleton/sensors` (`@alidade/sensors`). Source of truth: `requirements
       browser `timeout`; starting twice per D21;
       listeners through `ListenerSet`; `stop()` removes everything; every `env` call guarded.
     - _Requirements: 1.4, 1.5, 4.1, 4.2, 4.3, 4.5, 4.7, 4.8, 4.9, 7.1, 7.2, 7.6, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7, 11.9, 11.10, 11.11_
-  - [ ] 14.5 Example tests in `src/browser/browser-sensor-source.test.ts`
+  - [x] 14.5 Example tests in `src/browser/browser-sensor-source.test.ts`
     - Every Adapter example of §9 against the fake, including each Adapter failure reason
       (an event whose `absolute` is a truthy non-boolean giving Relative samples,
       `insecure_context` with no sensor call recorded, `sensor_unavailable` in each case,
@@ -400,14 +420,14 @@ Package: `skeleton/sensors` (`@alidade/sensors`). Source of truth: `requirements
       for all three kinds, with and without `onListenerError` and with one that throws.
     - _Requirements: 4.2, 4.3, 4.7, 4.8, 7.6, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7, 11.9, 11.10, 11.11, 13.2, 13.3_
 
-- [ ] 15. Simulator source
-  - [ ] 15.1 Implement `src/simulator/simulator-script.ts`
+- [x] 15. Simulator source
+  - [x] 15.1 Implement `src/simulator/simulator-script.ts`
     - `SimulatorScript` and `PoseKeyframe` (§6) with validation (`invalid_number` naming the
       field; `field: 'pose'` for an empty or unordered pose list). Document on `declinationRad`
       that an app using `declinationAt` recovers the scripted true azimuth only if this value
       came from `declinationAt` at the scripted position and time (design note c).
     - _Requirements: 12.3, 12.5_
-  - [ ] 15.2 Implement `src/simulator/simulator.ts`
+  - [x] 15.2 Implement `src/simulator/simulator.ts`
     - `createSimulator` and `SimulatorControls` per §7.12 and D16: the schedule, ties ordered
       resets first, pose interpolation along the wrapped difference, noise drawn in a fixed
       order, Absolute and Relative frames with their resets, headings with bias, noise, jumps and
@@ -415,7 +435,7 @@ Package: `skeleton/sensors` (`@alidade/sensors`). Source of truth: `requirements
       context behaviour, starting twice per D21, delivery through `ListenerSet`, raw events
       turned into samples by `orientationSampleFromEvent`.
     - _Requirements: 12.1, 12.2, 12.3, 12.4, 11.10, 11.11_
-  - [ ] 15.3 Example tests in `src/simulator/simulator.test.ts`
+  - [x] 15.3 Example tests in `src/simulator/simulator.test.ts`
     - The Simulator examples of §9: a reset delivered before the sample at the same time and a
       capture across it failing; `advanceTo` backwards; `permission_required` without a request
       and samples with one; the altitude bias of `−3.3°` captured low within `1e-9`; the
@@ -423,11 +443,11 @@ Package: `skeleton/sensors` (`@alidade/sensors`). Source of truth: `requirements
       azimuth with no Declination; starting twice and throwing listeners. The seed check: three
       fixed seeds give three different sequences.
     - _Requirements: 4.7, 11.10, 11.11, 12.2, 12.3, 12.4_
-  - [ ] 15.4 Generators `simulatorScript` (with its `noiseFree` variant) and `compassCaptureScript`
+  - [x] 15.4 Generators `simulatorScript` (with its `noiseFree` variant) and `compassCaptureScript`
     - As in §8. `compassCaptureScript` places resets only before the Yaw reference window or
       after the capture window, and holds the direction constant over the capture window.
     - _Requirements: 12.7, 12.8_
-  - [ ] 15.5 Property P-12.7
+  - [x] 15.5 Property P-12.7
     - On `compassCaptureScript`, with `fc.pre` on the computed Camera altitude of every sample
       the two windows read (discards reported): compass reference over `[Ty0, Ty1]` (the direction may move),
       then capture over `[Tc0, Tc1]` (constant direction, no reset in `[Ty0, Tc1]`) with the
@@ -435,40 +455,40 @@ Package: `skeleton/sensors` (`@alidade/sensors`). Source of truth: `requirements
       within `1e-9`, and
       `azimuthSigmaRad = max(0.01°, rss(headingSigmaRad, drawn))` within `1e-12`.
     - _Requirements: 12.7_
-  - [ ] 15.6 Property P-12.8
+  - [x] 15.6 Property P-12.8
     - Two runs of the same script and seed give deep-equal outputs, `Object.is` on every
       number.
     - _Requirements: 12.4, 12.8_
 
-- [ ] 16. Checkpoint: sources
+- [x] 16. Checkpoint: sources
   - `test:deep` for P-12.7 and P-12.8 at 10 000 cases. Record counts, discards and worst
     errors. Then the root checks. Do not stop: the report goes into checkpoint 18's.
 
-- [ ] 17. Totality, purity and packaging
-  - [ ] 17.1 Generator `hostileInput` and property P-11.8
+- [x] 17. Totality, purity and packaging
+  - [x] 17.1 Generator `hostileInput` and property P-11.8
     - Every exported function, the Simulator with hostile scripts and the browser source with a
       hostile fake environment (callbacks that throw, events with `null`, `NaN` and
       out-of-range fields), the history functions with non-finite times and retentions of `0`,
       and throwing listeners: no call throws, and every result is a failure or finite (§8).
     - _Requirements: 11.8_
-  - [ ] 17.2 Implement `src/index.ts`
+  - [x] 17.2 Implement `src/index.ts`
     - Re-export the public API of §6 only; nothing from `test-support`, and not the internal
       helpers (`ok`, `err`, `rotationMatrix`, `wmmField`, `wmmDeclinationSigmaRad`,
       `ListenerSet`, `summariseAzimuths`, `summariseAltitudes`, `rss`). The three summaries are
       not total on their own (design §7.5); export them only after making them total.
     - _Requirements: 1.6, 11.1_
-  - [ ] 17.3 Purity and exports tests in `src/purity.test.ts`
+  - [x] 17.3 Purity and exports tests in `src/purity.test.ts`
     - The checks of §10: no browser globals, clock, timers, randomness or I/O in the Math layer;
       browser globals only in `browser-environment.ts`; `Date.UTC` only in `wmm.ts`; `magvar`
       only in `wmm.ts`; imports only relative or from `@alidade/core`'s index; no `userAgent`,
       `platform` or `vendor`; `.alphaRad` and `.gammaRad` read only in `rotation.ts` and
-      `simulator/simulator.ts`; `package.json` dependencies exactly `@alidade/core` and
+      `simulator/direction-to-rotation.ts`; `webkitCompassHeading` read only in the Adapter; `package.json` dependencies exactly `@alidade/core` and
       `magvar` at an exact version, and exports only `"."`.
     - Check that the test fails when a forbidden token is added to a copy of a source string
       (so it is not vacuous).
     - _Requirements: 1.1, 1.2, 1.3, 1.6, 2.3, 4.1, 4.4_
 
-- [ ] 18. Final checkpoint
+- [x] 18. Final checkpoint
   - Run `test:deep` for every property of §8 at its stated case count, and report counts,
     discards and worst errors for each, together with checkpoint 16's report. Run `pnpm test`, `pnpm typecheck` and `pnpm lint` from
     the repo root. Confirm that every property P-2.7 through P-14.7 in `design.md` §8 has a
