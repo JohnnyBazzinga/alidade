@@ -17,7 +17,7 @@ import { freeze } from './freeze';
 import { makeMark } from './mark';
 import { checkSessionParameters, type SessionParameters } from './parameters';
 import { liveReadout, withStaleness } from './readout';
-import type { Session, SessionKind, StampedFailure } from './session';
+import type { Session, SessionKind, StampedFailure, YawReferenceSource } from './session';
 import {
   isActionEvent,
   type ActionEvent,
@@ -47,6 +47,7 @@ export function createSession(kind: SessionKind, parameters: SessionParameters):
     state: 'permission',
     history: history.value,
     yawReference: null,
+    yawReferenceSource: null,
     declination: null,
     readout: null,
     lastReadoutUtcMs: null,
@@ -283,11 +284,13 @@ function onAction(
       if (!yaw.ok) return refused(session, yaw, timeUtcMs);
       // In `frozen` this is the one write into a Frozen sighting: an action of the user, and it
       // never touches the history (Req 10.3).
+      const yawReferenceSource: YawReferenceSource =
+        event.from.kind === 'compass' ? 'compass' : 'known-azimuth';
       const frozen =
         inFrozen && session.frozen !== null
-          ? { ...session.frozen, yawReference: yaw.value }
+          ? { ...session.frozen, yawReference: yaw.value, yawReferenceSource }
           : session.frozen;
-      return accepted({ ...session, yawReference: yaw.value, frozen });
+      return accepted({ ...session, yawReference: yaw.value, yawReferenceSource, frozen });
     }
     case 'again': {
       if (session.state !== 'captured') return notAvailable(session, timeUtcMs);

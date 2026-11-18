@@ -46,11 +46,19 @@ export interface Mark {
   readonly calibration: CameraCalibration;
 }
 
+/**
+ * Where a Yaw reference came from: the `establishYaw` event that set it (Req 13.5). Sensors'
+ * `YawReference` does not say, so the Session keeps it beside the reference: `null` exactly when
+ * there is no reference.
+ */
+export type YawReferenceSource = 'compass' | 'known-azimuth';
+
 /** The sighting kept at a Freeze; later samples never change it (Req 10.3, design D6). */
 export interface FrozenSighting {
   readonly history: SampleHistory;
   readonly window: SightingWindow;
   readonly yawReference: YawReference | null;
+  readonly yawReferenceSource: YawReferenceSource | null;
   readonly declination: Declination | null;
   readonly mark: Mark | null;
   readonly frozenAtUtcMs: number;
@@ -77,20 +85,48 @@ export interface LiveReadout {
   readonly stale: boolean;
 }
 
-/** What a capture carries, so that the screen can show what its uncertainty is made of. */
+/**
+ * The north part of a bearing's sigma (Req 13.5): the phone's own compass on the Absolute frame
+ * with no Yaw reference (the heading 1-sigma of the parameters), or the Yaw reference's 1-sigma
+ * with where it came from. The Declination is a part of its own.
+ */
+export interface CaptureNorth {
+  readonly source: 'phone-compass' | YawReferenceSource;
+  readonly sigmaRad: number;
+}
+
+/** What a capture carries, so that the screen can show what its uncertainty is made of (Req 12.6). */
 export interface CaptureDetails {
   readonly mark: Mark | null;
   readonly yawReference: YawReference | null;
+  /** The Declination Sensors used: `null` when the North reference was true (or an altitude). */
   readonly declination: Declination | null;
   readonly calibration: CameraCalibration | null;
   readonly sampleCount: number;
   readonly window: SightingWindow;
+  /** The north part of a bearing's sigma; `null` for an altitude. */
+  readonly north: CaptureNorth | null;
+  /**
+   * The lens-and-tap term as it enters the sigma: `ε / cos h` for a bearing, `ε` for an altitude
+   * (Req 12.3, 12.4); `null` with no Mark.
+   */
+  readonly markSigmaRad: number | null;
 }
 
 export type CapturedResult = CaptureDetails &
   (
-    | { readonly kind: 'bearing'; readonly bearing: Bearing }
-    | { readonly kind: 'altitude'; readonly altitude: AltitudeCapture }
+    | {
+        readonly kind: 'bearing';
+        readonly bearing: Bearing;
+        /** The Spread of the azimuths, as Sensors summarised them for this capture (Req 12.6). */
+        readonly azimuthSpreadRad: number;
+      }
+    | {
+        readonly kind: 'altitude';
+        readonly altitude: AltitudeCapture;
+        /** The altitudes' standard deviation, Sensors' `sampleStdDevRad` (Req 12.6). */
+        readonly altitudeStdDevRad: number;
+      }
   );
 
 export interface Session {
@@ -98,6 +134,7 @@ export interface Session {
   readonly state: SessionStateKind;
   readonly history: SampleHistory;
   readonly yawReference: YawReference | null;
+  readonly yawReferenceSource: YawReferenceSource | null;
   readonly declination: Declination | null;
   readonly readout: LiveReadout | null;
   readonly lastReadoutUtcMs: number | null;

@@ -1,6 +1,10 @@
 // Hostile but type-correct inputs for P-2.6 (Req 2.6, design §8 `hostileInput`). Any double for a
-// `number`: `NaN`, `±Infinity`, `±0`, subnormals, `±MAX_VALUE`, and the doubles just either side
-// of every limit of the package; negative and zero sizes; `null` for every nullable field.
+// `number`: `NaN`, `±Infinity`, `±0`, subnormals, `±MAX_VALUE`, the doubles just either side of
+// every limit of the package, and huge finite values (|x| from 1e6 to 1e308, log-uniform, and the
+// counts and sizes at which a loop or a list becomes too long); negative and zero sizes; `null`
+// for every nullable field. The huge finite values are drawn often on purpose: a finite number
+// that passes `Number.isFinite` and then drives a loop or an allocation is the bug a NaN does
+// not find (the panel's tick length, found by the deep run of checkpoint 26, design D30).
 // Not covered, because the static type would be a lie: values cast with `as` to a type they do
 // not have, and objects whose property reads throw.
 
@@ -33,7 +37,14 @@ const LIMITS = [
   1000, // coarse-location rounding
   2000,
   T,
+  60_000, // MAX_PANEL_TICK_MS
+  3_600_000, // MAX_SIMULATOR_ADVANCE_MS
+  100_000, // largest vertex and segment count
+  10 * 365.25 * 86_400_000, // MAX_PANEL_ELAPSED_MS
 ];
+
+/** Counts and sizes at which a loop or a list goes wrong, and their neighbours. */
+const HUGE = [2 ** 31, 2 ** 32, 2 ** 53, 1e9, 1e12, 1e15, 1e21, 1e100, 1e300];
 
 /** `x`, the doubles next to it and their negatives. */
 export function neighbours(x: number): number[] {
@@ -63,10 +74,28 @@ const SPECIAL = [
   ...LIMITS.flatMap(neighbours),
 ];
 
-/** Any double, with the special values and every limit's neighbours drawn often. */
+/**
+ * A finite number of magnitude 1e6 to 1e308 with either sign: half the time log-uniform over that
+ * range, half the time one of `HUGE` or a neighbour of it.
+ */
+export function hugeFinite(): fc.Arbitrary<number> {
+  return fc.oneof(
+    fc
+      .tuple(fc.double({ min: 6, max: 308, noNaN: true }), fc.boolean())
+      .map(([exponent, negative]) => (negative ? -1 : 1) * 10 ** exponent),
+    fc.constantFrom(...HUGE.flatMap(neighbours)),
+  );
+}
+
+/**
+ * Any double, with the special values, every limit's neighbours and huge finite values drawn
+ * often. Weights: 3 special, 2 huge finite, 1 any double, 1 in [-10, 10], 1 near the scripts'
+ * time (of 8): at least a quarter of the draws are finite with |x| ≥ 1e6.
+ */
 export function hostileNumber(): fc.Arbitrary<number> {
   return fc.oneof(
     { weight: 3, arbitrary: fc.constantFrom(...SPECIAL) },
+    { weight: 2, arbitrary: hugeFinite() },
     { weight: 1, arbitrary: fc.double() },
     { weight: 1, arbitrary: fc.double({ min: -10, max: 10 }) },
     { weight: 1, arbitrary: fc.double({ min: T - 100_000, max: T + 100_000 }) },

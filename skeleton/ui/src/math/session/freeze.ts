@@ -46,6 +46,7 @@ export function freeze(
     history: session.history,
     window,
     yawReference: session.yawReference,
+    yawReferenceSource: session.yawReferenceSource,
     declination: session.declination,
     mark: null,
     frozenAtUtcMs: timeUtcMs,

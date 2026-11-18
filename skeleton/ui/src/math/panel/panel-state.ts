@@ -3,6 +3,7 @@
 // Simulator to `startUtcMs + elapsedSimMs`, in steps of at most `MAX_SIMULATOR_ADVANCE_MS`.
 
 import { MAX_SIMULATOR_ADVANCE_MS } from '@alidade/sensors';
+import { MAX_PANEL_ELAPSED_MS, MAX_PANEL_TICK_MS } from '../../defaults';
 import { err, ok, type UiResult } from '../../result';
 
 export type PanelSpeed = 0.25 | 1 | 4;
@@ -51,20 +52,34 @@ export function checkPanelState(s: PanelState): UiResult<PanelState> {
   if (!Number.isInteger(s.seed) || s.seed < 0 || s.seed >= TWO_POW_32)
     return err('invalid_number', { field: 'seed' });
   if (!SPEEDS.includes(s.speed)) return err('invalid_number', { field: 'speed' });
-  if (!Number.isFinite(s.tickMs) || !(s.tickMs > 0))
+  if (!Number.isFinite(s.tickMs) || !(s.tickMs > 0) || s.tickMs > MAX_PANEL_TICK_MS)
     return err('invalid_number', { field: 'tickMs' });
   if (!Number.isFinite(s.startUtcMs)) return err('invalid_number', { field: 'startUtcMs' });
-  if (!Number.isFinite(s.elapsedSimMs) || s.elapsedSimMs < 0)
+  if (
+    !Number.isFinite(s.elapsedSimMs) ||
+    s.elapsedSimMs < 0 ||
+    s.elapsedSimMs > MAX_PANEL_ELAPSED_MS
+  )
     return err('invalid_number', { field: 'elapsedSimMs' });
+  // The absolute times handed to `advanceTo` must be finite too.
+  if (!Number.isFinite(s.startUtcMs + MAX_PANEL_ELAPSED_MS))
+    return err('invalid_number', { field: 'startUtcMs' });
   return ok(s);
 }
 
-/** The advances from `fromMs` to `toMs` after the start, split at `MAX_SIMULATOR_ADVANCE_MS`. */
-function advances(startUtcMs: number, fromMs: number, toMs: number): number[] {
+/**
+ * The advances from `fromMs` to `toMs` after the start, split at `MAX_SIMULATOR_ADVANCE_MS`. The
+ * callers keep `toMs − fromMs` within `MAX_PANEL_TICK_MS × 4`, under one advance, so the list
+ * has at most one entry (two would also be bounded); the loop also stops if a step is lost to
+ * rounding.
+ */
+export function advances(startUtcMs: number, fromMs: number, toMs: number): number[] {
   const out: number[] = [];
   let at = fromMs;
   while (at < toMs) {
-    at = Math.min(toMs, at + MAX_SIMULATOR_ADVANCE_MS);
+    const next = Math.min(toMs, at + MAX_SIMULATOR_ADVANCE_MS);
+    if (!(next > at)) break;
+    at = next;
     out.push(startUtcMs + at);
   }
   return out;
@@ -86,7 +101,8 @@ export function panelStep(s: PanelState, a: PanelAction): UiResult<PanelStepResu
     ok({ state, advancesToUtcMs: [], recreate });
   switch (a.kind) {
     case 'selectScene':
-      if (!Number.isFinite(a.startUtcMs)) return err('invalid_number', { field: 'startUtcMs' });
+      if (!Number.isFinite(a.startUtcMs) || !Number.isFinite(a.startUtcMs + MAX_PANEL_ELAPSED_MS))
+        return err('invalid_number', { field: 'startUtcMs' });
       return none(
         reset({ ...s, sceneId: a.sceneId, stationId: a.stationId, startUtcMs: a.startUtcMs }),
         true,
@@ -111,6 +127,9 @@ export function panelStep(s: PanelState, a: PanelAction): UiResult<PanelStepResu
       if (a.kind === 'tick' && !s.playing) return none(s);
       if (a.kind === 'step' && s.playing) return none(s);
       const elapsedSimMs = s.elapsedSimMs + s.tickMs * s.speed;
+      // Refused, not clamped: the time must stay the sum of the ticks (Req 17.8).
+      if (!(elapsedSimMs <= MAX_PANEL_ELAPSED_MS))
+        return err('invalid_number', { field: 'elapsedSimMs' });
       return ok({
         state: { ...s, elapsedSimMs },
         advancesToUtcMs: advances(s.startUtcMs, s.elapsedSimMs, elapsedSimMs),

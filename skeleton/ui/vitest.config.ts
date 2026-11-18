@@ -36,7 +36,7 @@ export default defineConfig({
           name: 'components',
           environment: 'jsdom',
           include: ['src/components/**/*.test.{ts,tsx}', 'playground/**/*.test.tsx'],
-          setupFiles: ['src/test-support/fast-check-setup.ts'],
+          setupFiles: ['src/test-support/fast-check-setup.ts', 'src/test-support/dom-setup.ts'],
         },
       },
     ],

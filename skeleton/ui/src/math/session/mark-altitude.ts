@@ -43,6 +43,30 @@ export function sigmaWithMark(
   const altitude = directionApparentAltitudeRad(direction.value);
   if (!altitude.ok) return altitude;
   if (!(Math.abs(altitude.value) <= parameters.maxMarkAltitudeRad)) return err('axis_vertical');
-  const combined = Math.hypot(sigmaRad, mark.imageSigmaRad / Math.cos(altitude.value));
+  const term = mark.imageSigmaRad / Math.cos(altitude.value);
+  const combined = Math.hypot(sigmaRad, term);
   return Number.isFinite(combined) ? ok(combined) : err('invalid_number', { field: 'sigmaRad' });
+}
+
+/**
+ * The lens-and-tap term of a bearing with a Mark as it enters the sigma, `ε / cos(h)` (Req 12.3,
+ * 13.5), by the same expression as `sigmaWithMark`.
+ */
+export function markAzimuthTermRad(
+  history: SampleHistory,
+  window: SightingWindow,
+  mark: Mark,
+  parameters: Pick<SessionParameters, 'maxMarkAltitudeRad'>,
+): UiResult<number> {
+  const selected = selectWindow(history.samples, window);
+  if (!selected.ok) return selected;
+  const sample = newestSample(selected.value);
+  if (sample === undefined) return err('insufficient_samples');
+  const direction = rayDirection(sample.rotation, mark.offset);
+  if (!direction.ok) return direction;
+  const altitude = directionApparentAltitudeRad(direction.value);
+  if (!altitude.ok) return altitude;
+  if (!(Math.abs(altitude.value) <= parameters.maxMarkAltitudeRad)) return err('axis_vertical');
+  const term = mark.imageSigmaRad / Math.cos(altitude.value);
+  return Number.isFinite(term) ? ok(term) : err('invalid_number', { field: 'markSigmaRad' });
 }

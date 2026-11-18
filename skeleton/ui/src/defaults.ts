@@ -51,6 +51,18 @@ export const MAP_ERROR_REPORT_INTERVAL_MS = 1000;
 export const SIMULATOR_TICK_MS = 100;
 
 /**
+ * The longest tick the Simulator panel accepts: 60 000 ms (Req 17.5). With the largest speed, 4,
+ * one tick is 240 000 ms, under `MAX_SIMULATOR_ADVANCE_MS` (one hour), so a tick is one advance.
+ */
+export const MAX_PANEL_TICK_MS = 60_000;
+
+/**
+ * The longest simulated time the Simulator panel runs: ten years of 365.25 days (Req 17.5). It
+ * bounds the panel's clock, so that no state can make it build an unbounded list of advances.
+ */
+export const MAX_PANEL_ELAPSED_MS = 10 * 365.25 * 86_400_000;
+
+/**
  * A Screen angle within this of 0 counts as 0 (Req 10.2): 1e-9 rad. Not a tolerance of a
  * measurement; it only absorbs the rounding of an angle that was computed, not read.
  */

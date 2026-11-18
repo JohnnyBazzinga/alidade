@@ -202,9 +202,12 @@ export const MESSAGES: Record<UiReason, MessageSource> = {
     whatToDo: 'Choose the rear camera in the browser settings, then start the camera again.',
   },
   calibration_missing: {
+    // In simulator mode the field of view is the scene's, and only the tap's accuracy can be
+    // missing: the Message names both (design D28.17).
     whatHappened:
-      'The camera\u2019s field of view has not been entered, so a tapped point has no known direction.',
-    whatToDo: 'Enter the field of view and its uncertainty, or sight along the crosshair.',
+      'The camera\u2019s field of view or the accuracy of a tap has not been entered, so a tapped point has no known direction.',
+    whatToDo:
+      'Enter the field of view, its uncertainty and the tap accuracy, or sight along the crosshair.',
   },
   calibration_mismatch: {
     whatHappened:

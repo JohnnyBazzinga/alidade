@@ -1,7 +1,8 @@
 import { MAX_SIMULATOR_ADVANCE_MS } from '@alidade/sensors';
 import { describe, expect, it } from 'vitest';
 import { eventRateHz } from '../diagnostics/event-rate';
-import { panelStep, type PanelAction, type PanelState } from './panel-state';
+import { MAX_PANEL_TICK_MS } from '../../defaults';
+import { advances, panelStep, type PanelAction, type PanelState } from './panel-state';
 
 const START = 1_790_000_000_000;
 const STATE: PanelState = {
@@ -66,14 +67,25 @@ describe('panelStep (Req 17.4, 17.5)', () => {
     }
   });
 
-  it('splits a long advance at MAX_SIMULATOR_ADVANCE_MS', () => {
+  it('refuses a tick longer than MAX_PANEL_TICK_MS, so no tick needs more than one advance', () => {
+    // Req 17.5 as amended: the 2.5-hour tick this test used to split is now refused.
     const long = { ...STATE, tickMs: MAX_SIMULATOR_ADVANCE_MS * 2.5, speed: 1 as const };
-    const r = apply(long, { kind: 'step' });
-    expect(r.advances).toEqual([
+    expect(panelStep(long, { kind: 'step' })).toEqual({
+      ok: false,
+      reason: 'invalid_number',
+      field: 'tickMs',
+    });
+    expect(MAX_PANEL_TICK_MS * 4).toBeLessThan(MAX_SIMULATOR_ADVANCE_MS);
+  });
+
+  it('splits a long interval at MAX_SIMULATOR_ADVANCE_MS (the helper, kept for safety)', () => {
+    expect(advances(START, 0, MAX_SIMULATOR_ADVANCE_MS * 2.5)).toEqual([
       START + MAX_SIMULATOR_ADVANCE_MS,
       START + 2 * MAX_SIMULATOR_ADVANCE_MS,
       START + 2.5 * MAX_SIMULATOR_ADVANCE_MS,
     ]);
+    // A step lost to rounding ends the loop instead of spinning.
+    expect(advances(0, 1e300, Number.MAX_VALUE)).toEqual([]);
   });
 
   it('refuses a seed that is not an integer in [0, 2³²), naming it, and keeps the state', () => {

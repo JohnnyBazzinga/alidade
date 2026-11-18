@@ -9,9 +9,10 @@ import {
   selectWindow,
 } from '@alidade/sensors';
 import { err, ok, type UiResult } from '../../result';
-import { sigmaWithMark } from './mark-altitude';
+import { captureSpreadRad } from './capture-spread';
+import { markAzimuthTermRad, sigmaWithMark } from './mark-altitude';
 import type { SessionParameters } from './parameters';
-import type { CapturedResult, FrozenSighting, SessionKind } from './session';
+import type { CaptureNorth, CapturedResult, FrozenSighting, SessionKind } from './session';
 
 /**
  * The capture of a Frozen sighting. A failure of Sensors passes through (the Session stays
@@ -26,10 +27,9 @@ export function captureFrozen(
   const { history, window, mark } = frozen;
   const selected = selectWindow(history.samples, window);
   if (!selected.ok) return selected;
-  const details = {
+  const common = {
     mark,
     yawReference: frozen.yawReference,
-    declination: frozen.declination,
     calibration: mark === null ? null : mark.calibration,
     sampleCount: selected.value.length,
     window,
@@ -50,7 +50,11 @@ export function captureFrozen(
     return ok({
       kind: 'altitude',
       altitude: mark === null ? altitude.value : { ...altitude.value, sigmaRad },
-      ...details,
+      altitudeStdDevRad: altitude.value.sampleStdDevRad,
+      ...common,
+      declination: null,
+      north: null,
+      markSigmaRad: mark === null ? null : mark.imageSigmaRad,
     });
   }
   const positionFix = history.positionFix;
@@ -71,12 +75,37 @@ export function captureFrozen(
     coarseLocationLimitM: parameters.coarseLocationLimitM,
   });
   if (!bearing.ok) return bearing;
-  if (mark === null) return ok({ kind: 'bearing', bearing: bearing.value, ...details });
+  // What Sensors used (its table of North references): the Yaw reference when there is one, else
+  // the phone's own compass; the Declination exactly when the North reference was magnetic.
+  const y = frozen.yawReference;
+  const declination = y === null || y.northReference === 'magnetic' ? frozen.declination : null;
+  // `step` sets the source with the reference, so a reference without one is not a Session's.
+  if (y !== null && frozen.yawReferenceSource === null) {
+    return err('invalid_number', { field: 'yawReferenceSource' });
+  }
+  const north: CaptureNorth = {
+    source: y === null ? 'phone-compass' : (frozen.yawReferenceSource ?? 'compass'),
+    sigmaRad: y === null ? parameters.headingSigmaRad : y.sigmaRad,
+  };
+  const spread = captureSpreadRad({
+    samples: history.samples,
+    window,
+    rayOffset: mark === null ? null : mark.offset,
+    yawReference: y,
+    declination,
+  });
+  if (!spread.ok) return spread;
+  const details = { ...common, declination, north, azimuthSpreadRad: spread.value };
+  if (mark === null) {
+    return ok({ kind: 'bearing', bearing: bearing.value, ...details, markSigmaRad: null });
+  }
   const sigma = sigmaWithMark(history, window, mark, bearing.value.azimuthSigmaRad, parameters);
   if (!sigma.ok) return sigma;
   if (!(sigma.value <= MAX_CAPTURE_SIGMA_RAD)) return err('too_unsteady');
+  const term = markAzimuthTermRad(history, window, mark, parameters);
+  if (!term.ok) return term;
   const marked = { ...bearing.value, azimuthSigmaRad: sigma.value };
   const valid = validateBearing(marked);
   if (!valid.ok) return valid;
-  return ok({ kind: 'bearing', bearing: marked, ...details });
+  return ok({ kind: 'bearing', bearing: marked, ...details, markSigmaRad: term.value });
 }

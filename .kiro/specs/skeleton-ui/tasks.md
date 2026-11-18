@@ -401,8 +401,8 @@ into the skeleton-sensors requirements.
     P-16.8 at its capped count). Report cases, discards, worst errors and, for P-16.8, the measured
     milliseconds per case with the revised count. Then the root checks. **Stop for review.**
 
-- [ ] 21. The Camera adapter
-  - [ ] 21.1 `adapters/camera/camera-surface.ts`, `camera-adapter.ts`, `browser-camera-surface.ts`
+- [x] 21. The Camera adapter
+  - [x] 21.1 `adapters/camera/camera-surface.ts`, `camera-adapter.ts`, `browser-camera-surface.ts`
     - §7.12: the state machine, the constraints, the error mapping, `facing`, `onEnded` once, `stop`
       during a pending start, `attach(sink)` and `onSize`. `FakeCameraSurface` and `FakeVideoSink`.
     - Example tests: each criterion of Req 7.2, 7.4 (one per error name, an unknown name, a
@@ -411,21 +411,21 @@ into the skeleton-sensors requirements.
       after any failure path).
     - _Requirements: 7.1 to 7.11_
 
-- [ ] 22. Components
-  - [ ] 22.1 `components/theme.ts` (§7.18) and `dom-size.ts`
+- [x] 22. Components
+  - [x] 22.1 `components/theme.ts` (§7.18) and `dom-size.ts`
     - The tokens, the type stack, the sizes, `PALETTE_PAIRS`; `observeElementSize` and
       `useElementSize`. Example test: every pair of `PALETTE_PAIRS` is at least 7 and the test
       fails when a pair below 7 is added (Req 13.11); `rule` at least 3 on each surface.
     - _Requirements: 13.2, 13.11_
-  - [ ] 22.2 `Reticle`, `MarkRing`, `Readout`, `YawStatusBar`, `FailureNotice`, `LimitsNote`
+  - [x] 22.2 `Reticle`, `MarkRing`, `Readout`, `YawStatusBar`, `FailureNotice`, `LimitsNote`
     - The checks of design §9 from the inline style values (Req 13.12); `FailureNotice` for every
       `UiReason`, its text equal to `messageFor`'s and free of the code and the field.
     - _Requirements: 3.6, 11.4, 13.1, 13.3, 13.4, 13.5, 13.9, 13.12_
-  - [ ] 22.3 `ImageSurface`, `CameraImage`, `SceneImage` (D11, D22)
+  - [x] 22.3 `ImageSurface`, `CameraImage`, `SceneImage` (D11, D22)
     - Taps and drags as D22; arrow keys in `1°` steps; `attach` and `pause`; the Scene image draws
       the horizon, the visible Targets with labels, the Sun as a disc, and no direction text.
     - _Requirements: 10.4, 13.8, 16.5, 16.6, 17.10, 17.11_
-  - [ ] 22.4 `ControlBar`, `CaptureSummary`, `MapView`, `SimulatorPanel`, `SightingScreen`, `use-sighting-session.ts`
+  - [x] 22.4 `ControlBar`, `CaptureSummary`, `MapView`, `SimulatorPanel`, `SightingScreen`, `use-sighting-session.ts`
     - `ControlBar` sizes and the lower placement; `CaptureSummary` shows the sigma beside the
       bearing and what it is made of; no component accepts a bearing, an altitude or a Fix without
       its uncertainty (type-level tests); `SimulatorPanel` over the real Simulator and the
@@ -434,12 +434,12 @@ into the skeleton-sensors requirements.
       and shows its Message; the truth shown as text; aiming not while `frozen`.
     - _Requirements: 13.6, 13.7, 15.5, 17.4, 17.5, 17.6, 17.7, 17.9, 17.11, 21.2_
 
-- [ ] 23. Checkpoint: components (does not stop)
+- [x] 23. Checkpoint: components (does not stop)
   - `pnpm --filter @alidade/ui test` and `test:deep`, the root checks; the report is carried into
     checkpoint 26.
 
-- [ ] 24. The Playground
-  - [ ] 24.1 `playground/` pages (D19, §10)
+- [x] 24. The Playground
+  - [x] 24.1 `playground/` pages (D19, §10)
     - `index.html`, `main.tsx`, `Playground.tsx`, `DeviceMode.tsx`, `SimulatorMode.tsx`,
       `CalibrationForm.tsx` (empty at the start; optional requested size; the calibration's image
       size taken from the running stream on Apply), `Diagnostics.tsx` (§10), `CaptureList.tsx`,
@@ -449,7 +449,7 @@ into the skeleton-sensors requirements.
       network but the tiles, no analytics. Failures only through `messageFor`. The map shows the
       observers, the Wedges and, from two Bearings, Core's `solve` Fix with its ellipse.
     - _Requirements: 18.1, 18.2, 18.3, 18.4, 18.5, 18.6, 18.7, 18.8_
-  - [ ] 24.2 The integration test (design §9)
+  - [x] 24.2 The integration test (design §9)
     - Simulator mode with `FakeTimer`, `FakeCameraSurface`, `FakeMapLibre`: steady scene, Start,
       live, Freeze, Mark the first Target, Capture, change the Station, Capture; the fake map holds
       two observers, two Wedges, one Fix and its ellipse; the azimuths equal the Targets' true
@@ -458,19 +458,19 @@ into the skeleton-sensors requirements.
       `calibration_missing`.
     - _Requirements: 18.9_
 
-- [ ] 25. Public API, purity, packaging
-  - [ ] 25.1 `src/index.ts` and the package README
+- [x] 25. Public API, purity, packaging
+  - [x] 25.1 `src/index.ts` and the package README
     - Re-export the API of §6 only; nothing from `playground` or `test-support`. The README states
       the CSS import for the map (`maplibre-gl/dist/maplibre-gl.css`) and the environment variables.
     - _Requirements: 1.6, 1.7_
-  - [ ] 25.2 `src/purity.test.ts` (§10)
+  - [x] 25.2 `src/purity.test.ts` (§10)
     - Every rule of §10, each checked against a copy of a real source with its token added; the
       fixed list of non-test source files; `package.json`: exact versions, no `^` or `~`, the five
       runtime dependencies, `exports` only `"."`, `.env.example` without values; the index loads
       with `maplibre-gl` mocked to throw.
     - _Requirements: 1.1 to 1.10, 20.1, 20.5_
 
-- [ ] 26. Final checkpoint
+- [x] 26. Final checkpoint
   - `test:deep` for **every** property of design §8 at its stated count, with cases, discards, worst
     errors and the measured cost of the capped ones; checkpoint 23's report. `pnpm test`,
     `pnpm typecheck`, `pnpm lint`, `pnpm format:check`. `pnpm --filter @alidade/ui build:playground`
