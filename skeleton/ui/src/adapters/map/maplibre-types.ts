@@ -1,4 +1,6 @@
-// Minimal structural types of the part of `maplibre-gl` the Map adapter uses (filled in by task 17).
+// Minimal structural types of the part of `maplibre-gl` the Map adapter uses (Req 15.1, design
+// §7.11). The adapter is written against these; the loader adapts the real library to them, and
+// `FakeMapLibre` implements them in tests.
 //
 // What task 1.5(d) found by reading `maplibre-gl` 6.16.0's `dist/maplibre-gl.d.ts` and source
 // (nothing was imported under jsdom):
@@ -18,4 +20,37 @@
 // - Missing WebGL: the constructor THROWS `GPUInitializationError` (`name` of that class) from
 //   `_setupPainter` when `getContext('webgl2')` is null. It is not emitted as an `error` event on
 //   first construction (it is emitted only when a lost context fails to be restored).
-export {};
+
+import type { MapStyle } from '../../math/map/map-style';
+
+/** What the adapter passes to the constructor. `attributionControl` is left out (its default). */
+export interface MapOptionsLike {
+  readonly container: HTMLElement | string;
+  readonly style: MapStyle;
+  readonly interactive: boolean;
+}
+
+/** The GeoJSON source's one operation; in `maplibre-gl` 6.x it returns a promise. */
+export interface GeoJsonSourceLike {
+  setData(data: unknown): Promise<void> | void;
+}
+
+export type MapEventName = 'load' | 'error';
+
+export interface SubscriptionLike {
+  unsubscribe(): void;
+}
+
+export interface MapLike {
+  on(type: MapEventName, listener: (event: unknown) => void): SubscriptionLike;
+  getSource(id: string): GeoJsonSourceLike | undefined;
+  fitBounds(
+    bounds: readonly [readonly [number, number], readonly [number, number]],
+    options: { readonly padding: number; readonly animate: false },
+  ): void;
+  remove(): void;
+}
+
+export interface MapLibreLike {
+  createMap(options: MapOptionsLike): MapLike;
+}

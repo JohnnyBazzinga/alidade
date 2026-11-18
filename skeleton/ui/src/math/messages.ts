@@ -91,9 +91,11 @@ export const MESSAGES: Record<UiReason, MessageSource> = {
   },
   // Sensors
   permission_denied: {
-    whatHappened: 'Motion access was refused, so the app cannot read which way the phone points.',
+    // Sensors gives this one reason for motion and for location (Sensors Req 7.6, 11.4).
+    whatHappened:
+      'Access to motion or location was refused, so the app cannot read the phone\u2019s sensors.',
     whatToDo:
-      'Allow motion and orientation access for this site in the browser settings, then start again.',
+      'Allow motion and location access for this site in the browser settings, then start again.',
   },
   permission_required: {
     whatHappened:

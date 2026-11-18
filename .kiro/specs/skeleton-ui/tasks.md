@@ -318,61 +318,61 @@ into the skeleton-sensors requirements.
     the measured milliseconds per case of the capped ones, and the revised counts. Then the root
     checks. **Stop for review.**
 
-- [ ] 16. Map geometry
-  - [ ] 16.1 `math/map/geojson.ts`, `observer-features.ts`, `bearing-features.ts` (§7.10)
+- [x] 16. Map geometry
+  - [x] 16.1 `math/map/geojson.ts`, `observer-features.ts`, `bearing-features.ts` (§7.10)
     - The GeoJSON types, `[lonDeg, latDeg]` in one place, `observerFeatures`, `bearingFeatures`
       (the line, the Wedge built counter-clockwise).
     - Examples: Req 14.14 (a bearing due north from the equator); a Wedge of `45°` at the step
       limit; `lineLengthM` of `0`, `500 001`, `NaN`, `arcStepRad` of `0` named; a short length
       (under `100 m`, which the property excludes).
     - _Requirements: 14.1, 14.2, 14.3, 14.7_
-  - [ ] 16.2 `fix-features.ts`, `map-bounds.ts`
+  - [x] 16.2 `fix-features.ts`, `map-bounds.ts`
     - `fixFeatures` with `FixFeatureCollection`, `mapBounds`.
     - Examples: Req 14.14 (a circular Fix of 1-sigma `10 m`: a ring of radius `24.477 m` within
       `1e-4`); a Fix with a broken Ellipse returns no feature; `vertexCount` 15 refused; a set
       across `±180°` refused; an empty set.
     - _Requirements: 14.4, 14.5, 14.6_
-  - [ ] 16.3 Generators `fixCase`, `bearingCase` and properties P-14.7 to P-14.13
+  - [x] 16.3 Generators `fixCase`, `bearingCase` and properties P-14.7 to P-14.13
     - As in §8.
     - _Requirements: 14.7, 14.8, 14.9, 14.10, 14.11, 14.12, 14.13_
-  - [ ] 16.4 `map-style.ts` (§7.10, D12)
+  - [x] 16.4 `map-style.ts` (§7.10, D12)
     - `buildMapStyle`; the tokens `MAP_DARK`, `MAP_LIGHT` from design §7.18 are defined in
       `math/` (no import from `components/`); examples: no `glyphs`, no `sprite`, no text layer;
       layer order; widths at least 2; with and without a Tile source; the contrast of each
       two-tone pair against black and white through `contrastRatio`.
     - _Requirements: 15.4, 15.7_
 
-- [ ] 17. The Map adapter
-  - [ ] 17.1 `adapters/map/maplibre-types.ts`, `maplibre-loader.ts`, `FakeMapLibre`
+- [x] 17. The Map adapter
+  - [x] 17.1 `adapters/map/maplibre-types.ts`, `maplibre-loader.ts`, `FakeMapLibre`
     - The minimal interfaces of what task 1.5(d) found; the loader (dynamic import, returns a
       `UiResult`); the fake that records its style, its `setData` calls, its listeners and removal.
     - _Requirements: 1.4, 15.1_
-  - [ ] 17.2 `map-adapter.ts` (§7.11)
+  - [x] 17.2 `map-adapter.ts` (§7.11)
     - Tile source checks, `map_unavailable`, held writes until `load`, `setFix` through
       `fixFeatures` in one `setData`, `fitToFeatures`, the throttled `tiles_unavailable`,
       `destroy`. `setData` returns a Promise in `maplibre-gl` 6.x: it is called in a `try` with a rejection handler, so that a rejection reaches `onError` as `tiles_unavailable` and is never an unhandled rejection (design D25.8); the options omit `attributionControl`.
     - Example tests: every criterion of Req 15.1 to 15.10 (and a rejected `setData` promise, with the test failing on an unhandled rejection) (design §9).
     - _Requirements: 15.1, 15.2, 15.3, 15.5, 15.6, 15.8, 15.9, 15.10, 15.13_
-  - [ ] 17.3 Properties P-15.11 and P-15.12 (the `adapters` project)
+  - [x] 17.3 Properties P-15.11 and P-15.12 (the `adapters` project)
     - Calls in any order, valid and invalid; they are in `test:deep`.
     - _Requirements: 15.11, 15.12_
 
-- [ ] 18. The synthetic scene
-  - [ ] 18.1 `scene/scene.ts`, `target-direction.ts` (§7.13)
+- [x] 18. The synthetic scene
+  - [x] 18.1 `scene/scene.ts`, `target-direction.ts` (§7.13)
     - `checkScene`, `targetDirection`. Examples: Req 16.11 (`1000 m` east, `100 m` high); a Target
       under `1 m` is `coincident_positions`; each invalid field named.
     - _Requirements: 16.1, 16.2, 16.11_
-  - [ ] 18.2 `scene/project-scene.ts` (D14, §7.13)
+  - [x] 18.2 `scene/project-scene.ts` (D14, §7.13)
     - `projectScene` with Sensors' `rayOffsetOfDirection`, `rayOffsetToPoint`, the Sun's radius,
       the horizon through two directions at `Ac ± 20°`, clipped by Liang–Barsky. No rotation
       matrix. Examples: a Target on the axis is at the centre; behind the camera is not visible; a
       steep camera has no horizon; a rolled camera has a tilted horizon.
     - _Requirements: 16.3, 16.4_
-  - [ ] 18.3 `scene/aim.ts` (§7.13) and properties P-17.12, P-16.7, P-16.9, P-16.10
+  - [x] 18.3 `scene/aim.ts` (§7.13) and properties P-17.12, P-16.7, P-16.9, P-16.10
     - `aimAfterDrag` with the `cos h` factor. P-16.7 reads `trueRotation()` and the next sample from
       a noise-free Simulator aimed at the pose.
     - _Requirements: 16.7, 16.9, 16.10, 17.10, 17.12_
-  - [ ] 18.4 `scene/catalogue.ts` (§7.16, D16)
+  - [x] 18.4 `scene/catalogue.ts` (§7.16, D16)
     - `buildCatalogue`: the eleven scenes, from `{ 30° N, 40° W }` by Local-plane offsets,
       `declinationRad` from Sensors' `declinationAt` at each Station and the script's start.
     - Examples (Req 17.2, 17.3, one per scene): the script validates under `createSimulator`, starts
@@ -382,21 +382,21 @@ into the skeleton-sensors requirements.
       outside a `50 km` disc of the origin.
     - _Requirements: 17.1, 17.2, 17.3_
 
-- [ ] 19. The Simulator panel's state and the end-to-end property
-  - [ ] 19.1 `panel/panel-state.ts` (§7.15, D15) and property P-17.8
+- [x] 19. The Simulator panel's state and the end-to-end property
+  - [x] 19.1 `panel/panel-state.ts` (§7.15, D15) and property P-17.8
     - `panelStep` with the advances split at `MAX_SIMULATOR_ADVANCE_MS`; a seed that is not an
       integer in `[0, 2³²)` named. Examples: a step while paused; ticks while paused add nothing; a
       restart; a change of scene resets the time.
     - _Requirements: 17.4, 17.5, 17.8_
-  - [ ] 19.2 Property P-16.8 (capped)
+  - [x] 19.2 Property P-16.8 (capped)
     - The Session through `freeze`, `mark` and `capture` on noise-free scripts in both frames;
       records the milliseconds per case; the counts revised at checkpoint 15 and again here.
     - _Requirements: 16.8_
-  - [ ] 19.3 `diagnostics/event-rate.ts`
+  - [x] 19.3 `diagnostics/event-rate.ts`
     - `eventRateHz`; examples (ten samples in a second; none; one; a time stepping back).
     - _Requirements: 18.6_
 
-- [ ] 20. Checkpoint: the map and the scene
+- [x] 20. Checkpoint: the map and the scene
   - `test:deep` for P-14.7 to P-14.13, P-15.11, P-15.12, P-16.7 to P-16.10, P-17.8, P-17.12 (and
     P-16.8 at its capped count). Report cases, discards, worst errors and, for P-16.8, the measured
     milliseconds per case with the revised count. Then the root checks. **Stop for review.**
