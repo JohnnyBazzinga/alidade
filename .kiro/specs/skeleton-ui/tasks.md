@@ -537,3 +537,23 @@ into the skeleton-sensors requirements.
       the exports, the purity list, the README, `coverage.md`. One mutation check each: the builder
       writing latitude first; `MapView` fitting to a layer that did not ask for it.
     - _Requirements: 15.14_
+
+- [x] 28. `DeviceSighting`: the Playground's device mode as an exported component (amendment of 2026-11-18, Req 18.10, design D32; G6 of the Vigia design)
+  - Added after the skeleton was finished, for Vigia and Nonius. Tests before code; no new
+    dependency; `timeout` in front of every test run, no `pkill`, no commit. Every full test run keeps
+    its whole output in a file.
+  - [x] 28.1 Tests first: `src/components/DeviceSighting.test.tsx` with the Simulator as the Sensor
+    source, `FakeTimer`, `FakeCameraSurface`: one tap starts the camera and asks for motion; a Mark
+    without a calibration shows `calibration_missing`; the crosshair captures and the Session reaches
+    the caller; unmounting stops the camera's tracks (also one still starting) and the source. All fail
+    (no module yet).
+    - _Requirements: 18.10_
+  - [x] 28.2 Code: `git mv playground/DeviceMode.tsx src/components/DeviceSighting.tsx` (D32); the
+    Playground uses it through `src/index.ts`; `index.ts` exports `DeviceSighting` and
+    `DeviceSightingProps`; the file list of `purity.test.ts`; the README (a section); `coverage.md`
+    (row 18.10); the README test of exported names names it. The Playground's integration tests pass
+    unchanged.
+    - _Requirements: 18.10, 1.6, 1.7_
+  - [x] 28.3 Checkpoint: `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm format:check` from the root
+    and `pnpm --filter @alidade/ui build:playground` once. One mutation check: the camera adapter not
+    stopped on unmount fails two tests. Report and stop.

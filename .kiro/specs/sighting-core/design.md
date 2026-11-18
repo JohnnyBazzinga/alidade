@@ -274,7 +274,8 @@ nothing outside itself (Req 11.1) and exports only from `src/index.ts` (Req 11.3
 
 ```
 skeleton/core/src/
-  index.ts              public API surface only (re-exports)
+  index.ts              public API surface only (re-exports); amended 2026-11-18: also the two
+                        thresholds `OUTLIER_NORMALISED_RESIDUAL` and `POOR_GEOMETRY_CROSSING_RAD`
   result.ts             Result<T>, Reason (closed union), Warning (closed union), ok/err helpers
   reason.ts             (optional) the closed Reason set, documented, if split from result.ts
   angle.ts              wrapTwoPi, wrapPi, angularDifference, degToRad, radToDeg, circularMean
@@ -437,6 +438,14 @@ export function solve<O>(model: MeasurementModel<O>,
                           observations: readonly O[],
                           options?: SolverOptions): Result<Fix>;
 ```
+
+*Amendment of 2026-11-18 (Req 11.6).* Two constants the solver already applies are exported
+so that an application that quotes them keeps no copy: `OUTLIER_NORMALISED_RESIDUAL` (`3.5`,
+defined in `solver.ts`, Req 10.1) and `POOR_GEOMETRY_CROSSING_RAD` (`20 · π / 180`, defined in
+`bearing-model.ts`, Req 9.4). Nothing in the solver or the model changes. `src/index.test.ts`
+builds, for each limit, a set of Bearings just under and just over it (found by bisection on
+the error or the crossing angle, with the exported value as the target) and checks the outcome
+the limit predicts (no exclusion and an exclusion; the `poor_geometry` warning and none).
 
 The solver is parameterised by `O` and the model; it has no import of `Bearing` or
 `bearing-model.ts`. `BearingModel` is constructed by the caller and passed in (Req 5.5).
@@ -1095,7 +1104,8 @@ deterministic.
 random numbers, performs no I/O, and references no browser or Node globals; time
 (`timeUtcMs`) and any seeds are arguments (Req 11.2). Every expected failure is a `Result`
 with a `Reason` from the closed union of Section 5 (Req 11.4). The public API is exported
-only from `src/index.ts` (Req 11.3). The package builds and tests under TypeScript `strict`
+only from `src/index.ts` (Req 11.3), which since 2026-11-18 includes the two thresholds above
+(Req 11.6). The package builds and tests under TypeScript `strict`
 with no `any` and no non-null assertions in `core` (Req 11.5; `tech.md`); ESLint enforces
 both, so no test scans for them.
 

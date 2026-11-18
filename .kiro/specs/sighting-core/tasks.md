@@ -492,3 +492,11 @@ Package: `skeleton/core` (`@alidade/core`). Source of truth: `requirements.md` a
     every property P-1.2 through P-10.5 and P-9.8 in `design.md` §8 has a test, that each
     names the property and its requirements in a comment, and that each runs at least 200
     cases. Report the result and stop for review.
+
+- [x] 17. Export the solver's two thresholds (amendment of 2026-11-18, Req 11.6; G5 of the Vigia design)
+  - Tests first: `src/index.test.ts` (the exported values, and a set of Bearings just under and
+    just over each limit). Then the two re-exports in `src/index.ts`; the export list of P-9.8
+    (`hostile.property.test.ts`) gains the two names. No other file changes; the solver and the model
+    are untouched. One mutation check: the solver applying `3.0` while the export says `3.5` fails
+    the test.
+  - _Requirements: 11.6_

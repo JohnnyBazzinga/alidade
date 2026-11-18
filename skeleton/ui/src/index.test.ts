@@ -34,6 +34,7 @@ describe('what src/index.ts exports to an application', () => {
       'MapView',
       'buildCatalogue',
       'loadMapLibre',
+      'DeviceSighting',
     ])
       expect(typeof EXPORTS[name], name).toBe('function');
     expect(EXPORTS['MAX_APP_LAYERS']).toBe(8);
@@ -50,6 +51,7 @@ describe('what src/index.ts exports to an application', () => {
       'sceneFromOffsets',
       'scriptForStation',
       'SightingScreen',
+      'DeviceSighting',
     ])
       expect(names, n).toContain(n);
     for (const name of names)

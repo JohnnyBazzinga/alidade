@@ -161,6 +161,8 @@ Versions follow Req 20.6: **the newest version of each added package that was pu
   12. *The builder, and fitting (Req 15.14; closes the flags H1 and H2 of group 27).* `appFeature(kind, id, shape)` in `math/map/app-feature.ts` builds an `AppFeature` from Positions: `shape` is `{ type: 'point', position }`, `{ type: 'line', positions }` or `{ type: 'polygon', positions }`. It writes `[lonDeg, latDeg]` through `lonLat` of `geojson.ts` (so `-0` is `0`), refuses an empty `kind` or `id` and an unknown shape with `invalid_number` naming `kind`, `id` or `shape`, a line of fewer than 2 and a polygon of fewer than 3 Positions with `invalid_number` naming `positions` (checked first), a Position that is not Supported with `unsupported_position` (naming the feature `id`), and closes a polygon's ring by repeating its first vertex unless the last already equals it. It does not refuse a skeleton `kind`: that is `setLayer`'s check. Exported with `AppShape`. `AppLayer` gains `fit?: boolean` (default no): `MapView` calls `fitToFeatures(padding, collections)` with the collections of the layers that say `fit: true` and that the adapter holds, and fits when there are observers or such a layer. A layer that does not say it is never in the fit.
 - **D24 — Establishing north in `frozen` (Req 11.1, 10.3).** `establishYaw` from a known azimuth is available in `live` (no Ray offset) and in `frozen` (with the Mark's Ray offset, over the Frozen history and window), because the Sun calibration of Nonius is "freeze, mark the Sun's centre, enter its azimuth". The Mark's Image angular sigma enters the Yaw reference's 1-sigma as `hypot(knownSigma, ε / cos h)`, as in Req 12.3. `establishYaw` from the compass is available in `live` only. Req 11.1 says "the Session's history" and does not mention `frozen`.
 
+- **D32 — `DeviceSighting`: the Playground's device mode as a component of the package (Req 18.10; G6 of the Vigia design; task group 28).** Vigia needs the same wiring as the Playground (camera, the phone's Sensor source, `useSightingSession`, `SightingScreen`) and Nonius will too, so `playground/DeviceMode.tsx` moved to `src/components/DeviceSighting.tsx` with its code unchanged except three things: the props type is `DeviceSightingProps`; `onSession` takes the Session alone (the Playground's `'this phone'` label is added by the Playground, in a wrapper), and `onSession`, `onStreamSize` and `cameraRequest` are optional (the default request asks for the rear camera and nothing else). The camera is created by `createCameraAdapter(cameraSurface)`, so it is stopped on unmount by the same `useEffect` that stopped it in the Playground; the Sensor source is stopped likewise. `createSource` and `parameters` must be stable between renders (documented on the props). No new dependency and no Math-layer change. Tests: `DeviceSighting.test.tsx` with the Simulator as the Sensor source, `FakeTimer` and `FakeCameraSurface`; the Playground's own device-mode tests pass unchanged.
+
 ## 5. Module layout
 
 ```
@@ -236,11 +238,12 @@ skeleton/ui/
       ImageSurface.tsx  CameraImage.tsx  SceneImage.tsx  Reticle.tsx  MarkRing.tsx
       Readout.tsx  YawStatusBar.tsx  FailureNotice.tsx  ControlBar.tsx  CaptureSummary.tsx
       LimitsNote.tsx  MapView.tsx  SimulatorPanel.tsx  SightingScreen.tsx
+      DeviceSighting.tsx   (moved from `playground/DeviceMode.tsx`, task group 28, D32)
     test-support/                 fast-check-setup.ts, fakes (fake-timer, fake-camera-surface,
                                   fake-maplibre, fake-video-sink), generators, history-from-script,
                                   deep-same, property-report   (not exported)
   playground/
-    index.html  main.tsx  Playground.tsx  DeviceMode.tsx  SimulatorMode.tsx
+    index.html  main.tsx  Playground.tsx  SimulatorMode.tsx
     CalibrationForm.tsx  Diagnostics.tsx  CaptureList.tsx  system-timer.ts
     vite.config.ts  env.d.ts  playground.css
     Playground.integration.test.tsx
@@ -727,6 +730,10 @@ P-14.7 is not a FOR ALL criterion; it is a design property (Req 14.7 states a fa
 **H2. (closed by D31.12)** `MapView` did not pass its layers to `fitToFeatures`.** Req 15.16 says the adapter takes layers into account only when the caller passes their collections, which the adapter does. `MapView` fits to the observers as before and has no prop that names layers to fit. An app that wants the extent of its overlays uses the adapter's second argument, or `MapView` gains one prop. Not added.
 
 **H3. Reading of Req 17.13.** See D31.11 (a).
+
+### Found in task group 28
+
+**I1. The `where` argument of `onSession`.** The Playground's `DeviceMode` called `onSession(session, 'this phone')`. That label belongs to the Playground's capture list, so `DeviceSighting` calls `onSession(session)` and the Playground adds the label. It changes the prop's type, not what the Playground shows. **I2.** jsdom prints "Not implemented: HTMLMediaElement play/pause" when the camera image attaches a stream; the Playground's device tests print the same lines and pass. No test or code was changed for it.
 
 ### Edits I made to your text
 

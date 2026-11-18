@@ -54,7 +54,6 @@ const GITIGNORE =
 const SOURCES = [
   'playground/CalibrationForm.tsx',
   'playground/CaptureList.tsx',
-  'playground/DeviceMode.tsx',
   'playground/Diagnostics.tsx',
   'playground/Playground.tsx',
   'playground/SimulatorMode.tsx',
@@ -70,6 +69,7 @@ const SOURCES = [
   'src/adapters/map/maplibre-types.ts',
   'src/components/CameraImage.tsx',
   'src/components/CaptureSummary.tsx',
+  'src/components/DeviceSighting.tsx',
   'src/components/ControlBar.tsx',
   'src/components/FailureNotice.tsx',
   'src/components/FixSummary.tsx',

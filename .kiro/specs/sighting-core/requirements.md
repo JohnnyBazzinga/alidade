@@ -198,3 +198,4 @@ All conventions in `.kiro/steering/math-conventions.md` are binding for this spe
 3. THE Core SHALL export its public API only from `src/index.ts`.
 4. THE Core SHALL represent every expected failure as a Result with a machine-readable reason drawn from a closed set documented in the public API.
 5. THE Core SHALL build and pass its tests under TypeScript `strict` mode with no use of `any`.
+6. *(Amendment of 2026-11-18.)* THE Core SHALL export, from `src/index.ts`, the two thresholds its solver applies: `OUTLIER_NORMALISED_RESIDUAL` (`3.5`, Requirement 10.1) and `POOR_GEOMETRY_CROSSING_RAD` (`20°` in radians, Requirement 9.4), so that an application that quotes them keeps no copy; a test SHALL show that each exported value is the one the solver applies, with a set of Bearings just under and just over each limit.

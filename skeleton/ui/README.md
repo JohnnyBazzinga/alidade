@@ -78,6 +78,26 @@ catalogue varies (start time, noise, frame, accuracy of the Station's fix, permi
 defaults are the catalogue's. The catalogue is built through them, so a scene of yours behaves like
 the ones that ship. Keep every position synthetic.
 
+## The phone's camera and sensors on the sighting screen
+
+`<DeviceSighting />` is the sighting screen on the phone itself: the rear camera, the phone's
+Sensor source and `SightingScreen`, started by the one Start tap and stopped when the component
+unmounts.
+
+```tsx
+<DeviceSighting
+  createSource={createSource}   // stable: () => createBrowserSensorSource(environment, clock, options)
+  cameraSurface={browserCameraSurface()}
+  timer={timer}
+  parameters={parameters}       // stable: defaultSessionParameters()
+  calibration={null}            // null: a tap is refused, the crosshair still captures
+  tapSigmaPx={Number.NaN}
+  onSession={(session) => …}
+/>
+```
+
+`cameraRequest`, `onSession`, `onStreamSize` and `observe` are optional. The Playground is built on it.
+
 ## No defaults for the camera
 
 The camera's field of view and the tap's 1-sigma are passed in by the caller and never assumed.

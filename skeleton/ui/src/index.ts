@@ -157,6 +157,8 @@ export { COLOURS, FONT_STACK, PALETTE_PAIRS, SIZES } from './components/theme';
 export type { PalettePair } from './components/theme';
 export { CameraImage } from './components/CameraImage';
 export { CaptureSummary } from './components/CaptureSummary';
+export { DeviceSighting } from './components/DeviceSighting';
+export type { DeviceSightingProps } from './components/DeviceSighting';
 export { ControlBar } from './components/ControlBar';
 export type { ControlSpec } from './components/ControlBar';
 export { FailureNotice } from './components/FailureNotice';

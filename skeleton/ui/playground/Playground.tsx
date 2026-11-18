@@ -14,6 +14,7 @@ import {
   CaptureSummary,
   COLOURS,
   defaultSessionParameters,
+  DeviceSighting,
   FailureNotice,
   FixSummary,
   MapView,
@@ -32,7 +33,6 @@ import {
 } from '../src/index';
 import { CalibrationForm, type CalibrationChoice } from './CalibrationForm';
 import { CaptureList, type PlaygroundCapture } from './CaptureList';
-import { DeviceMode } from './DeviceMode';
 import { Diagnostics } from './Diagnostics';
 import { SimulatorMode } from './SimulatorMode';
 
@@ -109,6 +109,8 @@ export function Playground({ deps }: { readonly deps: PlaygroundDeps }) {
     }
   }, []);
 
+  const onDeviceSession = useCallback((s: Session) => onSession(s, 'this phone'), [onSession]);
+
   const switchMode = (next: PlaygroundMode): void => {
     if (next === mode) return;
     setMode(next);
@@ -167,7 +169,7 @@ export function Playground({ deps }: { readonly deps: PlaygroundDeps }) {
         onRequestSize={setCameraRequest}
       />
       {mode === 'device' ? (
-        <DeviceMode
+        <DeviceSighting
           createSource={deps.createDeviceSource}
           cameraSurface={deps.cameraSurface}
           timer={deps.timer}
@@ -175,7 +177,7 @@ export function Playground({ deps }: { readonly deps: PlaygroundDeps }) {
           calibration={choice.calibration}
           tapSigmaPx={choice.tapSigmaPx}
           cameraRequest={cameraRequest}
-          onSession={onSession}
+          onSession={onDeviceSession}
           onStreamSize={setStreamSize}
           observe={deps.observe}
         />

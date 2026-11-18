@@ -209,6 +209,7 @@ Criteria no test cites by number are listed with what covers them.
 | 18.7 | purity |
 | 18.8 | *not cited:* playground/Playground.integration (every alert equals a `messageFor` text) |
 | 18.9 | playground/Playground.integration |
+| 18.10 | components/DeviceSighting, playground/Playground.integration (the Playground's device-mode tests, unchanged) |
 | 19.1 | defaults, math/session/parameters |
 | 19.2 | math/session/parameters |
 | 19.3 | math/session/parameters |
