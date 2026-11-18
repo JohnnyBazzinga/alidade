@@ -1,0 +1,520 @@
+# Requirements Document
+
+## Introduction
+
+`vigia` is the application `apps/vigia`: wildfire smoke triangulation. Several people point their phones at the same smoke column. Each sighting gives a Bearing (an azimuth with its 1-sigma, taken from a known place). Two or more Bearings of the same smoke, taken by one phone from two places or received from other people, give a Fix through Core's `solve`, drawn with its 95 % ellipse and stated in words. The app can overlay satellite hotspots and wind, and writes a short text the user can read to the emergency number. It is a web app that opens from a link, with no account and no install (`product.md`, principle 3).
+
+Vigia is the "many observers at known positions, one unknown target" half of the project. It uses the skeleton as it is: `@alidade/core` (angles, positions, `Bearing`, its wire format, `solve`, the 95 % ellipse), `@alidade/sensors` (sensor source, Simulator, Declination, yaw reference) and `@alidade/ui` (the sighting screen, the map, messages, synthetic scenes). Vigia adds what only it needs:
+
+- the **Incident**: which Bearings belong to the same smoke, and what happens to one that cannot;
+- the **sighting code**: a compact, checked text form of one Sighting, and a **Transport** interface that carries it between phones, so that the way sightings travel can be replaced without touching anything else;
+- the **words**: the Fix, the quality of its geometry, the next sighting that would help most, and the emergency text;
+- the **overlays**: satellite hotspots and wind, optional, with their sources named and their hosts listed in one place;
+- the **reviewer's path**: the whole flow on a laptop, from synthetic scenes, with no sensor and no network.
+
+**Order of the work.** The core flow comes first: sighting, Incident, Fix and words, geometry and advice, the sighting code, the link, QR and text, the Emergency text, privacy and the reviewer's path (Requirements 1 to 10, 14 to 18). The Overlays come last, wind before hotspots (Requirements 12 and 13), so that they can be cut at a checkpoint without touching the rest; Requirement 1.10 makes that separation testable. The tasks that follow this specification keep the same order.
+
+The central risk of this application is a confident-looking wrong answer in an emergency (`product.md`, principle 1). Three consequences run through this document. First, no position is shown, spoken or copied without its uncertainty. Second, two Bearings can never check each other: any two non-parallel lines meet, so a wrong Bearing among two is invisible to the solver. Core's outlier rejection starts only when four Bearings remain to be examined, so the app must say plainly what it can and cannot check at each count. Third, a Bearing carries an observer's position, which is personal data: what leaves the phone, when and to whom is stated for every Transport (Requirement 15).
+
+Out of scope: a relay server, accounts, user names, free-text messages, chat, dispatching anyone or calling a number, any prediction of fire spread, using the overlays to move or confirm a Fix, native apps, landscape layouts, languages other than English, a procedure to measure the camera's field of view, and the star and Sun sights of Nonius. Cut from the first version by the lead's decision of 2026-11-18: **Withdrawal** of a sent Sighting (the sighting code keeps a `kind` field so that a later version can add it; Open question U3); a **QR scanner inside the app** (the receiving phone's own camera application reads the QR and opens the link in the browser; Open question U8); and **moving a Sighting between Incidents** (the user deletes it, Requirement 4). The Transport that the owner chooses (Open question O1) may add a requirement for a relay; the interface of Requirement 9 is written so that this changes nothing else.
+
+The private folder `notes/` holds real locations and is not read or copied. Every scene, Station, fixture, code and Position in this specification and in its tests is synthetic (Requirement 17.8). The standing rules of the skeleton hold here: `math-conventions.md` is binding, no new dependency is added without asking (Requirement 20), and requirements are amended by the project's lead after this draft.
+
+## Glossary
+
+- **Vigia**: the application specified here. **Core**, **Sensors** and **UI** are the packages `@alidade/core`, `@alidade/sensors` and `@alidade/ui`. **Result**, **Reason**, **Position**, **Supported position**, **Bearing**, **Bearing wire format**, **Fix**, **Ellipse**, **Crossing angle**, **Outlier** and **Local plane** are as defined in the sighting-core requirements. **Sensor source**, **Simulator source**, **Position fix**, **Declination**, **Yaw reference** and **Clock** are as defined in the skeleton-sensors requirements. **Message**, **UI reason**, **Camera calibration**, **Mark**, **Session**, **Synthetic scene**, **Station**, **Target**, **Tile source**, **Simulator panel** and **Timer** are as defined in the skeleton-ui requirements.
+- **Math layer**, **Components layer**, **Adapter**: as in skeleton-ui. In Vigia the Adapters are the **Network gate** (Requirement 11), the **Storage adapter**, the **Clipboard adapter** and the **Random adapter** (the platform's secure random source).
+- **Sighting**: one Bearing as Vigia handles it: `{ sightingId, incidentId, bearing, origin, receivedUtcMs }`. `origin` is `local` (taken by this phone) or `received`. **Sighting id**: the Bearing's `id`, unique across phones (Requirement 3.4).
+- **Incident**: a set of Sightings that the users take to be of one smoke column, with an **Incident id**, a creation time and a state held on each phone (Requirement 4). **Sighting set**: the Sightings of one Incident on one phone.
+- **Used**, **set aside**: the two states of a Sighting in the Sighting set. A used Sighting is given to `solve`. A set-aside Sighting is not, and always has a **set-aside cause** shown to the user (Requirement 5).
+- **Sighting code**: the compact text form of one Sighting, with its version and a check value (Requirement 8). **Sighting link**: a Sighting code carried in the fragment of the page's own address, after `#`. **Sighting QR**: a Sighting link drawn as a QR code; it is read by the receiving phone's own camera application, not by Vigia, and opens the link in the browser.
+- **Transport**: the replaceable part that carries Sighting codes between phones (Requirement 9). **Share action**: the user's own, explicit act that hands one Sighting code to a Transport.
+- **Geometry class**: `none`, `poor`, `fair` or `good`, said in words (Requirement 7). **Elongation**: the ratio of the semi-major to the semi-minor axis of a Fix's Ellipse.
+- **Next-sighting advice**: where a further sighting would shrink the Fix's 95 % ellipse most (Requirement 7).
+- **Emergency text**: the short text of Requirement 14.
+- **Overlay**: a layer of data from a third-party source drawn on the map: **hotspots** (satellite fire detections, Requirement 12) or **wind** (Requirement 13). **Source**: the named provider of an Overlay or of tiles, with its host.
+- **Host list**: the one module that names every host Vigia may send a request to, and why (Requirement 11).
+- **Simulation mode**: Vigia running on the Simulator source and a Synthetic scene (Requirement 17). **Reviewer**: a person who runs Vigia on a laptop, with no phone.
+- **Vigia reason**: a member of the closed set of Requirement 2.2: every UI reason, plus those Vigia adds. **Vigia result**: a Result whose failure carries a Vigia reason.
+
+## Requirements
+
+### Requirement 1: Package boundaries and layering
+
+**User Story:** As the project's maintainer, I want Vigia to sit on the skeleton's public API alone and to keep everything it needs of its own inside `apps/vigia`, so that the skeleton stays lean and the two apps stay independent.
+
+#### Acceptance Criteria
+
+1. THE Vigia package SHALL import `@alidade/core`, `@alidade/sensors` and `@alidade/ui` only through their `src/index.ts`, SHALL NOT import from `apps/nonius`, and SHALL import no package other than these, `react`, `react-dom`, `maplibre-gl` (only for its stylesheet, Requirement 18.2) and those that Requirement 20 allows. A test SHALL scan its imports.
+2. THE Vigia Math layer (Incident logic, merging, sighting codes, plausibility, geometry advice, words, the Emergency text, Overlay parsing) SHALL import no React, no browser global and no Adapter, SHALL read no clock and draw no random number, and SHALL receive every time, size and random value as an argument. A test SHALL run its tests in a Node environment with no DOM and SHALL scan its imports.
+3. THE Adapters (Network gate, Storage, Clipboard, Random) SHALL each take the browser object they wrap as an injected argument, SHALL read no global, and SHALL be the only modules that reference `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource`, `navigator.sendBeacon`, `localStorage`, `indexedDB`, `navigator.clipboard`, `navigator.share` and `crypto`. A test SHALL scan the source for these names.
+4. THE Vigia package SHALL NOT reference `DeviceOrientationEvent`, `navigator.geolocation`, `navigator.permissions`, `screen.orientation`, `visibilitychange`, `getUserMedia` or `BarcodeDetector`: sensors belong to Sensors and the camera to UI (`tech.md`). Vigia SHALL NOT read QR codes (Requirement 10.5).
+5. THE Vigia package SHALL read time only from an injected Clock and wait only through an injected Timer, as UI does, except in the one module that provides their defaults.
+6. NOTHING that only Vigia needs SHALL be added to `skeleton/` (`product.md`, principle 5): not the Incident, the sighting code, the Transport, the advice, the words, the Overlays or the host list. WHEN Vigia needs something general that the skeleton lacks, THE design SHALL list it for the project's lead (this document's Open questions G1 to G4) and SHALL NOT write a workaround in `apps/vigia` that copies skeleton logic (a rotation matrix, a Sighting window, the 95 % scale, the ellipse polygon, the wire format of a Bearing).
+7. THE Vigia package SHALL name every number with its unit, as `math-conventions.md` requires: `Rad`, `Deg` (only at an I/O boundary: the sighting code, an Overlay response, the Emergency text), `M`, `UtcMs`, `Ms`, `M2`, `Px`. THE conversion between degrees and radians SHALL use Core's `degToRad` and `radToDeg` and SHALL appear in one module.
+8. THE Vigia package SHALL build and pass its tests under TypeScript `strict`, with no `any` and no non-null assertion in its Math layer. It SHALL export a public API only for its own entry point.
+9. ALL positions Vigia holds SHALL be `{ latRad, lonRad }` objects on the sphere of Core, with no use of an ellipsoid and none within 1° of a pole (`math-conventions.md`); a position that fails Core's `isSupportedPosition` SHALL be refused with `unsupported_position`.
+10. THE Overlays (Requirements 12 and 13), their parsers, their Host list entries, their map layers and their legend SHALL form a separable part: the rest of the app SHALL reach them only through one module with one registration point, and no Requirement other than 11, 12, 13, 15.3 (its rows for the Overlays) and 18.4 SHALL depend on them. A test SHALL build the app with that module replaced by an empty one and SHALL run every other test, so that the Overlays can be cut at a checkpoint (Order of the work).
+
+### Requirement 2: Failures and reasons
+
+**User Story:** As a user who may be frightened and in a hurry, I want every failure explained in plain words with what to do, so that a code or a blank screen never leaves me guessing.
+
+#### Acceptance Criteria
+
+1. THE Vigia Math layer and its Adapters SHALL NOT throw, and SHALL NOT return or store `NaN` or an infinite number, for any input that passes type checking. A caught exception from a browser object SHALL become a failure value.
+2. THE Vigia package SHALL define a closed set of failure reasons, `VigiaReason`, with its list: every `UiReason` of UI (which includes every reason of Sensors and Core), unchanged in meaning, and those Vigia adds, which the design fixes and which SHALL include at least: `code_damaged` (check value wrong or text cut), `code_too_long`, `code_version_unsupported` (an unknown version or an unknown kind), `code_not_a_sighting`, `incident_unknown`, `incident_full`, `sighting_conflict` (the same id with different content), `sighting_too_old`, `sighting_time_implausible`, `storage_unavailable`, `clipboard_unavailable`, `host_not_allowed`, `overlay_unavailable`, `overlay_stale`, `overlay_needs_key`, `transport_unavailable`. Neither Core, Sensors nor UI SHALL be changed for them.
+3. EVERY failure Vigia shows SHALL be shown through one function, `messageFor`, whose table is keyed by `VigiaReason` (type `Record<VigiaReason, …>`, so that a new reason without a Message fails type checking) and which returns UI's Message `{ whatHappened, whatToDo }` for the reasons UI knows. THE tests SHALL check that no reason has an empty part, and that no part contains a code, an underscore, `NaN`, `Infinity`, `undefined`, `null` or `[object`, as UI's tests do.
+4. THE Message of each Vigia reason SHALL name the thing the user can act on (the code, the link, the other person's phone, the clock of the phone, the connection) and SHALL NOT say only "try again".
+5. THE app SHALL NOT drop a failure it receives: each failure SHALL appear on the screen (Requirement 2.3), in the cause of a set-aside Sighting (Requirement 5.2), or in the value an Adapter returns.
+6. FOR ALL type-correct inputs drawn by each public Math-layer function's generator, including `NaN`, `±Infinity`, `-0`, empty strings, strings of 0 to 10 000 arbitrary characters and values at the limits, the function SHALL return without throwing, and every number reachable in its result SHALL be finite.
+
+### Requirement 3: Sighting the smoke
+
+**User Story:** As a rural resident who sees smoke, I want to point the phone at it and get a direction I can trust to a stated accuracy, so that I know how well my sighting pins down the smoke.
+
+#### Acceptance Criteria
+
+1. THE Vigia sighting screen SHALL be UI's `SightingScreen` driven by a `bearing` Session (`kind: 'bearing'`), on the browser Sensor source of Sensors in device mode and on the Simulator source in Simulation mode, so that freezing, the yaw reference, failures and the 95 % limits note are those of the skeleton. Vigia SHALL NOT reimplement any part of the capture.
+2. THE capture SHALL be a Bearing from Core and Sensors with its `azimuthSigmaRad` and `positionAccuracyM`, shown beside the Bearing as a number of degrees and metres (Requirement 3.6); a Bearing SHALL NOT be shown or shared without its sigma.
+3. ON a phone, THE app SHALL pass UI no Camera calibration and no tap sigma, so that the sighting is taken along the crosshair and a tap on the frozen image is refused by the skeleton with the Message of `calibration_missing`; THE app SHALL NOT define a default field of view (Open question U1). IN Simulation mode, THE app SHALL pass UI the Camera calibration of the scene and the named tap sigma for simulation `SIMULATION_TAP_SIGMA_PX` (Requirement 19.1), so that the reviewer can freeze, mark the smoke and capture; the screen SHALL say that the field of view and the tap sigma are simulation values, and a Bearing from a Mark SHALL carry the sigma that UI computes for it (UI Requirement 12.3).
+4. WHEN a Bearing is captured, THE app SHALL replace its `id` with a Sighting id that is unique across phones without coordination: at least 40 random bits from the Random adapter, written in the alphabet of Requirement 8.2, because UI's capture names a Bearing `bearing-<time of the freeze>`, which two phones, or two Stations of the Simulator, can share, and Core refuses a set with a repeated id (`invalid_observation`, `field: id`). Replacing the id SHALL change no other field.
+5. WHEN the capture fails, THE app SHALL show the failure through `messageFor` and keep the user in the sighting screen.
+6. THE app SHALL show, next to every Bearing it lists, the azimuth with its 1-sigma in degrees, the observer's position accuracy in metres, the time of the sighting in UTC and its age, and whether it was taken here or received.
+7. THE sighting screen SHALL state, before the first capture of a session and in a form that stays reachable afterwards, how to sight smoke so that the Bearing points at the right place (Requirement 16.2).
+8. WHEN a Bearing is captured, THE app SHALL add it to the Incident the user has open (Requirement 4.3), as a used Sighting if it passes Requirement 5, and SHALL NOT share it: sharing is the user's Share action (Requirement 9.3).
+9. FOR ALL Bearings that Sensors' capture returns and all random sources (a generator of byte strings, including repeated and constant ones), the Bearing after the replacement of Requirement 3.4 SHALL pass Core's `validateBearing` and SHALL differ from the captured Bearing in `id` only.
+
+### Requirement 4: The Incident
+
+**User Story:** As a volunteer firefighter, I want to say which sightings are of the same smoke and to keep two different smokes apart, so that I never merge two columns into one wrong place.
+
+#### Acceptance Criteria
+
+1. AN Incident SHALL be plain data: an Incident id, the time it was created on this phone (UTC), whether this phone created it or joined it, and its Sighting set. THE Incident id SHALL be at least 40 random bits from the Random adapter, written in the alphabet of Requirement 8.2. It is a label for grouping, not a secret and not an access control (Requirement 15.7).
+2. THE app SHALL let the user start an Incident ("a new smoke") and SHALL NOT start one without the user's act. WHEN a Sighting code of an unknown Incident id reaches the phone (Requirement 10), THE app SHALL show what it holds (the number of sightings, their ages) and SHALL ask whether to open it as a new Incident on this phone; it SHALL NOT add it to an Incident the user already has without the user's act.
+3. THE app SHALL hold one **open** Incident at a time, the one new captures go to. WHEN the user takes a second sighting while an Incident is open and its newest Sighting is not older than the maximum Incident age (Requirement 19.1), THE app SHALL preselect "same smoke as before" and SHALL ask the user to confirm it or to start a new Incident; the answer SHALL be a user act in every case. The app SHALL say that a second smoke column seen from the same place needs its own Incident.
+4. THE app SHALL hold the Incidents on the phone and nowhere else (Requirement 15), in the Storage adapter, so that a reload, a lock screen or the browser discarding the page does not lose them. IF the Storage adapter is unavailable, THEN the app SHALL say so (`storage_unavailable`), keep the Incidents in memory and state that closing the page loses them.
+5. THE app SHALL delete an Incident and every Sighting of it from the Storage adapter when the user asks, and SHALL delete one automatically when its newest Sighting is older than the Incident retention (Requirement 19.1). A "delete everything on this phone" control SHALL be on the first screen and SHALL ask for confirmation once.
+6. THE Sighting set SHALL hold at most the maximum number of Sightings of Requirement 19.1; a further one SHALL be refused with `incident_full` and the Message SHALL say what to do (start another Incident or delete a sighting).
+7. FOR ALL sequences of 0 to 200 actions (create, join, capture, receive, delete, reload from storage) on a fake Storage adapter, an Incident SHALL never hold two Sightings with the same id, SHALL never hold more than the maximum, SHALL hold exactly the Sightings the user has not deleted and that have not expired, and a reload from storage SHALL give a state equal to the state before it.
+
+### Requirement 5: Which sightings belong together
+
+**User Story:** As a dispatcher reading a Fix, I want to know which sightings it rests on and why any other was left out, so that a wrong sighting never moves the smoke without my seeing it.
+
+#### Acceptance Criteria
+
+1. THE app SHALL give every Sighting in a Sighting set exactly one state, used or set aside, and SHALL show it. A Sighting SHALL NOT disappear from the screen without the user's act of deleting it.
+2. EVERY set-aside Sighting SHALL carry exactly one cause, shown in words through `messageFor`, from this closed set: `sighting_too_old` (its time is more than the maximum Incident age before the newest used Sighting, or before now when it is the only one), `sighting_time_implausible` (its time is later than now plus the clock-skew tolerance, Requirement 19.1, or earlier than the creation time of the Incident by more than the maximum Incident age), `outlier` (excluded by Core's outlier rejection, in `Fix.excludedIds`), `hidden_by_user`, and the failure that Core returned for it when one names it (`invalid_observation`).
+3. A Sighting whose time is implausible, or that is too old, SHALL be set aside before `solve` is called; the others SHALL be given to `solve` with `outlierRejection: true`. THE app SHALL set a Sighting aside as `outlier` only from `Fix.excludedIds`, and SHALL NOT implement a rejection rule of its own.
+4. THE app SHALL state, in the words of the Fix and of the Incident, what it can check at each count of used Sightings: with one Sighting there is no position; with two, "two sightings always cross somewhere, so they cannot check each other: a wrong one gives a wrong place and nothing on the screen can tell"; with three, that they can be seen to disagree but not which one is off (the reason is in criterion 5; Core excludes a Sighting only while at least four remain to examine); with four or more, Core sets aside a Sighting whose normalised residual exceeds `3.5`, which is a statistical rule with limits that the words state (a wrong Sighting can be kept and a good one set aside).
+5. WITH exactly three used Sightings, WHEN a normalised residual in `Fix.residuals` exceeds the outlier threshold of Core (`3.5`), or WHEN `solve` fails with `diverging_bearings` with three or more used Sightings, THE app SHALL say that the sightings do not agree and that at least one is off; WITH three, THE app SHALL say that three sightings cannot tell which one, and that a fourth sighting can. The reason: three Bearings and two unknowns leave one degree of freedom, so the residuals lie along one direction fixed by the geometry, and a gross error in any one Bearing gives residuals in the same proportions (the largest does not mark the wrong Bearing); and a solve without one Bearing leaves two, which always cross. WITH fewer than four used Sightings THE app SHALL NOT name a Sighting as the cause, SHALL NOT mark one as disagreeing, and SHALL NOT show a second Fix computed without one Sighting. WITH four or more, the Sighting that Core sets aside is shown with its cause (Requirement 5.2), and, for `diverging_bearings`, the user may hide a Sighting and see the Fix again (criterion 6). THE app SHALL NOT drop any Sighting by itself.
+6. THE user SHALL be able to hide a Sighting and to show it again. A hidden Sighting is set aside with the cause `hidden_by_user`; the Fix is recomputed. Hiding SHALL NOT be sent to other phones: nothing travels but Sighting codes (Requirement 9.1).
+7. WHEN `solve` fails, THE app SHALL show the failure through `messageFor` and SHALL keep every Sighting as it was: `insufficient_observations` (fewer than two used), `colocated_observers` and `singular_geometry` (the observers are in one place, or the lines are almost parallel: "you are too close together, or both look along the same line"), `diverging_bearings` (the lines do not meet in front of the observers), `out_of_range` and `not_converged`. THE Message of each SHALL say what the user can do.
+8. WHEN the Fix is more than the plausible range (Requirement 19.1) from the nearest used observer, THE app SHALL say so in words ("the smoke would be 120 km away, beyond what a phone sighting can place") and SHALL still show the Fix with its ellipse. This is a warning and not a refusal.
+9. THE app SHALL NOT use time as part of the solve: a Sighting's time only decides whether it is set aside (Requirement 5.3) and what is shown.
+10. FOR ALL sets of Sightings (generated with 2 to 12 Bearings whose observers lie within 20 km of a synthetic origin and with random ages, including ones in the future and ones older than the maximum Incident age), the used and set-aside Sightings SHALL partition the set: every Sighting is in exactly one of them, every set-aside Sighting has exactly one cause of Requirement 5.2, and the used Sightings given to `solve` SHALL be exactly the ones the screen lists as used.
+11. FOR ALL sets as in criterion 10 and all permutations of the order in which the Sightings were added, the used set, the set-aside causes and the Fix (its position, covariance, `excludedIds`) SHALL be identical: the Fix depends on the set and not on the order.
+12. FOR ALL sets of 4 to 12 consistent Bearings (all pointing at one synthetic target with the stated sigma, from observers 500 m to 15 km away with a largest Crossing angle of at least 30°) and one added Bearing whose azimuth is wrong by at least `10 × σ` and at most 90°, if Core excludes a Bearing, then THE app SHALL show that Bearing as set aside with the cause `outlier`; and the shown Fix SHALL be Core's Fix of the remaining ones. A counter SHALL report how many of the cases had the wrong Bearing excluded, how many did not, and in how many a consistent one was excluded. That count describes Core's rule and does not fail the property (Open question U2).
+13. FOR ALL sets of exactly three Bearings that point at one synthetic target with the stated sigma (sigmas in `[0.5°, 1°]`, observers 500 m to 15 km away, every pair with a Crossing angle of at least 30°) and a gross azimuth error `δ` in `[3°, 10°]` added to any one of them, such that `solve` succeeds, the vector of normalised residuals of Core's Fix, scaled to unit length with its sign fixed, SHALL be the same whichever of the three Bearings carries the error, to within `0.1` in each component; and the screen SHALL name no Sighting and show no second Fix. This property checks the argument of criterion 5 against Core's residuals; if it fails, the failure is information about the argument or the tolerance and is classified before anything is changed (`testing.md`, rule 1).
+
+### Requirement 6: The Fix, in a map and in words
+
+**User Story:** As a dispatcher, I want the fix drawn with its 95 % ellipse and told in plain words with its number of sightings, so that I know where the smoke probably is and how far to trust it.
+
+#### Acceptance Criteria
+
+1. WHEN there are at least two used Sightings, THE app SHALL call Core's `solve` with the bearing model, the used Sightings' Bearings and `outlierRejection: true`, and SHALL show its Fix on UI's map (`MapView`) with the Bearings' lines and Wedges, the observers, and the Fix's Point and its 95 % ellipse, which UI draws together from `ellipse95` of Core. THE app SHALL NOT draw a Fix by any other path, and SHALL NOT give any component a position of a Fix without its ellipse in its props.
+2. THE app SHALL state the Fix in words, through a component that takes a Core `Fix`: the number of Sightings it rests on and the number set aside; the position in degrees with hemisphere letters, rounded to 4 decimals (about 11 m) and never to a precision finer than the 95 % semi-minor axis rounded up to the next decimal step; the semi-major and semi-minor axes of the 95 % ellipse in metres, rounded up to the nearest 10 m below 1000 m and to 0.1 km from 1000 m; the compass direction of the long axis, as one of eight words and in degrees; and the age of the newest and oldest used Sighting.
+3. THE words SHALL say "probably within" and not "at"; SHALL NOT contain "exact", "located at", "confirmed" or "precisely"; and SHALL include what the ellipse does and does not say: it is 95 % under the assumption that every Bearing was aimed at the same point and its errors are independent and as stated, and phone compasses are off by several degrees (Requirement 16).
+4. WHERE this phone holds a Position fix, THE app SHALL give the direction and distance from it to the Fix, with the interval of the distance: the distance `d` from this phone to the Fix, and `±h` with `h = sqrt(a² · cos²θ + b² · sin²θ)`, where `a` and `b` are the 95 % semi-axes and `θ` is the angle between the direction to the Fix and the Ellipse's major axis, stated as at least 95 %. The distance SHALL NOT be shown without its interval.
+5. WHEN there is exactly one used Sighting, THE app SHALL show its line and Wedge only, with the words "one sighting gives a direction, not a place", and SHALL NOT show a position of the smoke. WHEN there are none, THE app SHALL say how to start.
+6. THE app SHALL show a Fix recomputed whenever the used set changes, within one screen update, and SHALL NOT keep showing an earlier Fix when the new `solve` fails: the old one SHALL be cleared, and the failure shown (UI's map adapter already clears a Fix it cannot draw; Vigia SHALL do the same when `solve` fails).
+7. THE Fix SHALL carry its warnings in words: `poor_geometry` (the largest Crossing angle is under 20°), `outliers_excluded`.
+8. FOR ALL Fixes (Core Fixes generated from Bearings of Requirement 5.12), the text of the words SHALL contain the two 95 % semi-axes in metres at their rounded-up values, the count of used Sightings, and a number of decimals for the position that does not exceed the rule of criterion 2; and for every `NaN`-free Fix, no `NaN`, `Infinity`, `undefined` or `null` SHALL appear in it.
+9. FOR ALL ellipses with semi-axes in `[1, 100 000]` m, `a ≥ b`, directions in `[0, 2π)` and angles `θ`, the half-interval `h` SHALL satisfy `b ≤ h ≤ a`, SHALL equal the largest extent of the polygon of `fixFeatures` projected on the direction within `1e-3 · a`, and SHALL equal `a` at `θ = 0` and `b` at `θ = π/2` within `1e-9 · a`.
+10. FOR ALL used sets where `solve` succeeds, the 1-sigma ellipse of the Fix and `ellipse95` SHALL satisfy the ratio `2.4477` of `math-conventions.md` within `1e-9`, and the Fix SHALL never reach a component without its ellipse (a type test: a `Fix` has its `ellipse`).
+
+### Requirement 7: The quality of the geometry, and the next sighting
+
+**User Story:** As a user with two sightings, I want to be told in words whether the geometry is good and where a further sighting would help most, so that I know what to do next.
+
+#### Acceptance Criteria
+
+1. THE app SHALL say the quality of a Fix's geometry as a Geometry class: `none` (no Fix), `poor` (Core's `poor_geometry` warning, or an Elongation at or above `LONG_ELLIPSE_RATIO`), `fair` (no warning and an Elongation from `FAIR_ELLIPSE_RATIO` up to `LONG_ELLIPSE_RATIO`) or `good` (no warning and an Elongation below `FAIR_ELLIPSE_RATIO`), with the words of the class and the reason in terms the user can act on: "both of you look along nearly the same line; the smoke could be much nearer or farther than it shows" for a `poor` Fix whose long axis points along the lines of sight, and "the lines cross at a good angle" for `good`. THE class SHALL be computed from Core's warning and the Fix's Ellipse alone, with thresholds that are named parameters (Requirement 19.1), and SHALL be a pure function.
+2. THE app SHALL give Next-sighting advice whenever there is a Fix: the compass directions, as seen from the Fix, from which a further sighting would shrink the 95 % ellipse most, which are the two directions at right angles to the major axis of the Ellipse; the distance from the Fix at which to stand, comparable to the distance of the nearest used observer; and in words, "move to the side, so that you and the others are not all on one line to the smoke". The app SHALL say that it does not know the terrain, roads or access, and SHALL NOT name a place.
+3. THE app SHALL give a Geometry class `good` no advice beyond one sentence, and SHALL say a further sighting is still useful when the used count is two or three, because with fewer than four Bearings nothing can be checked (Requirement 5.4).
+4. WHEN there is one used Sighting and no Fix, THE app SHALL give this advice in one sentence: move sideways, at right angles to the direction of the smoke, by at least a third of the distance you think the smoke is at (a Crossing angle of 20° needs a baseline of about `0.35` of the range), and farther is better. THE app SHALL NOT ask the user for the range and SHALL NOT compute the baseline from a stated range.
+5. WHEN `solve` fails with `singular_geometry` or `colocated_observers`, THE app SHALL give the advice of criterion 4 together with the Message of the failure.
+6. THE advice SHALL be computed with Core's `solve` and the bearing model on a hypothetical Bearing, never by a formula of the app's own for the Ellipse or the Crossing angle (Requirement 1.6), and a hypothetical Bearing SHALL NOT be shown on the map, shared or stored as a Sighting.
+7. FOR ALL Fixes with an Ellipse of Elongation of at least `1.5` (generated from two or three consistent Bearings of Requirement 5.12), the 95 % ellipse area after adding one hypothetical Bearing, with the same azimuth sigma and position accuracy as the least precise used Bearing, from the advised distance in either advised direction, SHALL be at most the area after adding the same hypothetical Bearing from the same distance along the major axis of the Ellipse, within `1e-6` relative, and SHALL be at most the area before adding it. A counter SHALL report in how many cases the advised direction gave the smallest area among 36 directions at 10° steps, within `1 %` of that area.
+8. FOR ALL Fixes as in criterion 7, the Geometry class SHALL be `poor` if Core returns `poor_geometry` and SHALL be a pure function of the Fix's warnings and Ellipse.
+9. THE advice SHALL have an example test for a synthetic case: two observers 800 m east and west of a target 3 000 m north (the skeleton catalogue's "two posts"), whose advice is a sighting from the east or west of the target (an azimuth from the Fix within 5° of 90° or 270°), at a distance within 20 % of 3 000 m. THE factor of criterion 4 SHALL have an example test: `2 · atan(0.35 / 2)` is `20°` within `0.2°`, and the sentence contains "a third".
+
+### Requirement 8: The sighting code
+
+**User Story:** As a user who sends a sighting by message or shows it as a QR code, I want a short code that detects damage and never claims more accuracy than it had, so that a code cut off by a messaging app cannot give a wrong sighting.
+
+#### Acceptance Criteria
+
+1. THE Vigia Math layer SHALL provide `encodeSighting(sighting)` and `decodeSighting(text)`. The code SHALL carry: a version, the kind (in version 1 only `sighting`; the field exists so that a later version can add another kind), the Incident id, the Sighting id, the observer's position, the position accuracy, the time of the sighting, the azimuth and the azimuth 1-sigma, and a check value. It SHALL carry nothing else: no name, no free text, no device identifier, no origin and no receive time.
+2. THE code's alphabet SHALL contain no character that a messaging app or a URL alters (no spaces, `+`, `/`, `=`, `%`, `&`, `?`, lower case) and no character that is easily confused when read aloud or copied by hand (`0`/`O`, `1`/`I`/`L`); and the decoder SHALL accept input with spaces, line breaks and hyphens removed.
+3. THE code SHALL be short enough that a Sighting link (the page's address plus `#` plus the code) is at most `MAX_LINK_LENGTH_CHARS` (Requirement 19.1), and that a Sighting QR of it can be read by a phone's camera application from a screen at arm's length (Device check V1).
+4. THE precision of the code SHALL be stated, and its rounding SHALL never lower an uncertainty: the position to at most 1 m, the time to at most 1 s, the azimuth to at most `0.001°`, and the azimuth 1-sigma and the position accuracy rounded up. THE sender SHALL use the decoded form of its own code (the canonical form) in its own Sighting set, so that every phone computes with the same numbers and gets the same Fix (Requirement 9.6).
+5. `decodeSighting` SHALL treat its input as untrusted: it SHALL refuse text longer than `MAX_CODE_LENGTH_CHARS` (`code_too_long`) before parsing; SHALL return `code_damaged` for a wrong check value, a wrong length or a character outside the alphabet; `code_version_unsupported` for another version or a kind other than `sighting` (a code of an unknown kind is refused like an unknown version); and `code_not_a_sighting` for text that is not a code; and SHALL validate the decoded Bearing with Core's `validateBearing` (through `parseBearing` of the wire format, so that the Bearing is exactly the one Core would accept) and return its failure unchanged.
+6. THE check value SHALL detect any change of a single character, any change of two adjacent characters, a cut at any length, and the swap of two adjacent characters, and SHALL accept a random damaged code with a probability of at most `2^-16`. It is not a signature: it does not say who made the code (Requirement 15.7).
+7. THE code SHALL be versioned: a later change of the format SHALL change the version, and a phone that does not know it SHALL say so (`code_version_unsupported`) and SHALL NOT guess.
+8. FOR ALL valid Sightings (Bearings with observers within the Supported positions, azimuths in `[0, 2π)`, azimuth sigmas in `[0.01°, 45°]`, position accuracies in `[0, 10 000]` m, times in a stated range of 20 years, and any valid ids), `decodeSighting(encodeSighting(s))` SHALL succeed and give a Bearing that passes `validateBearing`, with the position within 1 m, the time within 1 s, the azimuth within `0.001°` (as a wrapped difference), and a sigma and a position accuracy that are at least those of `s` and within `0.01°` and 1 m of them.
+9. FOR ALL valid Sightings, `encodeSighting(decodeSighting(encodeSighting(s)))` SHALL equal `encodeSighting(s)` (the canonical form is a fixed point), and its length SHALL be at most the length that Requirement 8.3 allows.
+10. FOR ALL valid Sightings and all single-character substitutions, adjacent swaps and truncations of their code, `decodeSighting` SHALL fail with `code_damaged`; and FOR ALL byte strings and character strings of 0 to 10 000 characters, it SHALL return without throwing, and the success rate SHALL be reported (counter) for strings that are not derived from a valid code.
+11. THE code SHALL have example tests with fixed synthetic Sightings and their expected codes, kept as fixtures in `fixtures/` of the package, read-only (`testing.md`).
+
+### Requirement 9: The Transport interface and merging
+
+**User Story:** As the project's owner, I want the way sightings travel between phones to be replaceable, so that a link and a QR code can later give way to, or sit beside, a relay with no change to the rest of the app.
+
+#### Acceptance Criteria
+
+1. THE app SHALL define one **Transport** interface, in plain data, with these operations only: `send(code)` for one Sighting code, `onReceive(listener)` delivering Sighting codes as text, `onStatus(listener)` delivering a plain description of the state (available, unavailable with a Vigia reason, in use), and `stop()`. A Transport SHALL carry text it cannot read: it SHALL NOT parse, validate, merge or store Sightings, SHALL carry Sighting codes only (nothing travels in version 1 but codes of kind `sighting`), and the rest of the app SHALL NOT know which Transport delivered a code.
+2. THE app SHALL provide an in-memory Transport for the tests and for the Simulation mode (Requirement 17.5), which delivers a sent code to every other phone in the same test, with a settable delay, loss, duplication and reordering, so that the replaceability of Requirement 9.1 is exercised in the first release.
+3. A Sighting SHALL leave the phone only through a **Share action**: the user chooses to share one Sighting, sees what the code contains (Requirement 15.2), and confirms. THE app SHALL NOT share a Sighting at capture, in the background, on a timer or on opening a link.
+4. WHEN a code is received, THE app SHALL decode it (Requirement 8.5), SHALL show failures through `messageFor`, and SHALL merge it into the Incident of its Incident id as a Sighting with `origin: received` and `receivedUtcMs` from the Clock. A received code SHALL NOT be passed to `solve` before it is validated and set in the Sighting set under Requirement 5.
+5. THE merge SHALL be a set union by Sighting id: a code whose id is already in the set with identical content SHALL change nothing (not even `receivedUtcMs`), and one whose id is in the set with different content SHALL be refused with `sighting_conflict`, SHALL NOT replace the held one, and SHALL be shown to the user as a conflict with both versions.
+6. FOR ALL sets of Sightings and all sequences of delivery of their codes with any order, any duplication and any loss of some, the Sighting set after the delivery SHALL equal the union of the codes that arrived at least once (merge is commutative, associative and idempotent), and two phones that received the same set of codes SHALL show the same used and set-aside Sightings and the same Fix, to the last bit of the covariance.
+7. FOR ALL sequences of delivery as in criterion 6 with codes of Sightings of other Incident ids mixed in, the Sighting set of an Incident SHALL contain no Sighting of another Incident id.
+8. WHEN the Transport's status is unavailable, THE app SHALL say so through `messageFor` (`transport_unavailable`) and SHALL keep the Share action available for the transports that still work.
+9. A second Transport SHALL be addable by writing one module that satisfies Requirement 9.1, without changing Requirements 3 to 8, 11 and 14; a test SHALL build a second fake Transport that delivers codes by a different path and SHALL run the property of criterion 6 through both.
+
+### Requirement 10: The first Transports: link, QR code and text
+
+**User Story:** As someone with a phone and a friend with a phone, I want to send my sighting by message or show it as a QR code, so that we need no server and no account.
+
+This requirement describes the lean option of Open question O1 and applies where the owner accepts it.
+
+#### Acceptance Criteria
+
+1. THE app SHALL offer, for a Sighting, a Sighting link to share through the phone's share sheet when `navigator.share` exists (through the Clipboard adapter) and to copy; a Sighting QR to show, which holds the Sighting link; and the Sighting code as text to copy. THE three SHALL carry the same code.
+2. THE Sighting link SHALL be built from the page's own address, with the code only in the fragment: everything after `#`, and nothing in the path or the query string, so that no server that serves or logs the page receives it (Requirement 15.3). THE app SHALL set `Referrer-Policy: no-referrer` for every request it makes through the Network gate, and SHALL document the same for the hosting (Open question O2).
+3. WHEN the page opens with a fragment that holds a Sighting code, THE app SHALL decode it (Requirement 8.5) and offer to add it (Requirement 4.2, 9.4), SHALL replace the address with the address without the fragment (`history.replaceState`) so that the code does not stay in the address bar, in a bookmark or in a screenshot, and SHALL never send the fragment anywhere.
+4. THE user SHALL be able to paste a Sighting code, or a whole Sighting link, in a text field; THE app SHALL extract the code from a link and SHALL handle a message in which the link is surrounded by text.
+5. THE app SHALL NOT scan QR codes and SHALL contain no QR decoder, no `BarcodeDetector` and no use of the camera for this purpose. THE Sighting QR SHALL encode the Sighting link and nothing else, so that the receiving phone's own camera application reads it and opens the link in the browser, where Requirement 10.3 applies. THE QR SHALL be made by one QR encoder dependency, which the design proposes with candidates, sizes, licences and publication dates (Requirement 20.4).
+6. THE QR code SHALL be drawn with a quiet zone and error correction, as black on white at the largest size the screen allows and with the screen brightness left to the user, and SHALL be accompanied by the link as text, for a phone whose camera application does not read QR codes.
+7. THE app SHALL NOT make a network request to send or receive a Sighting in this Transport. THE text code SHALL work between two phones that both have the app open, through any channel the users have, with no Internet connection from either phone (for example a text message); THE Sighting QR and the Sighting link SHALL NOT be claimed to work offline, because the receiving phone must load the page (there is no service worker, Open question U9), and the app SHALL say so beside the QR.
+8. THE app SHALL say which of the three is the right one: the link for someone far away who has a connection, the QR for someone beside you whose phone has a connection to load the page, and the text for a phone that has the app open and no connection, and SHALL say that a QR works only when the phones are together.
+9. FOR ALL valid Sightings and any page address (generated: scheme `https`, hosts of 1 to 5 labels, paths of 0 to 4 segments, optional query), the Sighting link SHALL equal the page's address without its query and fragment, plus `#` plus the code, SHALL contain no character of the code before `#`, and SHALL decode (with spaces and a line break inserted at random places and surrounded by 0 to 200 characters of arbitrary text) to the same Sighting.
+10. FOR ALL Sighting links, opening the page with that link SHALL give the address of the page without the fragment afterwards, and no request SHALL have been made that contains any part of the code (a test with a fake Network gate that records every request).
+
+### Requirement 11: Network access, hosts and keys
+
+**User Story:** As a user who shares my position, I want to know that the app sends data only to the hosts it lists, so that nothing leaves the phone to a place nobody named.
+
+#### Acceptance Criteria
+
+1. THE Vigia package SHALL send every network request through one module, the **Network gate**, and no other module SHALL call `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource` or `navigator.sendBeacon` (Requirement 1.3), nor insert an element whose `src` or `href` is a remote URL (a script, an image, a stylesheet, a font, an iframe).
+2. THE **Host list** SHALL be one module that names every host Vigia may send a request to, each with: the purpose (tiles, hotspots, wind), the Source's name, what the request carries (in words and as the exact path pattern and set of query parameters), the link to its terms of use, and whether it needs a key. Nothing else SHALL name a host.
+3. THE Network gate SHALL refuse a request to a host that is not in the Host list with `host_not_allowed` before sending anything, and SHALL accept only `https`.
+4. THE Tile source (read by UI from the environment, `.env.example`) SHALL be checked against the Host list at start: IF a tile template names a host that is not in the Host list, THEN the app SHALL start with no Tile source and SHALL say so through `messageFor`.
+5. A test SHALL scan the source of the package for URLs and host names outside the Host list and its documentation, and SHALL fail when one is added elsewhere; another SHALL run the whole flow of Requirement 17 with a Network gate whose every call is recorded and SHALL assert that, with the Overlays off and no Tile source, it was never called.
+6. NO key, token or secret SHALL be in the repository. A key SHALL be read from an environment variable documented, with an empty value, in `apps/vigia/.env.example` (`tech.md`). THE app SHALL say, in the documentation and where it asks for a key, that a key that a browser app uses is visible to everyone who opens the page, and SHALL NOT call such a key private (Open question O5).
+7. THE Network gate SHALL send no cookie, no credentials, no `Referer`, no custom header that identifies the phone, and no body except what the Host list states for that host; it SHALL set a timeout and the response size limit of Requirement 19.1, and SHALL treat every response as untrusted data (Requirement 12.6).
+8. THE app SHALL work in full with no network at all (Requirement 17.6), with no Overlay and no tiles: the map SHALL be drawn on a plain background, as UI does.
+9. FOR ALL requests that the Network gate is asked to make (generated: schemes, hosts, ports, userinfo, paths, queries, including hosts that look like listed ones: `example.com.evil.test`, `example.com@evil.test`, upper-case and trailing-dot forms, and IDN look-alikes), the gate SHALL send the request if and only if the URL's parsed host equals a Host list entry exactly, the scheme is `https` and the path and the query parameters are exactly those the entry states; every other SHALL return `host_not_allowed` with no call to the injected fetch.
+
+### Requirement 12: Satellite hotspots
+
+**User Story:** As a dispatcher, I want to see recent satellite fire detections near the sighting, with their age and their pixel size, so that I can compare them with the fix without taking them for a confirmation.
+
+#### Acceptance Criteria
+
+1. THE hotspot Overlay SHALL be off at start and SHALL be switched on by the user's act, after the app has said, in words, which Source and host will receive a request and what the request carries (an area, Requirement 12.3, and the phone's address, which the host sees). Switching it off SHALL stop its requests and remove it from the map.
+2. THE app SHALL work in full with the hotspot Overlay off, unavailable or failing: its failure SHALL show a Message (`overlay_unavailable`, `overlay_needs_key`) beside the Overlay switch and SHALL change nothing else on the screen.
+3. THE request SHALL carry an area and not a point: a box that contains the used observers and the Fix, enlarged by a margin, and snapped outwards to the hotspot grid (Requirement 19.1), so that the request does not reveal an observer's position more finely than the grid. THE request SHALL NOT carry a Sighting id, an Incident id, a time of a Sighting or an azimuth.
+4. THE app SHALL name the Source on the screen with the Overlay, with its attribution and its terms as the Host list states them, the time of the newest detection and the time the data was fetched, both in UTC and as ages. The app SHALL say that satellites pass at intervals, so that no hotspot does not mean no fire, and that a hotspot is a detection of heat and not a confirmed fire.
+5. EACH hotspot SHALL be drawn as its footprint, not as a point: a square or circle of the pixel size the Source gives for the detection (or, when the Source gives none, the Source's stated resolution), with its age as a label on selection. A hotspot whose footprint is unknown SHALL NOT be drawn as a position; the app SHALL list it as a count with the reason.
+6. THE app SHALL parse the response as untrusted data: it SHALL bound its size and the number of detections kept (Requirement 19.1), SHALL discard a detection whose coordinates, time or size are not finite or whose position is not Supported, SHALL render no text from the response as markup, and SHALL return a Vigia result with `overlay_unavailable` for a response it cannot parse.
+7. THE app SHALL show only detections not older than the maximum hotspot age (Requirement 19.1) and SHALL say that it hides older ones; WHEN the newest detection in the area is older than that, THE app SHALL say "no recent detection in this area" with the time the data was fetched.
+8. THE hotspots SHALL NOT enter `solve`, SHALL NOT move or snap a Fix, and SHALL NOT change a Sighting's state. WHEN there is a Fix and at least one hotspot is shown, THE app SHALL state one fact in words, for example "the nearest detection (pixel about 375 m) is 2.1 km from the centre of the 95 % ellipse, which is 300 m by 120 m; seen 3 hours ago", always with the footprint size, the ellipse and the age beside the distance, and SHALL NOT say that a hotspot "confirms", "matches" or "supports" the Fix (Open question U6).
+9. THE hotspot Source of the first release is NASA FIRMS, whose key (`MAP_KEY`) is part of the request path and is therefore in every request and public in a browser app (Open questions O4, O5). WHERE no key was given at build time, THE Overlay switch SHALL be disabled with the Message of `overlay_needs_key` and no request SHALL be made; the Overlay SHALL ship in that state, and the app SHALL work in full. IN Simulation mode the Overlay SHALL read synthetic fixtures with no key and no request (Requirement 17.4). WHERE the Source's API does not answer a cross-origin request (not known), THE Overlay SHALL fail with `overlay_unavailable` and change nothing else. The Host list SHALL state that the key is public.
+10. FOR ALL responses of the shapes the Source documents (generated with 0 to 500 detections with latitudes, longitudes, times and sizes in range, and a share of invalid entries: `NaN`, strings, missing fields, positions out of range, negative sizes, far-future times), the parsed detections SHALL be exactly those that are valid, SHALL hold finite numbers only, and SHALL be at most the bound of Requirement 19.1; and FOR ALL responses of 0 to 10 000 characters of arbitrary text, the parser SHALL return without throwing.
+11. FOR ALL observer sets and Fixes within the Supported positions, the box of criterion 3 SHALL contain every used observer and the Fix, SHALL have corners on the grid, and SHALL contain a point farther than the snap from each observer in at least one direction (the request does not reveal the position to better than the grid), and its area SHALL be at most the bound of Requirement 19.1.
+
+### Requirement 13: Wind
+
+**User Story:** As a firefighter, I want to see the wind at the smoke, with its time and source, so that I know which way the smoke column leans and where the fire may go, without the app claiming to predict it.
+
+#### Acceptance Criteria
+
+1. THE wind Overlay SHALL follow Requirements 12.1, 12.2, 12.4 (with the model's name and the time the reading is valid for) and 12.6 for its own Source: off at start, switched on by the user's act, working with no wind, naming its Source, treating its response as untrusted data. The wind Source needs no key, so Requirement 12.9 does not apply to it; in Simulation mode it reads a synthetic fixture (Requirement 17.4).
+2. THE wind Source of the first release is Open-Meteo, under the terms recorded in Open question O6; THE request SHALL carry one point, the Fix (or, with no Fix, the midpoint of the used observers) rounded to the wind grid of Requirement 19.1, which is no finer than the Source's own resolution, so that the request does not reveal a position more finely than the data needs.
+3. THE app SHALL show the wind as the direction it blows **from** (azimuth clockwise from true north, in degrees) with the compass word, the speed with its unit, and the time it is valid for, with the age of that time (Requirement 12.4). A reading valid for a time more than the maximum wind age (Requirement 19.1) before or after now SHALL NOT be shown as current: the app SHALL say it is a forecast for that time or an old reading.
+4. THE app SHALL say that the wind is a model value at one point and a time, that smoke may lean or rise differently, and that the app does not predict the spread of a fire. THE wind SHALL NOT enter `solve` and SHALL NOT change a Bearing or a Fix.
+5. WHEN the wind is shown, THE sighting guidance SHALL remind the user that smoke drifts downwind, so that the Bearing should aim at the base of the column (Requirement 16.2).
+6. FOR ALL responses of the shapes the Source documents (including `NaN`, negative speeds, directions outside `[0, 360)`, missing times, and numbers as strings), the parsed reading SHALL be valid or a failure, SHALL hold finite numbers only, with the direction in `[0, 2π)` rad and the speed not negative; FOR ALL directions in `[0, 360)` degrees the compass word SHALL be that of the 45° sector centred on it, with the boundaries tested by example.
+7. THE app SHALL make a wind request only when the user switches the Overlay on or asks for a refresh, never by polling or on a timer, so that its use stays far below the Source's daily free limit, and SHALL show the Source's attribution (CC BY 4.0) with the reading. THE Host list SHALL state the Source's terms, including that free use is non-commercial (Open question O6).
+
+### Requirement 14: What to tell the emergency number
+
+**User Story:** As a rural resident on the phone to the emergency number, I want a short text I can read out or copy, with the position, how sure it is and what it rests on, so that I give the operator what I know and no more.
+
+#### Acceptance Criteria
+
+1. THE app SHALL produce the Emergency text from the Incident's Fix and its used Sightings, as a pure function of the Math layer. It SHALL contain: the position of the smoke in degrees to the precision of Requirement 6.2; its uncertainty in metres, as "probably within about X m (95 %); the area is about X m by Y m, long in direction D"; the number of sightings it rests on and how many were set aside; the age of the newest and oldest sighting; the Geometry class in words; and one sentence saying that the position is from phone compass sightings, which are off by several degrees.
+2. WHERE there is one used Sighting and no Fix, THE Emergency text SHALL give the direction of the smoke with its 1-sigma in degrees from the observer's position with its accuracy in metres, and SHALL say that it is a direction and not a place.
+3. THE Emergency text SHALL NOT contain the observer's own position unless the user switches it on in the text (default off, Open question U7); other observers' positions SHALL NOT be in it. IT SHALL NOT contain Sighting ids, Incident ids or codes.
+4. THE Emergency text SHALL be shown at a readable size (UI's readout size), SHALL be selectable, and SHALL have a Copy control (the Clipboard adapter); IF the copy fails, THEN the app SHALL say so (`clipboard_unavailable`), keep the text selected, and make no other claim.
+5. THE app SHALL say, next to the text and at the start of the app, that it does not call or notify anyone, that the user must call the emergency number, and that the text only helps describe where the smoke is. THE app SHALL NOT contain the number of an emergency service, a link that dials, or a function that sends the text to anyone, because the number differs by country (Non-goals of `product.md`).
+6. WHEN the Fix has the Geometry class `poor`, or a hidden or set-aside Sighting changes the Fix, THE Emergency text SHALL say it in the same words as the Fix does, and SHALL be produced again when the Fix changes, SHALL show when it was produced, and SHALL NOT remain on the screen from an earlier Fix.
+7. IN Simulation mode, THE Emergency text SHALL begin with `SIMULATION: synthetic scene, not a real place.` and the Copy control SHALL say so, so that a synthetic position is never read to an operator (Requirement 17.4).
+8. FOR ALL Fixes and used sets (as in Requirement 5.12), the Emergency text SHALL be at most `MAX_EMERGENCY_TEXT_CHARS` characters (Requirement 19.1), SHALL contain no `NaN`, `Infinity`, `undefined` or `null`, SHALL contain the position's decimals as in Requirement 6.2 and both 95 % semi-axes rounded up, and a position SHALL NOT occur in it without a number of metres for its uncertainty within the same sentence group.
+9. FOR ALL Fixes, the position in the Emergency text, read back by parsing, SHALL be within the rounding of Requirement 6.2 of the Fix's position (`1e-4°` plus `1e-9`), compared by Core's great-circle distance.
+10. THE Emergency text SHALL have example tests with a synthetic Fix and its expected text, kept as fixtures.
+
+### Requirement 15: Privacy
+
+**User Story:** As a person whose home may be where I stand to look at the smoke, I want to know exactly what leaves my phone, when and to whom, so that I can decide to share a sighting knowingly.
+
+#### Acceptance Criteria
+
+1. THE app SHALL have no account, no cookie, no analytics script, no advertising, no remote font or script, no error-reporting service and no telemetry, and SHALL write nothing to any server except what a Transport and an Overlay send under Requirements 10, 12 and 13. A test SHALL fail when a remote script or a request outside the Host list is added (Requirement 11.5).
+2. BEFORE the first Share action of a session, and in the details of every Share action, THE app SHALL state in words what a Sighting code contains: the observer's position to about 1 m, the position accuracy, the time, the direction and its uncertainty, and the Incident; that whoever holds the code sees where the observer stood and when; and that a code cannot be taken back once it has left the phone.
+3. THE app SHALL state, in the app and in `docs/` (judge-facing), for **each Transport** of the release, exactly what leaves the phone, when, and who can see it, as this table, kept in step with the code by a test that reads it:
+
+   | Channel | What leaves the phone | When | Who sees it |
+   |---|---|---|---|
+   | Link (Requirement 10) | the Sighting code, in the fragment of a link the user sends | on the user's Share action | the messaging service and its operator, the recipient; never the Vigia host (a fragment is not sent in a request), unless the messaging service fetches the link for a preview, in which case it fetches without the fragment |
+   | QR code (of the link) | the same link, drawn on the screen | on the user's Share action | the person who reads it with a camera application, and whatever that application does with the address (it may look the address up; Vigia cannot control it, Device check V1); then the app's host receives the request for the page without the fragment |
+   | Text code | the same code, shown or copied | on the user's Share action | whoever the user pastes it to |
+   | Relay (if chosen, Open question O1) | the same code, to the relay, with the phone's network address | on the user's Share action | the relay's operator and everyone holding the Incident id |
+   | Hotspots | an area, snapped to the hotspot grid, and the phone's network address | when the user switches the Overlay on, and on refresh | the hotspot Source |
+   | Wind | one point, rounded to the wind grid, and the phone's network address | when the user switches the Overlay on, and on refresh | the wind Source |
+   | Tiles | the tile addresses of the area on the screen, and the phone's network address | while the map is shown and a Tile source is set | the tile Source |
+   | The page itself | a request for the page's files, with the phone's network address | on opening | the host of the app |
+   | Clipboard and share sheet | the text the user chooses | on the user's act | wherever the user pastes or sends it |
+
+4. THE app SHALL keep a Sighting only on the phone in the Storage adapter, SHALL expire Incidents (Requirement 4.5), and SHALL put no position in a URL's path or query string, in a log, in the console or in a page title, and none in the browser history beyond what the user sees (Requirement 10.3).
+5. THE app SHALL show, on the Incident screen, which of its Sightings have been shared and by which channel on this phone, so that the user knows what has left.
+6. THE app SHALL NOT share a Sighting that has been set aside by the user as wrong, without telling the user that it is set aside, and SHALL show to the receiver of a code nothing about whether the sender hid or set aside it.
+7. THE app SHALL say, where a code is added, that a code has no proof of who made it: anyone with an Incident id can make a Sighting that looks real, and a mistaken or false Sighting can move the Fix; the app shows every Sighting on the map and in a list, with its origin (this phone or received) and its time, and the user can hide one (Requirement 5.6).
+8. THE received Sightings' observers' positions SHALL be shown only to the user who adds them to an Incident, and SHALL be deleted with the Incident.
+9. FOR ALL sequences of 0 to 200 actions of Requirements 3 to 14 with a fake Network gate, a fake Transport, a fake Clipboard adapter and a fake Storage adapter, a Sighting code, an observer's position or a Bearing's azimuth SHALL appear in no input of the Network gate, no URL path or query (the page's address in the history API calls), no log call and no title change; and a code SHALL appear in the fake Transport and the fake Clipboard adapter only after a Share action or a Copy that the sequence contains.
+
+### Requirement 16: Stating the limits
+
+**User Story:** As a user, I want the app to say how far to trust a compass sighting and how to aim, so that I take the number for what it is.
+
+#### Acceptance Criteria
+
+1. THE app SHALL show UI's limits note with every Bearing and every Fix, and SHALL state beside the Fix's ellipse: that phone compasses are off by several degrees, that the ellipse is 95 % under the assumptions of Requirement 6.3, and that calibrating on the Sun or a landmark, through the skeleton's north-setting controls, reduces the north error.
+2. THE app SHALL tell the user to aim at the base of the smoke column, where it meets the ground or the ridge, and not at the top, which the wind has moved; to stand where the smoke is clearly in view; to hold the phone still until the steadiness reads steady (UI's Live readout); and, WHERE a wind reading is shown, that the smoke leans downwind (Requirement 13.5).
+3. THE app SHALL tell the user that it uses the phone's own compass and location, and that a reading taken near a vehicle, a power line or steel is less reliable, when the sensor reports a poor compass accuracy (`compass_unreliable`) or a coarse location (`coarse_location`), through the Messages of UI.
+4. THE app SHALL NOT show, in any text, a number as the smoke's position, direction or distance without its uncertainty beside it in the same sentence group (Requirement 6.4, 14.8). A test SHALL scan the words functions with generated Fixes for a decimal degree or a distance not followed by a metre or degree uncertainty in the same text.
+5. WHEN the Sensor source or the Position fix is not available, THE app SHALL say what is missing (UI's Messages), and the rest of the app (an incident received from others, the Fix, the Emergency text) SHALL work.
+
+### Requirement 17: The reviewer's path
+
+**User Story:** As a reviewer on a laptop with no phone and no network, I want to run the whole flow from synthetic scenes, so that I can see Vigia work without going outside.
+
+#### Acceptance Criteria
+
+1. THE app SHALL start in Simulation mode when the browser has no `DeviceOrientationEvent` (a feature test, never the user-agent string), and SHALL offer the mode on a visible control otherwise, as the Playground of UI does. Simulation mode SHALL use the Simulator source and the Simulator panel of UI, and Scene images in place of the camera.
+2. THE app SHALL provide at least these Synthetic scenes, built from UI's synthetic origin and offsets in metres, with a target labelled "Smoke column" (a landmark of the scene) and a script per Station that starts pointed at it: **two posts** (the skeleton catalogue's two Stations, a Fix with a `poor` or `fair` geometry); **three posts** (a third Station off the line, to show the Next-sighting advice improve the Fix); **four posts with one wrong** (one Station whose script is pointed 12° off, so that Core's outlier rejection sets it aside and the screen shows the cause); and **two posts almost in line** (the `singular_geometry` or `poor_geometry` case). Each scene SHALL pass UI's scene validation and the Simulator's script validation.
+3. THE Reviewer SHALL be able to run, with no phone, no sensor and no network: choose a scene, grant the permission, reach `live`, freeze, capture at one Station (by the crosshair or by marking the smoke, Requirement 3.3), change the Station, capture again, see the Fix with its ellipse and its words, see the Next-sighting advice, open the Emergency text, produce a Sighting code of one Station's capture, paste it into the other "phone" (Requirement 17.5), and see the merged Fix.
+4. EVERYTHING that Simulation mode shows SHALL be marked as simulated: a persistent banner on every screen, and in every Emergency text and Sighting code produced in it (a code made in Simulation mode SHALL carry no mark on the wire, but a phone that receives a code whose Incident was created in Simulation mode SHALL say so; the app SHALL keep the Incident's mode and SHALL not share a Simulation Incident to the Transport except to another Simulation phone). IN Simulation mode, THE Overlays SHALL read from synthetic fixtures and not from the network.
+5. THE Simulation mode SHALL be able to hold two or more simulated phones in one page (the in-memory Transport of Requirement 9.2), each with its own Station, Incident store and Storage, so that sending a code from one and receiving it on the other is shown with no real second phone.
+6. THE app's flow of Requirement 17.3 SHALL make no network request: with a Network gate that records and refuses every call, the flow SHALL complete. WHILE the browser reports offline, the capture, the Fix, the words, the Emergency text and the text Transport SHALL work; the Sighting QR SHALL be shown and SHALL be said not to work offline (Requirement 10.7).
+7. THE reviewer's path SHALL be covered by an integration example test in the simulated DOM, with the Simulator source, a fake Timer, the in-memory Transport, a fake map, fake Storage and a recording Network gate: it SHALL run each scene of criterion 2 to its expected end (the Fix's words, the advice, the set-aside cause), and SHALL check the Bearings' azimuths against the Targets' true azimuths within `1e-8` rad on a copy of the scene with its noise set to `0`, as UI's Playground test does.
+8. THE scenes, Stations, targets, codes and fixtures SHALL be synthetic: every position derived from the origin at `30° N, 40° W` by offsets in metres, with no value from `notes/`.
+9. FOR ALL scenes of criterion 2 whose Bearings are consistent (two posts, three posts, two posts almost in line, but not the scene with one wrong Station), with each Station's `northErrorRad` drawn per run from a normal distribution with mean `0` and the heading sigma of Sensors (`HEADING_SIGMA_RAD`, the north error that the ellipse budgets), the catalogue's orientation noise kept, a seed passed as an argument and 400 runs per scene (statistical test), the synthetic target SHALL lie inside the 95 % ellipse of the Fix in at least `90 %` and at most `99 %` of the runs in which `solve` succeeds; the number of runs, the number in which `solve` failed and the share inside SHALL be reported. A result outside the bounds SHALL stop the work and be classified, as for any property (`testing.md`, rule 1): code, property or requirement, and which (Open question U2). The test does not draw from the scene's own zero north error, which would make the target fall inside the ellipse every time and test nothing.
+
+### Requirement 18: The map
+
+**User Story:** As a dispatcher, I want one map that shows the observers, the lines, the Fix and the overlays without hiding any of them, so that I see how the pieces fit.
+
+#### Acceptance Criteria
+
+1. THE map SHALL be UI's `MapView`, and the Fix's Point and ellipse SHALL be drawn only by UI's `setFix`, with its rules (UI Requirement 15).
+2. THE app SHALL import the stylesheet of `maplibre-gl` once, at its entry (UI's README).
+3. THE app SHALL draw the used Sightings' lines and Wedges (`setBearings`) and the observers (`setObservers`); a Sighting that is set aside SHALL be shown in the list with its cause, and drawn on the map in a way that tells it apart from a used one (drawn through the general layer of G1, as G2 decides), so that a user sees which line was left out.
+4. THE app SHALL draw the hotspot footprints and the wind arrow (Requirements 12.5, 13.3) in the same map, under the Fix and its ellipse, and SHALL name each in a legend on the screen with its Source and its time (through the layer of G1).
+5. THE app SHALL fit the map to the observers, the Fix and the hotspots in view; WHEN the extent crosses the antimeridian, THE map SHALL show the failure `crosses_antimeridian` through `messageFor`, as UI does.
+6. THE map SHALL show the Tile source's attribution when a Tile source is set; with none, the plain background (Requirement 11.8).
+7. THE map SHALL draw an observer's position as a marker and SHALL list the position accuracy beside the Sighting in the list; THE accuracy circle SHALL NOT be drawn when it is under the marker's size.
+
+### Requirement 19: Default parameters
+
+**User Story:** As the project's maintainer, I want each tunable limit named, with its unit and its reason, so that a reviewer can see what the app assumed and the device checks can change it.
+
+#### Acceptance Criteria
+
+1. THE Vigia package SHALL export, from one module, these named constants, all values being proposals confirmed by the device checks or the lead (Open questions U4, V8): `MAX_INCIDENT_AGE_MS` (30 minutes: the age of the newest used Sighting beyond which an older one is set aside; the proposal rests on a fire's smoke column staying in place for tens of minutes and moving afterwards); `INCIDENT_RETENTION_MS` (24 hours); `CLOCK_SKEW_TOLERANCE_MS` (2 minutes); `MAX_SIGHTINGS_PER_INCIDENT` (32); `PLAUSIBLE_RANGE_M` (50 000 m); `LONG_ELLIPSE_RATIO` (3); `FAIR_ELLIPSE_RATIO` (1.5); `MAX_CODE_LENGTH_CHARS` (2 048); `MAX_LINK_LENGTH_CHARS` (160, so that its QR is of a version that a phone scans at arm's length); `MAX_EMERGENCY_TEXT_CHARS` (800); `HOTSPOT_GRID_DEG` (0.5°) with a margin of one grid cell; `MAX_HOTSPOT_AGE_MS` (24 hours); `MAX_HOTSPOT_COUNT` (500); `MAX_HOTSPOT_BOX_DEG2` (16); `WIND_GRID_DEG` (0.1°); `MAX_WIND_AGE_MS` (3 hours); `MAX_RESPONSE_BYTES` (1 000 000); `REQUEST_TIMEOUT_MS` (10 seconds); `SIMULATION_TAP_SIGMA_PX` (3 CSS pixels, used only in Simulation mode, Requirement 3.3; the measured tap precision of UI's Device check 8 replaces it when it exists). Each SHALL carry a comment with its unit and the reason for its value.
+2. EACH function of the Math layer SHALL take its values as parameters and SHALL NOT read a default implicitly; the defaults SHALL be assembled once into a parameters record.
+3. IF a parameter is `NaN`, infinite, not positive, or inconsistent (a retention not longer than the maximum Incident age; a grid not positive; a ratio not above 1; `FAIR_ELLIPSE_RATIO` not below `LONG_ELLIPSE_RATIO`), THEN the function SHALL return a failure with reason `invalid_number` naming the parameter.
+4. THE documentation of each constant SHALL state whether it comes from a measurement, from a published threshold of the skeleton (`20°` of `poor_geometry`, `3.5` of the outlier rule) or from judgement, so that a reviewer can tell them apart.
+
+### Requirement 20: Dependencies
+
+**User Story:** As the project's maintainer, I want a new dependency to be added only with my agreement, so that the application stays lean and a build is reproducible.
+
+#### Acceptance Criteria
+
+1. THE `package.json` of Vigia SHALL pin every dependency to an exact version, SHALL list `@alidade/core`, `@alidade/sensors` and `@alidade/ui` as `workspace:*`, and SHALL use the same versions of React, `maplibre-gl`, Vite, TypeScript, Vitest and `fast-check` as UI.
+2. THE Vigia package SHALL NOT add a dependency without the lead's agreement given in writing for that dependency (Open question U8), and every version it adds SHALL have been published at least 14 days before it is installed, with its publication date recorded in the design (as in UI's Requirement 20.6).
+3. THE Vigia package SHALL NOT add a state-management library, a CSS framework, a component library, an HTTP client, a date library, a geometry library or a cryptography library, and SHALL NOT add a dependency to do what takes under 30 lines to write correctly (`tech.md`); the check value of Requirement 8.6, the alphabet of 8.2, the link of 10.2 and the Host check of 11.9 are such.
+4. THE Sighting QR needs one QR encoder, which is not written by hand and is not added before the design has proposed candidates (with their size, licence, publication date, recorded as Requirement 20.2 requires, and maintenance) and the lead has agreed. Vigia adds no QR decoder and no scanner (Requirement 10.5).
+5. THE Vigia package SHALL read no secret from the repository (Requirement 11.6).
+
+### Requirement 21: Testing split
+
+**User Story:** As the project's maintainer, I want the logic tested by properties and the screens by examples against fakes, so that everything runs on a laptop with no phone and no network.
+
+#### Acceptance Criteria
+
+1. THE Vigia Math layer SHALL be covered by a property test for every FOR ALL criterion of this document, each named with the criterion it validates in a comment above it, with at least `200` cases per property, generators that state their domain, and an example test of every degenerate case a generator excludes (`testing.md`).
+2. THE Components layer SHALL be covered by example tests in a simulated DOM, against the Simulator source, fake Timers, the in-memory Transport, fake Storage, fake Clipboard, a fake map and a recording Network gate.
+3. THE Adapters SHALL be covered by example tests against fakes of the browser objects they wrap.
+4. EACH Vigia reason SHALL be shown at least once in a component test through `messageFor`, and a test SHALL fail when a reason is added to the closed set and not to the table of Messages (Requirement 2.3).
+5. THE tests SHALL use no real network, no real camera, no real clock and no real randomness: seeds, times and random bytes are arguments.
+6. THE shrunk counterexample of every property that finds a bug SHALL be kept as an example test, and fixtures (codes, Emergency texts, Overlay responses, scenes) are synthetic and read-only.
+7. `pnpm test` SHALL run every test once and exit; no task SHALL start a development server or a watch mode.
+
+## Device checks
+
+These can be confirmed only on phones or with real services. None of the criteria above depends on their outcome, but each, once measured, may change a default or a Requirement. Results that name real places stay in the private `notes/`; only aggregate numbers (a rate, a size, a pass or fail) come into the repository.
+
+V1. **QR round trip.** Show a Sighting QR from the iPhone 13 (Safari) and the Xiaomi (Chrome) to the other phone's own camera application, indoors and in full sun, at arm's length and at 1 m, at the lowest and highest screen brightness; record the version of the QR, the link length, the success rate over 20 tries and the time to read, and that the link opens in the browser and not in an in-app browser. Check whether each camera application looks the address up (sends it to a third party) before opening it.
+V2. **Links through messaging.** Send a Sighting link between the two phones through SMS, the messaging apps the team uses and email; check that the fragment survives, that the link opens in the system browser and not in an in-app browser without sensors or camera, that the message's link preview does not alter or drop it, and what an in-app browser allows.
+V3. **Offline.** Load the app, switch to airplane mode, and run the sighting, the Fix, the words, the Emergency text and a text-code exchange (and that the QR link needs the connection to load the page); check that the page survives a reload with no network (and what the host's caching does, Open question U9).
+V4. **Persistence.** Capture, lock the screen for 10 minutes, switch app and return, kill the browser; check what the Storage adapter returns on iOS Safari and Chrome for Android, including private browsing.
+V5. **Clipboard and share sheet.** Check that Copy works from a tap on both phones, and what `navigator.share` offers.
+V6. **Coverage of the ellipse.** Take sightings of a surveyed fixed target (a tower or a chimney) from three or more places with two phones, at least 20 Fixes in all, and record the share of Fixes whose 95 % ellipse contains the surveyed position and the Bearings' errors. If the share is far from 95 %, the sigma of the skeleton's Bearing (or the compass model) is wrong and Requirement 6.3's statement is revised before a demo. The result is information (`testing.md`, rule 1).
+V7. **Aiming at smoke.** With a distant, safe, real smoke source (a permitted burn, a chimney), compare the Bearings taken at the base and at the top of the column, and the effect of wind on the difference; check whether the guidance of Requirement 16.2 is understood by a person who has not seen it.
+V8. **Parameters.** Judge with a firefighter or a volunteer whether 30 minutes (`MAX_INCIDENT_AGE_MS`), 2 minutes of clock skew, 50 km of range and the 3:1 elongation are sensible; a person's reading of the Emergency text to an operator (a rehearsal with a colleague, not a real call) is part of it.
+V9. **Sources reachable.** From the networks the team uses (including China and a mobile network), check that the hotspot Source and the wind Source answer from a browser (cross-origin permission, rate limits), what they return for an area, and which tile Source loads (UI's Open question 4).
+V10. **Reading in the field.** Read the words, the Emergency text and the map outdoors in full sun, with one hand, on both phones (as UI's Device check 7).
+
+## Open questions
+
+Each question has a proposal. Decisions of the lead's review of 2026-11-18 are recorded with each question as "Decided:". The first group is for the project's lead; the second belongs to the owner of the project (hosting, accounts, keys, cost, legal). Questions G1 to G4 list what the skeleton lacks.
+
+### Questions the lead can decide
+
+**U1. Tapping the smoke, or the crosshair only.** UI needs a Camera calibration (field of view with its sigma) to turn a tap into a direction, and nothing defaults it; Device check 1 of UI has not yet measured it. Proposal: v1 sights along the crosshair only (Requirement 3.3), with no tap on the image; a Mark is offered only on a phone with a measured calibration, once a measurement and a table of devices exist. The crosshair's alignment with the optical axis is also not established (UI's Open question 8); the limits say so.
+
+Decided: on a phone, the crosshair only. In Simulation mode the Mark is offered, with the scene's calibration and the named tap sigma for simulation (Requirements 3.3, 19.1), so that a reviewer sees the feature.
+
+**U2. How much to trust Core's outlier rule, and the coverage test.** Core examines outliers only while four or more Bearings remain, and two Bearings cannot check each other at all. With three Bearings and two unknowns one degree of freedom is left, so the residuals say that the sightings disagree and not which one is off (Requirement 5.5). Proposal: keep Core's rule as it is (Requirement 5.3, 5.4), say its limits in words, and let the statistical test of Requirement 17.9 and Device check V6 tell whether the stated sigma is honest.
+
+Decided: Core's rule as it is, with its limits said in words. The coverage test draws each Station's north error per run (Requirement 17.9), 400 runs per scene, bounds `90 %` to `99 %`, and a result outside them stops the work and is classified.
+
+**U3. Withdrawal in the first release.** Without it, a sent Sighting that was a mistake cannot be taken back anywhere. Proposal (superseded): include it in the first version of the code.
+
+Decided: not in v1. The code keeps its `kind` field so that a later version can add Withdrawal; a code of an unknown kind is refused like an unknown version (Requirement 8.5). Requirement 15.2 tells the user that a shared code cannot be taken back.
+
+**U4. The defaults of Requirement 19.1.** `MAX_INCIDENT_AGE_MS` of 30 minutes, `CLOCK_SKEW_TOLERANCE_MS` of 2 minutes, `PLAUSIBLE_RANGE_M` of 50 km, the ellipse ratios 1.5 and 3, 32 sightings, a grid of 0.5° for hotspots and 0.1° for wind. They are my judgement, not measured. Proposal: accept them as drafted, and let Device check V8 revise them.
+
+Decided: as proposed (Requirement 19.1), to be revised by Device check V8.
+
+**U5. Persistence on the phone.** Keeping Incidents in the Storage adapter survives a reload and a discarded page, but leaves positions on the phone. Proposal: persist, with 24 hours of retention, a visible "delete everything" control and a clear statement (Requirements 4.4, 4.5, 15.4); the alternative is memory only, which loses a sighting when iOS discards the page.
+
+Decided: as proposed.
+
+**U6. A sentence about a hotspot near the Fix.** Proposal: only a fact ("the nearest detection is 2.1 km from this position, seen 3 hours ago"), never "confirms"; or leave it out of the first release. Decide which.
+
+Decided: the factual sentence, never "confirms" (Requirement 12.8). It belongs to the hotspot Overlay and is cut with it.
+
+**U7. The observer's own position in the Emergency text.** Proposal: off by default, one switch to include it, because an operator often asks "where are you?" and a person may want to give it, and because it is the user's own data in the user's own text.
+
+Decided: as proposed.
+
+**U8. New dependencies.** One QR encoder is needed to draw the Sighting QR. Neither an encoder nor a decoder should be written by hand (`tech.md`).
+
+Decided: no QR scanner in the app and no decoder; the Sighting QR holds the Sighting link and the receiving phone's own camera application reads it and opens the link in the browser (Requirement 10.5). One QR encoder dependency only, which the design proposes with candidates, sizes, licences and publication dates; the 14-day rule holds (Requirement 20). Until it is agreed the link and the text work and the QR is pending.
+
+**U9. Offline use before the first load.** Rural users may have no signal when they need the app. A cached app (a service worker) makes the page open offline after one visit. It is a feature the skeleton has none of. Proposal: not in v1; state in the README that the page must be opened once with a connection; add it as a later requirement if Device check V3 shows it matters.
+
+Decided: as proposed. The QR and the link need the receiving phone to load the page, and the app says so (Requirement 10.7).
+
+**U10. Merging two Incidents of the same smoke.** Two people may have started separate Incidents for one smoke. Proposal: v1 does not merge.
+
+Decided: as proposed, and no moving of a Sighting between Incidents either (removed from Requirement 4). To correct a grouping the user deletes a Sighting and takes or receives it again.
+
+**U11. Overriding a set-aside Sighting.** Proposal: no override in v1 except hiding and showing (Requirement 5.6); a Sighting set aside as too old or time-implausible stays out until its cause no longer holds.
+
+Decided: as proposed.
+
+**U12. Names and free text.** Proposal: none on the wire in v1 (Requirement 8.1); Sightings are shown as "this phone" and "received at hh:mm". Names add a privacy and an injection surface and need a rule for display.
+
+Decided: as proposed.
+
+**U13. Time display.** The Math layer works in UTC (`math-conventions.md`). Proposal: show times in UTC with the age ("14:07 UTC, 12 min ago") in the Emergency text, and the phone's local time beside it on screen only.
+
+Decided: as proposed.
+
+**U14. Language.** Proposal: English only, as UI; the Messages table is built to be translated later.
+
+Decided: as proposed.
+
+**U15. In-app browsers.** WeChat and other in-app browsers may deny the camera or the motion sensors. Proposal: detect the missing sensors by feature test and say "open this link in your browser" (a Message), and record in Device check V2 which ones work.
+
+Decided: as proposed.
+
+### Questions that belong to the owner
+
+**O1. How sightings travel between phones.** Options and costs, for the owner to decide; Requirement 9 keeps the choice replaceable.
+
+| Option | Needs a server | What leaves the phone, and who sees it | Works offline | Real-time between people far apart | Cost |
+|---|---|---|---|---|---|
+| A. Link by any messenger (fragment) | none beyond the static page | the code, to the messaging operator and the recipient | the exchange needs the messenger's network; the page must be open already | after the recipient opens it, not live | lowest; the page needs a link and short codes |
+| B. QR code of the link, read by the other phone's own camera application | none | the link, to the person who reads it and to whatever the camera application does with the address | no: the receiving phone must load the page | only when the phones meet | one QR encoder dependency (U8), no decoder; useless for observers kilometres apart; fits a household, a crew, and the reviewer's demo |
+| C. Text code, copied and pasted | none | as A, through whatever the user pastes into | as the channel | not live | smallest |
+| D. Relay with rooms | yes: an HTTPS service with storage, rate limits and a deletion rule | the code and the phone's network address, to the operator | no | yes, by polling or push | hosting, uptime in an emergency, abuse, retention, and data-protection duties for the positions of private persons; a no-account design can be done, but the room id is then the only gate |
+| E. Peer to peer (WebRTC) | a signalling server and often a relay for networks that block direct links | the code and addresses, to the signalling operator and the peer | no | yes | as D plus complexity; not proposed |
+| F. The share sheet (`navigator.share`) | none | as A | as the chosen app | as A | no cost; it is the sending half of A |
+
+My proposal, as the lead leaned: **A, B and C in the first release**, with no server, sharing one code (Requirement 10; B is a QR of the link), and the in-memory Transport and the interface of Requirement 9 in place so that D can be added later by one module. A caveat the owner should weigh: B works only when phones are together, so for observers at different places the real channel is A through a messenger. If the project's story needs live sharing between strangers, D is the only option that gives it, and it brings the costs of O3 below.
+
+Assumed until the owner answers (lead's decision of 2026-11-18): A, B and C with no server.
+
+**O2. Where the app is served from.** A static host over HTTPS (required for the camera and the sensors), its domain, and its response headers: `Referrer-Policy: no-referrer`, a Content-Security-Policy whose `connect-src` and `img-src` list the hosts of the Host list (a second line of defence beside Requirement 11), `Cache-Control` for the page, and no access logs of the full request URL longer than needed. Proposal: any static host that lets the owner set these headers; the app builds its links from the page's own address, so no domain is in the code.
+
+Open, with the owner.
+
+**O3. Accounts, relay operation and data protection.** If a relay is ever chosen: who operates it, how long it keeps a Sighting, whether the owner accepts the legal duties of holding positions of private persons, how abuse is handled, and who pays. Proposal: decide only if O1 chooses D; until then the privacy table of Requirement 15.3 is the whole answer.
+
+**O4. The hotspot Source, its key and its terms.** Candidates to check, from memory and not verified for this draft: NASA FIRMS (needs a free map key; detections a few hours old for the polar satellites; a rate limit; terms to read), regional agencies (for example the European EFFIS), and geostationary products (fast but coarse). The owner decides which, registers any key, and reads the terms about display, attribution and use from a browser.
+
+Assumed until the owner answers (lead's decision of 2026-11-18): NASA FIRMS, which needs a `MAP_KEY` that is part of the request path and so is public in a browser app. Whether its API allows cross-origin requests is not known (Device check V9). The hotspot Overlay therefore ships switched off with `overlay_needs_key` unless a key is given at build time, and works from synthetic fixtures in Simulation mode (Requirement 12.9). The owner decides about a key or a proxy later; nothing waits for it.
+
+**O5. A key in a browser app is public.** A key that Vigia reads at build time ends up in the page's files, visible to everyone and usable by anyone, and counts against one quota. Options: a key shared in the bundle (simple, abusable, and the Source's terms may forbid it), each user pasting their own (kills "no account" for the Overlay), or a small proxy that holds the key (a server, so O3 applies). Proposal: do not ship a key in the bundle without the Source's written terms allowing it.
+
+Assumed until the owner answers: as in O4, the Overlay is off without a build-time key; the key, if given, is documented as public in the Host list (Requirement 12.9).
+
+**O6. The wind Source, its terms and its cost.** National weather services are the alternative (often regional). The owner decides, reads the terms (attribution, rate, commercial use, display of data from a browser) and records them in the Host list.
+
+Assumed until the owner answers: Open-Meteo. As checked by the lead on 2026-11-18: no key; cross-origin requests allowed; attribution required under CC BY 4.0; free use is non-commercial only and limited to under 10 000 calls a day. These terms are to be accepted by the owner before a public link; the draft records them as the lead found them and does not verify them.
+
+**O7. The Tile source and its terms.** As UI's Open question 4: which tile provider, its usage policy and its cost at demo scale, and which one loads from China. A public demo link is not published before the terms are read.
+
+Open, with the owner.
+
+**O8. Wording that carries liability.** The statements that the app does not call anyone, is not certified, is not a replacement for the emergency number, and its limits (`product.md`, non-goals). Proposal: the owner approves the text of those statements, the privacy table of Requirement 15.3, and a short privacy note for `docs/`, before the demo link is public.
+
+Open, with the owner.
+
+## What the skeleton lacks for Vigia
+
+These were for the lead to decide; none is written in the app (Requirement 1.6). The skeleton is not changed by this specification.
+
+- **G1. An extra layer on the map.** UI's map adapter draws observers, bearings and the Fix only, with a style with no text layer. Vigia needs hotspot footprints and a wind arrow on the same map and in the same style rules, and a legend. Without a general operation the app would need its own map instance, which breaks the single place where a Fix is drawn with its ellipse. Options: add to the adapter one general operation that draws a named GeoJSON layer with a stated paint (nothing Vigia-specific; Nonius could draw its own layers with it); or draw the Overlays outside the map in a text list for the first release. Proposal: add the general operation.
+
+  Decided: approved as an addition to skeleton-ui, to be specified and built there before Vigia's design relies on it.
+- **G2. A way to draw a bearing differently.** A Sighting set aside should be seen on the map in a different style (grey, dashed). `setBearings` takes a list and draws all alike. Options: a per-bearing style property in the adapter (small and general), or draw set-aside lines through G1's layer. Proposal: G1's layer, so that the skeleton gains one operation and not two.
+
+  Decided: approved, through G1's layer.
+- **G3. Scene building for the app.** `sceneFromOffsets` and `SceneSpec` exist in UI but are not exported, and the catalogue holds no scene with a smoke target, three posts, or four posts with one wrong. The app can build `SyntheticScene` data by hand, but a script (`SimulatorScript`) per Station is the catalogue's work. Both apps need to build their scenes (Nonius needs stars and the Sun). Proposal: export `sceneFromOffsets`, `SceneSpec` and the script builder from UI's `src/index.ts`; the app's scenes stay in the app.
+
+  Decided: approved as an addition to skeleton-ui, to be specified and built there before Vigia's design relies on it.
+- **G4. Nothing for the sighting code, the Incident, the Transport, the advice, the words or the host list.** These are Vigia's alone and stay in `apps/vigia`. The skeleton's `Bearing` wire format already exists in Core; the compact sighting code of Requirement 8 is not a replacement for it and does not enter Core. The app replaces the Bearing's `id` itself (Requirement 3.4); UI's naming of it (`bearing-<time>`) can collide across phones, which I record here as a defect to be known, not asked to change.
+
+  Decided: stands as written.
