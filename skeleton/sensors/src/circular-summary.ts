@@ -1,6 +1,6 @@
 // Summaries of the angles in a Sighting window (design §7.5, D5, D19).
 
-import { circularMean, wrapPi } from '@alidade/core';
+import { circularMean, wrapPi, wrapTwoPi } from '@alidade/core';
 import { err, ok, type SensorResult } from './sensor-result';
 
 /** Below this mean resultant length (`q = 1 - R̄` at or above `1 - 1e-9`) the mean is undefined. */
@@ -25,8 +25,17 @@ export interface AzimuthSummary {
  * Fails with `invalid_number` for a non-finite angle, `insufficient_samples` for an empty set,
  * and Core's `undefined_mean` when the mean is undefined.
  */
-export function summariseAzimuths(anglesRad: readonly number[]): SensorResult<AzimuthSummary> {
-  if (anglesRad.length === 0) return err('insufficient_samples');
+export function summariseAzimuths(rawAnglesRad: readonly number[]): SensorResult<AzimuthSummary> {
+  if (rawAnglesRad.length === 0) return err('insufficient_samples');
+  // Every angle is reduced to [0, 2π) first, so that the mean (sin and cos of the angle) and the
+  // differences (`wrapPi`, a remainder by a rounded 2π) see the same number. Without it,
+  // identical angles of 1e300 rad gave a Spread of about 0.76 (Req 11.8, design D25).
+  const anglesRad: number[] = [];
+  for (const rawAngleRad of rawAnglesRad) {
+    const reduced = wrapTwoPi(rawAngleRad);
+    if (!reduced.ok) return reduced;
+    anglesRad.push(reduced.value);
+  }
   const mean = circularMean(anglesRad);
   if (!mean.ok) return mean;
   let sumSquares = 0;
@@ -74,7 +83,13 @@ export function summariseAltitudes(altitudesRad: readonly number[]): SensorResul
   );
   let sumSquares = 0;
   for (const altitudeRad of altitudesRad) sumSquares += (altitudeRad - meanRad) ** 2;
-  return ok({ meanRad, stdDevRad: Math.sqrt(sumSquares / altitudesRad.length) });
+  const stdDevRad = Math.sqrt(sumSquares / altitudesRad.length);
+  // Altitudes near ±Number.MAX_VALUE overflow the sums; the summary is then not a number the
+  // caller can use (Req 11.8), whatever the arguments. Real altitudes lie in [-π/2, π/2].
+  if (!Number.isFinite(meanRad) || !Number.isFinite(stdDevRad)) {
+    return err('invalid_number', { field: 'altitudesRad' });
+  }
+  return ok({ meanRad, stdDevRad });
 }
 
 /** Combines independent 1-sigmas as the square root of the sum of squares. */

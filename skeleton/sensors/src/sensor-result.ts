@@ -54,6 +54,52 @@ export type SensorReason =
   | 'too_unsteady'
   | 'invalid_altitude';
 
+const SENSOR_REASON_SET = {
+  // Core's reasons, unchanged (Req 11.1).
+  invalid_number: true,
+  undefined_mean: true,
+  coincident_positions: true,
+  unsupported_position: true,
+  invalid_observation: true,
+  unsupported_format: true,
+  not_converged: true,
+  singular_geometry: true,
+  insufficient_observations: true,
+  colocated_observers: true,
+  diverging_bearings: true,
+  out_of_range: true,
+  // Added here.
+  permission_denied: true,
+  permission_required: true,
+  sensor_unavailable: true,
+  insecure_context: true,
+  position_unavailable: true,
+  position_timeout: true,
+  coarse_location: true,
+  stale_position: true,
+  invalid_position: true,
+  axis_vertical: true,
+  compass_unreliable: true,
+  no_yaw_reference: true,
+  stale_yaw_reference: true,
+  frame_reset: true,
+  declination_unknown: true,
+  insufficient_samples: true,
+  stale_samples: true,
+  too_unsteady: true,
+  invalid_altitude: true,
+} as const satisfies Record<SensorReason, true>;
+
+/**
+ * Every member of `SensorReason`, as a list (Req 1.10). `satisfies Record<SensorReason, true>`
+ * makes the compiler fail if a reason is missing from the object or is not in the union, so the
+ * list cannot drift from the type. Core's reasons are listed by hand because Core, which is not
+ * changed for this, exports its `Reason` as a type only.
+ */
+export const SENSOR_REASONS: readonly SensorReason[] = Object.freeze(
+  Object.keys(SENSOR_REASON_SET) as SensorReason[],
+);
+
 /** `field` names the offending field and `id` the offending observation, where they apply. */
 export interface SensorFailure {
   readonly ok: false;

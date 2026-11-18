@@ -495,3 +495,70 @@ Package: `skeleton/sensors` (`@alidade/sensors`). Source of truth: `requirements
     test, that each names the property and its requirements in a comment, and that each runs at
     least 200 cases in `pnpm test`. Give a table of every requirement criterion and the tests
     that cover it. Report the result and stop for review.
+
+- [x] 19. Amendment: the Simulator's true pose and aim (Requirements 12.9 to 12.11)
+  - Added after the review of `skeleton-ui`, which needs the true pose of the simulated camera
+    to draw a synthetic scene and to let a reviewer aim it. No other module changes.
+  - [x] 19.1 Implement `truePose` and `aim` in `src/simulator/`
+    - `TruePose` and `checkTruePose` in `simulator-script.ts` (`ALTITUDE_LIMIT_RAD` becomes the
+      exported `MAX_POSE_ALTITUDE_RAD`, not re-exported from the index); `truePose` and `aim` on
+      `SimulatorControls`, `aimedPose` as in §7.12 and D24; `TruePose` exported from `index.ts`.
+    - _Requirements: 12.9, 12.10_
+  - [x] 19.2 Example tests in `src/simulator/simulator.test.ts`
+    - The examples of §9 (Controls): the pose follows the script, is before noise and bias, is a
+      copy; aim replaces the pose from the current time on and keeps delivered samples; a second
+      aim replaces the first; `80°` accepted, `80.0001°` refused; each invalid pose names its
+      field, changes nothing and leaves later samples equal to a run without the call; aiming at
+      the script's own pose leaves the samples unchanged. The exact keys of the controls are
+      `advanceTo`, `truePose`, `aim` (the old test that listed `advanceTo` alone is updated: the
+      requirement changed).
+    - _Requirements: 12.9, 12.10_
+  - [x] 19.3 Properties P-12.11, P-12.10 and the extended P-12.8
+    - Generator `controlOps` (§8). P-12.8 now drives a sequence of control calls and compares the
+      results of the calls as well as the events; P-12.10 inserts invalid aims; P-12.11 aims a
+      `cameraPose` on a noise-free Absolute-frame script.
+    - _Requirements: 12.4, 12.8, 12.10, 12.11_
+  - [x] 19.4 Extend P-11.8's Simulator group
+    - Hostile poses to `aim`, `truePose` finite after each call, and an advance that generates
+      events from an accepted hostile pose.
+    - _Requirements: 11.8_
+  - [x] 19.5 Checkpoint
+    - `test:deep` for the Simulator properties (P-12.7, P-12.8, P-12.10, P-12.11) and P-11.8 at
+      10 000 cases; then `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm format:check`. Update
+      `coverage.md`. Report counts, discards and worst errors, and stop on any failing property.
+
+- [x] 20. Amendment: rules shared with the user interface (Requirements 1.10, 3.10, 3.11, 12.12, 12.13)
+  - Added after the review of `skeleton-ui`, which would otherwise repeat these rules. See D25.
+  - [x] 20.1 Export the shared rules (Req 1.10)
+    - `selectWindow`, `resetBetween` (not in the list of 1.10; see D25), `summariseAzimuths`,
+      `summariseAltitudes` and their result types, `invalidates`, `SENSOR_REASONS` (with
+      `satisfies Record<SensorReason, true>`), from `index.ts`; internal helpers stay internal.
+    - Make the two summaries total first (§7.5): angles reduced with `wrapTwoPi` before the mean and
+      the differences; `invalid_number` for an overflowing altitude summary. The example test of
+      `1e300` rad must fail on the old code (checked) and pass on the new.
+    - _Requirements: 1.10, 11.8_
+  - [x] 20.2 `rayOffsetOfDirection` (Req 3.10, 3.11, §7.2)
+    - In `ray.ts`; `checkDirection` exported from `rotation.ts` for it, not from the index.
+    - Examples: 10° right, the zero offset, exactly `80°` and `80.001°` on each axis, behind the
+      camera, exactly `90°` from the axis, each invalid field named.
+    - Generators `innerRayOffset` and `unitDirection`; properties P-3.11a and P-3.11b.
+    - _Requirements: 3.10, 3.11_
+  - [x] 20.3 `trueRotation()` on the Simulator's controls (Req 12.12, 12.13, §7.12)
+    - By the path of an event, through degrees; examples (points where aimed, equals a noise-free
+      sample's rotation exactly, unaffected by noise, bias, zero and Declination, follows `aim`
+      and the script); property P-12.13; the exact keys of the controls updated.
+    - _Requirements: 12.12, 12.13_
+  - [x] 20.4 P-11.8 for every newly exported function
+    - A group "exports of Req 1.10" and the inverse in the geometry group; `trueRotation` after
+      each hostile aim. A first run failed on `selectWindow`, which returns the caller's items
+      with their `NaN` fields: the property was wrong, not the function (it computes no number),
+      so the check became "fails, or returns a subset of the input in order".
+    - _Requirements: 1.10, 11.8_
+  - [x] 20.5 Checkpoint
+    - `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm format:check`; `test:deep` for the files
+      of every property that reads the summaries or the rays: ray (P-3.6 to P-3.11 at 100 000),
+      capture (P-8.x, P-9.x at 100 000 and 10 000), yaw-reference, sample-history, simulator
+      (P-12.x at 10 000) and hostile (P-11.8 at 10 000). All passed; worst errors: P-3.11a
+      `1.4e-15`, P-12.13 `9.8e-13` (camera axis; the ray angle was `0`), P-8.11 `2.9e-15`.
+      `coverage.md` updated.
+

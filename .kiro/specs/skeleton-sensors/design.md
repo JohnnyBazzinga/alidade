@@ -352,6 +352,41 @@ the `H` that `magvar` returns for the same position and time.
     from a history sees the same samples in the same order as a capture from the full sequence
     (Req 14.7).
 
+- **D24 — The Simulator's controls give the true pose and take an aim (Req 12.9 to 12.11).** A
+  user interface that draws the simulated camera's view, and lets a reviewer aim it, needs the
+  true pose at the current time. The alternatives:
+  - *Export `poseAt` and `rotationFromDirection` and let the interface compute everything.*
+    Rejected: the interface would repeat the interpolation (D16, §7.12) and the conversion
+    from a pose to a rotation (D18), and the copies could drift from the Simulator's own.
+  - *Restart the Simulator with a new script on each aim.* Rejected: it loses the sample history,
+    the Frame reset events and the Yaw reference of a session in progress, which is what a
+    reviewer wants to keep while aiming.
+  - *Two operations on the controls (chosen).* `truePose()` and `aim(pose)` add nothing to the
+    `SensorSource` interface, so a caller still cannot tell the Simulator from the Adapters
+    (Req 12.1). Only the pose is replaceable; the noise, bias, frame, heading and position of the
+    script stay as scripted, and aim draws no random number, so determinism holds for a sequence
+    of calls (Req 12.10). The limit `80°` is the one a script keyframe has.
+
+- **D25 — The rules a user interface must share are exported, not repeated (Req 1.10, 3.10, 12.12).**
+  `skeleton-ui` needs the window rule, the two summaries, the invalidation rule, the list of
+  reasons, the inverse of the Off-axis ray and the true Device rotation. Each could be repeated
+  in the UI in a few lines, and the repetition is the risk: a copy of the Spread already differed
+  from Sensors' (D5) in the one case that matters, and the UI's tests would only discover it
+  by accident. So Sensors exports:
+  - `selectWindow` and `resetBetween` (`sighting-window.ts`); `resetBetween` is not in the list
+    of Req 1.10 but it is the rule of Req 8.8 ("a Frame reset lies in the window") that the Live
+    readout needs, and a one-line copy is still a copy;
+  - `summariseAzimuths`, `summariseAltitudes` and their result types, made total first (§7.5);
+  - `invalidates` (`frame-reset.ts`), Req 5.17;
+  - `SENSOR_REASONS`: `const SENSOR_REASON_SET = { … } as const satisfies Record<SensorReason, true>`
+    and `Object.freeze(Object.keys(...))`. `satisfies Record<SensorReason, true>` fails to compile
+    if a reason is missing or extra, so the list cannot drift from the type. Core's twelve are
+    listed by hand because Core, unchanged, exports `Reason` as a type only;
+  - `rayOffsetOfDirection` (§7.2) and, on the Simulator's controls, `trueRotation()` (§7.12).
+  `rss`, `rotationMatrix`, `checkDirection` and the other helpers stay internal. *Rejected:* the
+  UI repeating each rule; exporting `rotationMatrix` (the UI would then write its own inverse; the
+  inverse of the ray is what it needs, and it is exported).
+
 ## 5. Module layout
 
 One concept per file, kebab-case, tests next to code (`structure.md`, `testing.md`).
@@ -369,7 +404,7 @@ skeleton/sensors/
     parameters.ts         validation of durations, counts, sigmas, scales, limits (Req 10.3)
     rotation.ts           DeviceRotation, EnuDirection, cameraAxis, rotationMatrix,
                           directionAzimuthRad, directionApparentAltitudeRad
-    ray.ts                RayOffset, offAxisRay, rayDirection (axis or ray)
+    ray.ts                RayOffset, offAxisRay, rayDirection (axis or ray), rayOffsetOfDirection
     orientation-sample.ts RawOrientationEvent, OrientationSample, orientationSampleFromEvent,
                           checkSampleValid (internal, D20)
     frame-reset.ts        FrameResetCause, FrameResetEvent, invalidates (D9)
@@ -683,7 +718,12 @@ export function createBrowserSensorSource(environment: BrowserEnvironment, clock
 // simulator/simulator.ts
 export interface SimulatorControls {
   advanceTo(timeUtcMs: number): SensorResult<void>;  // must not go backwards
+  truePose(): TruePose;                              // Req 12.9: before noise, bias and frame
+  trueRotation(): SensorResult<DeviceRotation>;      // Req 12.12: a perfect sensor, true north
+  aim(pose: TruePose): SensorResult<void>;           // Req 12.10: replaces the script's pose
 }
+// simulator/simulator-script.ts
+export interface TruePose { azimuthRad: number; apparentAltitudeRad: number; rollRad: number }
 export function createSimulator(script: SimulatorScript, seed: number,
   options: SensorSourceOptions): SensorResult<{ source: SensorSource; controls: SimulatorControls }>;
 ```
@@ -769,6 +809,17 @@ ill-conditioned.
 `rayDirection(r, o?)` returns `offAxisRay(r, o)` when an offset is given and `cameraAxis(r)`
 otherwise. Every capture goes through it (Req 3.5).
 
+`rayOffsetOfDirection(r, d)` (Req 3.10, 3.11, D25) is the inverse of `offAxisRay`. Validate `r`
+(`checkRotation`) and `d` (`checkDirection`: finite components, unit length within `1e-9`, naming
+`east`, `north`, `up` or `direction`). With `M = rotationMatrix(r)`, the device-frame direction is
+`(x, y, z) = Mᵀ · d`, that is `x = M₀₀e + M₁₀n + M₂₀u`, `y = M₀₁e + M₁₁n + M₂₁u`,
+`z = M₀₂e + M₁₂n + M₂₂u`. If `z ≥ 0` (at or behind the image plane, `90°` or more from the Camera
+axis) the result is `ok(null)`. Otherwise `rightRad = atan2(x, −z)` and `upRad = atan2(y, −z)`
+(Req 3.8); if `|rightRad|` or `|upRad|` exceeds `MAX_RAY_OFFSET_RAD` the result is `ok(null)`,
+else `ok({ rightRad, upRad })`. A direction the rays cannot name is therefore a success with
+`null`, not a failure: the caller asks "where on the image is this direction?", and "nowhere" is an
+answer. It uses `rotationMatrix` (internal) so that it is the exact transpose of `offAxisRay`.
+
 ### 7.3 Orientation samples (`orientation-sample.ts`)
 
 `orientationSampleFromEvent(raw, timeUtcMs, screenAngleDeg)`:
@@ -812,13 +863,21 @@ spread = sqrt(−2 · log1p(−q))
 
 `rss(a, b) = hypot(a, b)` combines 1-sigmas (Req 5.3, 6.3, 8.3, 9.3).
 
-The three functions are internal and are not exported from `index.ts`. They are not total on
-their own: `summariseAltitudes([1e308, 1e308])` overflows to a success holding `Infinity`, `rss`
-overflows the same way, and `summariseAzimuths([1e300, 1e300])` gives a Spread of about
-`0.76 rad` for identical angles, because the remainder of `1e300 − μ` modulo `2π` does not
-match `sin` and `cos` of `1e300`. Their callers pass only angles in `[-π, 2π)` and 1-sigmas the
-parameter checks have bounded, so none of this is reachable through the public API. Exporting
-them would require making them total first.
+`summariseAzimuths` and `summariseAltitudes` are exported from `index.ts` since task group 20
+(Req 1.10, D25); `rss` is not. They were not total, and were made so before they were exported:
+`summariseAltitudes([1e308, -1e308])` overflowed to a success holding `Infinity`, and
+`summariseAzimuths([1e300, 1e300])` gave a Spread of about `0.76 rad` for identical angles, because
+the remainder of `1e300 − μ` modulo `2π` does not match `sin` and `cos` of `1e300`. Now:
+- `summariseAzimuths` first reduces every angle with `wrapTwoPi` (a non-finite angle is
+  `invalid_number`, as before), so the mean, which takes `sin` and `cos`, and the differences, which
+  take a remainder, see the same number. The reduction changes an angle by at most one rounding
+  (`~1e-16`), inside every tolerance of Req 8, and the 100 000-case runs of P-8.11 to P-8.15 and
+  P-9.7 to P-9.9 were repeated after it (task 20.5). The example test of `1e300` was written
+  to fail on the old code, and does.
+- `summariseAltitudes` returns `invalid_number` naming `altitudesRad` if its mean or standard
+  deviation is not finite. Real altitudes lie in `[-π/2, π/2]` and never reach this.
+- `rss` stays internal: it is `hypot`, which overflows only for 1-sigmas the parameter checks
+  already bound.
 
 ### 7.6 Yaw reference (`yaw-reference.ts`)
 
@@ -1130,6 +1189,42 @@ A scratch check over 200 000 random directions and rolls (altitudes within `80°
 direction through the Camera axis formula within `1.8e-15 rad`, and the exactly upright case
 returned `β = 90°`, `γ = 0` with an azimuth error of `0`.
 
+**The true rotation (Req 12.12, 12.13).** `trueRotation()` returns
+`rotationFromDirection(wrapTwoPi(azimuth), altitude, roll)` of `truePoseAt(now)`, converted to
+degrees by `eulerDegreesFromRotation` and back to radians by `degToRad`, the path an event takes
+(`orientationSampleFromEvent` converts degrees to radians), so that on a noise-free Absolute-frame
+script with no north error, no bias and Declination `0` it equals the next sample's rotation
+exactly. There is no declination, north error, zero or altitude bias in it: it is the rotation
+of a perfect sensor with a frame of true north. It returns a `SensorResult` and fails only if the
+pose is not finite, which a validated script and `aim` rule out; the `SensorResult` keeps the
+function total without a fallback rotation that would be a lie.
+
+**The true pose and `aim` (Req 12.9 to 12.11).** The Simulator keeps `aimedPose: TruePose | null`,
+`null` at creation.
+- `truePose()` returns a fresh copy of `aimedPose` when it is set, and otherwise the script's
+  pose at the current simulated time `now()` (held before the first keyframe and after the last,
+  linear between, as above). It is the pose before noise, altitude bias and frame, so a user
+  interface can draw what the simulated camera sees without repeating the interpolation.
+- `aim(pose)` validates `pose` with `checkTruePose`, in the order azimuth, altitude, roll: a
+  value that is `NaN` or infinite is `invalid_number` naming the field, and so is an altitude with
+  `|h| > 80°` (`apparentAltitudeRad`; exactly `80°` is accepted, as in a script keyframe). A
+  failure returns before anything is assigned, so nothing changes. On success it stores a copy of
+  the three numbers as `aimedPose`. The azimuth is stored as given: Req 12.11 requires it back
+  exactly, and the event builder already wraps it (`wrapTwoPi`).
+- `orientationEventAt(t)` takes its pose from `truePoseAt(t)`, which is `aimedPose` when set. No
+  event is scheduled before `now()` that has not been delivered (`advanceTo(t)` delivers every
+  event up to `t` and then `now() ≥ t`), so "from the current time on" and "from now on, for
+  every event still to come" are the same, and one stored pose replaces the script's. Aiming
+  again replaces it. An event at exactly `now()` that is not yet delivered (a start at `now()`)
+  uses the aimed pose.
+- `aim` draws no random number, so the noise stream of later events is the one the same script
+  and seed give without the call (Req 12.4, 12.10): aiming at the pose the script has gives the
+  same samples (an example test). The calls are deterministic: the same script, seed and sequence
+  of calls give the same outputs (P-12.8).
+- `PoseKeyframe` and `TruePose` share the three fields; `TruePose` has no time. It is exported
+  from `index.ts`; the limit `MAX_POSE_ALTITUDE_RAD` (the script's own `80°`, renamed from the
+  private `ALTITUDE_LIMIT_RAD`) is not.
+
 **Other script fields.**
 - *Position:* a `fix` script delivers `positionFixFromReading` of the scripted reading.
 - *Failures:* a `failure` script delivers that reason at `firstFixDelayMs` (`0` if absent).
@@ -1184,17 +1279,17 @@ The shared setup reads the value with Vitest's `inject` and passes it to
 
 - at 100 000 cases: P-2.7, P-2.8, P-2.9, P-2.10, P-3.6, P-3.7, P-3.8, P-3.9, P-5.14, P-5.15
   (once per frame, so 100 000 Relative and 100 000 Absolute cases), P-6.11, P-6.12, P-7.9, P-7.10,
-  P-8.11, P-8.12, P-8.14, P-8.15, P-9.7, P-9.8, P-9.9 and P-12.6;
+  P-8.11, P-8.12, P-8.14, P-8.15, P-9.7, P-9.8, P-9.9, P-3.11a, P-3.11b and P-12.6;
 - at 10 000 cases, because each case runs a whole simulation, calls every exported function or
-  builds a history of up to 310 items: P-8.13, P-11.8, P-12.7, P-12.8, P-14.6 and P-14.7. These
+  builds a history of up to 310 items: P-8.13, P-11.8, P-12.7, P-12.8, P-12.10, P-12.11, P-12.13, P-14.6 and P-14.7. These
   properties set `numRuns: Math.min(propertyRuns, 10_000)`.
 
 The 100 000-case list covers the places where floating-point behaviour is the risk:
 - the gimbal lock at `beta = ±90°`, including the log-scale draws near it (P-2.7 to P-2.10,
-  P-3.6 to P-3.9, P-12.6);
+  P-3.6 to P-3.9, P-3.11, P-12.6);
 - the `1e-12` identities of the Spread (P-8.14, P-9.7);
 - the wrap at `0 / 2π` (P-8.15);
-- the inverse rotations (P-3.8, P-12.6).
+- the inverse rotations (P-3.8, P-3.11, P-12.6).
 
 The checkpoint report gives the count and the worst error for each.
 
@@ -1301,6 +1396,15 @@ more often than a uniform angle puts it there. Ends and special values are drawn
   intervals of `5` to `100` ms, 1 to 5 keyframes, both frames, 0 to 3 resets, and headings
   present or not. A `noiseFree` variant sets every noise, bias, jump and frame error to zero
   (P-12.8 uses both).
+- **`innerRayOffset`** (P-3.11a): `rightRad, upRad ∈ [−80° + 1e-6, 80° − 1e-6]`, the inner ends and
+  `0` drawn on purpose. Excludes the last `1e-6` rad before the limit (Req 3.11); the limit has
+  example tests.
+- **`unitDirection`** (P-3.11b): uniform on the sphere (three uniform draws in `[−1, 1]`, kept if
+  their length exceeds `1e-3`, normalised), with north, east, up, down and south drawn on purpose.
+- **`controlOps`** (P-12.8, P-12.10): 1 to 8 calls to the Simulator's controls, each an advance of
+  0 to 10 000 ms (drawn without fast-check's bias toward small integers), an `aim` with a
+  `cameraPose` or one of three invalid poses (a `NaN` azimuth, an altitude of `π/2`, an infinite
+  roll), or a read of `truePose`. Excludes hostile values beyond these; P-11.8 draws them.
 - **`historySequence`** (P-14.6, P-14.7): 0 to 300 Orientation samples and 0 to 10 Frame reset
   events, interleaved in any order, with times that do not decrease and span up to `200 000 ms`
   (ties drawn on purpose), a sample retention in `[100, 10 000]` ms and a Frame reset retention
@@ -1348,6 +1452,8 @@ more often than a uniform angle puts it there. Ends and special values are drawn
 | P-3.7 | 3.7 | `deviceRotation` | `offAxisRay(r, (0, 0))` equals `cameraAxis(r)` within `1e-12` per component |
 | P-3.8 | 3.8 | `deviceRotation`; `rayOffset` | `Rᵀ · ray` gives back `rightRad`, `upRad` by `atan2(x, −z)`, `atan2(y, −z)` within `1e-9` |
 | P-3.9 | 3.9 | `deviceRotation`; `rayOffset` | angle(ray, axis) `= atan(hypot(tan r, tan u))` within `1e-9` |
+| P-3.11a | 3.11 | `deviceRotation`; `innerRayOffset` (`[−80° + 1e-6, 80° − 1e-6]`, ends and `0` drawn) | `rayOffsetOfDirection(r, offAxisRay(r, o))` returns `o` within `1e-9` per component |
+| P-3.11b | 3.11 | `deviceRotation`; `unitDirection` (uniform on the sphere, the axes drawn), flipped to have a negative dot product with the Camera axis; `fc.pre` discards `|dot| ≤ 1e-9`, counted | `rayOffsetOfDirection` returns `ok(null)` |
 | P-5.14 | 5.14 | `compassScenario`; `fc.pre` on every sample's computed Camera altitude in `[−30°, 30°]`, discards counted | Yaw reference offset equals the offset within `1e-9` (wrapped); applying it reproduces every heading within `1e-9` |
 | P-5.15 | 5.15 | `knownAzimuthScenario('relative')` and `knownAzimuthScenario('absolute')`, as two tests | `frame` is the scenario's; applying the reference to the samples' Camera azimuth gives the known azimuth within `1e-9` (wrapped); `sigmaRad` equals the known sigma within `1e-12` |
 | P-6.11 | 6.11 | magnetic azimuth `∈ [0, 2π)`; declination `∈ [−π, π]`, ends drawn | true and back with the negated declination returns the input within `1e-12` (wrapped) |
@@ -1362,10 +1468,13 @@ more often than a uniform angle puts it there. Ends and special values are drawn
 | P-9.7 | 9.7 | `altitudeSet` `identical`; `fc.pre` on the computed altitude, discards counted | apparent altitude `= h + offset` exactly (`Object.is`, Req 9.10) and within `1e-12`; sigma `=` calibration sigma within `1e-12`; `summariseAltitudes` of the identical altitudes returns `h` exactly |
 | P-9.8 | 9.8 | `altitudeSet` with shift `δ`; `fc.pre` on the computed altitudes before and after the shift | apparent altitude moves by `δ` within `1e-12`; sigma unchanged within `1e-12`; the mean (`summariseAltitudes`) lies within `[min, max]` of the computed altitudes (Req 9.10) |
 | P-9.9 | 9.9 | `altitudeSet`; a random permutation; `fc.pre` on the computed altitudes | apparent altitude and sigma change by at most `1e-12`; the mean (`summariseAltitudes`) lies within `[min, max]` of the computed altitudes (Req 9.10) |
-| P-11.8 | 11.8 | `hostileInput` to every exported function, the Simulator and the browser source with a hostile fake environment | no call throws; every Result is a failure or a success whose numbers are all finite |
+| P-11.8 | 1.10, 11.8 | `hostileInput` to every exported function (the group "exports of Req 1.10" draws hostile windows, resets, arrays of numbers up to 40 long, `selectWindow`, `resetBetween`, both summaries and `invalidates`; `selectWindow` returns the caller's own items, `NaN` fields included, so it is checked to fail or return a subset of the input in order, not for finite numbers), the Simulator (`aim` with hostile poses, `truePose` and `trueRotation` after each, and an advance that generates events from an accepted one) and the browser source with a hostile fake environment | no call throws; every Result is a failure or a success whose numbers are all finite |
 | P-12.6 | 12.6 | `cameraPose`, including its log-scale draws near gimbal lock | the raw event's angles lie in the W3C ranges; through `cameraAxis` they give back azimuth and altitude within `1e-9` |
 | P-12.7 | 12.7 | `compassCaptureScript`; `fc.pre` on the computed Camera altitude of every sample the two windows read, in `[−30°, 30°]`, discards counted; a Declination 1-sigma drawn from `[0.26°, 2.72°]`, the range of the WMM error model above the blackout limit | run the Simulator past `Tc1 + 5000`; `yawReferenceFromCompass` over `[Ty0, Ty1]`, then `captureBearing` over `[Tc0, Tc1]` with `{ declinationRad: scripted, sigmaRad: drawn }`, give `D`'s true azimuth within `1e-9` (wrapped), and `azimuthSigmaRad = max(0.01°, rss(headingSigmaRad, drawn))` within `1e-12` |
-| P-12.8 | 12.8 | `simulatorScript`; seed `∈ [0, 2³²)` | two runs of the same script and seed give deep-equal event sequences, with `Object.is` on every number |
+| P-12.8 | 12.4, 12.8, 12.10 | `simulatorScript`; seed `∈ [0, 2³²)`; `controlOps`: 1 to 8 calls, each an advance of 0 to 10 000 ms, an `aim` with a `cameraPose` or an invalid pose, or a read of `truePose` | two runs of the same script, seed and sequence of calls give deep-equal outputs (events, and the result of every control call), with `Object.is` on every number |
+| P-12.10 | 12.10 | `simulatorScript`; seed; `controlOps`; the second run inserts three invalid aims (NaN azimuth, altitude `1.6 rad`, infinite roll) before every call | the outputs of the two runs are deep-equal: an invalid aim changes nothing and draws nothing from the random stream |
+| P-12.13 | 12.13 | `cameraPose` (gimbal-lock draws included); `rayOffset` (ends drawn); a noise-free Absolute-frame script with no north error, no bias, Declination `0`, aimed at the pose | the Camera axis of `trueRotation()` gives the azimuth and altitude within `1e-9`; the angle between `offAxisRay(sample.rotation, o)` of the next sample and `offAxisRay(trueRotation, o)` is at most `1e-9` |
+| P-12.11 | 12.11 | `cameraPose` (gimbal-lock draws included), on a noise-free Absolute-frame script with no north error, no altitude bias, Declination `0`; aimed after `[0, 5000]` ms | `truePose()` returns the pose given, `Object.is` on each number; every sample generated in the next 500 ms gives, through `cameraAxis`, azimuth (wrapped) and altitude within `1e-9`; at least one sample is checked |
 | P-14.6 | 14.6 | `historySequence` | after the last add, `samples` and `frameResets` are exactly the items of the sequence with `T − timeUtcMs ≤ retention` (`T` its last time), in the order added, compared with `Object.is` on every item; and the same holds after every intermediate add, with `T` the time so far |
 | P-14.7 | 14.7 | `historyCapture` | `captureBearing` on the history's samples and resets is deep-equal (`Object.is` on numbers) to `captureBearing` on the full sequence, failures included; the test counts the successes and fails if fewer than 10 % of cases succeed, so that it cannot pass on failures alone |
 
@@ -1606,6 +1715,15 @@ parses them through `import.meta.glob` `?raw` (as Core's purity test reads sourc
     at `t`.
   - A capture across it gives `frame_reset`.
   - `advanceTo` backwards gives `invalid_number`.
+  - **Controls (Req 12.9, 12.10).** `truePose()` follows the script between keyframes (held, then
+    linear, the azimuth across north the short way) and is the pose before noise, bias and frame;
+    it returns a copy. `aim` replaces the script's pose from the current time on: samples already
+    delivered are kept, later ones point where aimed, and the script's later keyframes no longer
+    apply; a second `aim` replaces the first; `80°` is accepted and `80.0001°` is refused. Each
+    invalid pose (`NaN` and infinite azimuth, altitude and roll, an altitude of `90°`) gives
+    `invalid_number` naming the field, leaves `truePose()` as it was, and later samples equal
+    those of a run without the call; with several invalid fields the first of azimuth, altitude,
+    roll is named. Aiming at the pose the script has leaves the samples unchanged.
   - `orientationPermission: 'granted'` without a request gives `permission_required` after the
     simulated timeout; with a request, samples flow.
   - Starting twice and throwing listeners behave as in the Adapter examples above (D21, D22).
@@ -1668,8 +1786,8 @@ strips comments and string literals, and checks:
 
 Two example tests outside the purity test cover packaging criteria directly: every value the
 browser Adapter hands out is a plain object that survives `structuredClone` unchanged (Req 1.5),
-and the Simulator's `source` has exactly the `SensorSource` type and keys, with `advanceTo` only on
-the separate controls (Req 12.1).
+and the Simulator's `source` has exactly the `SensorSource` type and keys, with `advanceTo`,
+`truePose` and `aim` only on the separate controls (Req 12.1, 12.9, 12.10).
 
 The default `vitest.config.ts` sets a per-test timeout of `60 s`. Several properties take 2 to
 4 s each at 200 cases, and on the shared machine under load (average 16) one crossed Vitest's 5 s

@@ -3,7 +3,8 @@
 // same `orientationSampleFromEvent` as the browser's (Req 12.2). It reads no clock, no randomness
 // but its own seeded stream, and no browser API.
 
-import { radToDeg, wrapPi, wrapTwoPi } from '@alidade/core';
+import { degToRad, radToDeg, wrapPi, wrapTwoPi } from '@alidade/core';
+import type { DeviceRotation } from '../rotation';
 import type { FrameResetEvent } from '../frame-reset';
 import { ListenerSet } from '../listener-set';
 import {
@@ -18,7 +19,13 @@ import { err, ok, type SensorResult } from '../sensor-result';
 import { checkSourceOptions, type SensorSource, type SensorSourceOptions } from '../sensor-source';
 import { eulerDegreesFromRotation, rotationFromDirection } from './direction-to-rotation';
 import { createSeededRandom } from './seeded-random';
-import { checkScript, type PoseKeyframe, type SimulatorScript } from './simulator-script';
+import {
+  checkScript,
+  checkTruePose,
+  type PoseKeyframe,
+  type SimulatorScript,
+  type TruePose,
+} from './simulator-script';
 
 /** The longest single advance: one hour, so that one call delivers at most 3.6 million events. */
 export const MAX_SIMULATOR_ADVANCE_MS = 3_600_000;
@@ -27,6 +34,26 @@ const TWO_POW_32 = 2 ** 32;
 export interface SimulatorControls {
   /** Delivers every scheduled event up to `timeUtcMs`, in time order; never goes backwards. */
   advanceTo(timeUtcMs: number): SensorResult<void>;
+  /**
+   * The true camera direction at the current simulated time, before noise, bias and frame are
+   * applied (Req 12.9): the aimed pose when one was given, else the script's.
+   */
+  truePose(): TruePose;
+  /**
+   * The true Device rotation at the current simulated time (Req 12.12): what a noise-free sensor
+   * with a frame of true north and no altitude bias would report for `truePose()`, by the same
+   * conversion as the events, so that the Off-axis rays under it and under the next noise-free
+   * sample agree (Req 12.13). Fails with `invalid_number` only if the pose is not finite, which
+   * a validated script and `aim` rule out.
+   */
+  trueRotation(): SensorResult<DeviceRotation>;
+  /**
+   * From the current simulated time on, the true camera direction is `pose`, in place of the
+   * script's, until it is aimed again (Req 12.10). Draws no random number. Fails with
+   * `invalid_number` naming the field, and changes nothing, for a value that is not finite or an
+   * altitude beyond ±80°.
+   */
+  aim(pose: TruePose): SensorResult<void>;
 }
 
 /** `wrapPi` of a finite angle. */
@@ -101,6 +128,18 @@ export function createSimulator(
   const resets = [...frame.resets].sort((a, b) => a.timeUtcMs - b.timeUtcMs);
 
   let nowUtcMs = script.startUtcMs;
+  // The pose given to `aim`, or null while the script's pose is in force. Every event not yet
+  // delivered lies at or after the current time, so one aimed pose replaces the script's.
+  let aimedPose: TruePose | null = null;
+  const truePoseAt = (timeUtcMs: number): TruePose => {
+    if (aimedPose !== null) return aimedPose;
+    const scripted = poseAt(script.pose, timeUtcMs);
+    return {
+      azimuthRad: scripted.azimuthRad,
+      apparentAltitudeRad: scripted.apparentAltitudeRad,
+      rollRad: scripted.rollRad,
+    };
+  };
   let permissionGranted = false;
   let orientationStarted = false;
   let orientationEverStopped = false;
@@ -141,7 +180,7 @@ export function createSimulator(
   /** One orientation event at `t` (§7.12), the noise drawn in a fixed order. */
   const orientationEventAt = (timeUtcMs: number): SensorResult<OrientationSample> => {
     const sigma = script.orientationNoiseSigmaRad;
-    const pose = poseAt(script.pose, timeUtcMs);
+    const pose = truePoseAt(timeUtcMs);
     const azimuthRad = pose.azimuthRad + sigma * random.normal();
     const altitudeRad = pose.apparentAltitudeRad + sigma * random.normal();
     const rollRad = pose.rollRad + sigma * random.normal();
@@ -371,5 +410,38 @@ export function createSimulator(
     onFrameReset: (listener) => resetListeners.add(listener),
     onPosition: (listener) => positionListeners.add(listener),
   };
-  return ok({ source, controls: { advanceTo } });
+  const truePose = (): TruePose => ({ ...truePoseAt(nowUtcMs) });
+
+  const trueRotation = (): SensorResult<DeviceRotation> => {
+    const pose = truePoseAt(nowUtcMs);
+    const rotation = rotationFromDirection(
+      wrappedTwoPi(pose.azimuthRad),
+      pose.apparentAltitudeRad,
+      pose.rollRad,
+    );
+    if (!rotation.ok) return rotation;
+    // The events go through degrees (the W3C unit) and back in `orientationSampleFromEvent`; the
+    // true rotation takes the same path, so that it equals a noise-free sample's rotation.
+    const angles = eulerDegreesFromRotation(rotation.value);
+    const alphaRad = degToRad(angles.alphaDeg);
+    const betaRad = degToRad(angles.betaDeg);
+    const gammaRad = degToRad(angles.gammaDeg);
+    if (!alphaRad.ok) return alphaRad;
+    if (!betaRad.ok) return betaRad;
+    if (!gammaRad.ok) return gammaRad;
+    return ok({ alphaRad: alphaRad.value, betaRad: betaRad.value, gammaRad: gammaRad.value });
+  };
+
+  const aim = (pose: TruePose): SensorResult<void> => {
+    const checked = checkTruePose(pose);
+    if (!checked.ok) return checked;
+    aimedPose = {
+      azimuthRad: pose.azimuthRad,
+      apparentAltitudeRad: pose.apparentAltitudeRad,
+      rollRad: pose.rollRad,
+    };
+    return ok(undefined);
+  };
+
+  return ok({ source, controls: { advanceTo, truePose, trueRotation, aim } });
 }

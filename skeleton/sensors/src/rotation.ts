@@ -104,8 +104,8 @@ function multiply(a: Matrix3, b: Matrix3): Matrix3 {
   ];
 }
 
-/** Checks a direction passed in: finite components and unit length within 1e-9 (D4). */
-function checkDirection(direction: EnuDirection): SensorResult<EnuDirection> {
+/** Checks a direction passed in: finite components and unit length within 1e-9 (D4). Internal. */
+export function checkDirection(direction: EnuDirection): SensorResult<EnuDirection> {
   const { east, north, up } = direction;
   if (!Number.isFinite(east)) return err('invalid_number', { field: 'east' });
   if (!Number.isFinite(north)) return err('invalid_number', { field: 'north' });

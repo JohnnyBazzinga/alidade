@@ -16,6 +16,18 @@ export interface PoseKeyframe {
   readonly rollRad: number;
 }
 
+/**
+ * The true camera direction at a moment, before noise, bias and frame are applied (Req 12.9):
+ * what a user interface draws, and what `aim` sets (Req 12.10).
+ */
+export interface TruePose {
+  /** True azimuth. */
+  readonly azimuthRad: number;
+  /** In [-80°, 80°]. */
+  readonly apparentAltitudeRad: number;
+  readonly rollRad: number;
+}
+
 export type PageResetCause = 'hidden' | 'blur' | 'pagehide';
 
 export interface SimulatorScript {
@@ -90,7 +102,8 @@ export interface SimulatorScript {
 
 /** The smallest event and fix interval: 1 ms, so that every advance delivers finitely many events. */
 export const MIN_SIMULATOR_INTERVAL_MS = 1;
-const ALTITUDE_LIMIT_RAD = 80 * (Math.PI / 180);
+/** The largest apparent altitude of a pose, in a script or given to `aim`: 80°. */
+export const MAX_POSE_ALTITUDE_RAD = 80 * (Math.PI / 180);
 const RESET_CAUSES: readonly FrameResetCause[] = [
   'hidden',
   'blur',
@@ -102,6 +115,17 @@ const PAGE_CAUSES: readonly string[] = ['hidden', 'blur', 'pagehide'];
 
 const bad = (field: string) => err('invalid_number', { field });
 const finite = (value: number) => Number.isFinite(value);
+
+/** Validates a pose given to `aim` (Req 12.10), naming the first invalid field. */
+export function checkTruePose(pose: TruePose): SensorResult<TruePose> {
+  if (!finite(pose.azimuthRad)) return bad('azimuthRad');
+  if (!(
+    finite(pose.apparentAltitudeRad) && Math.abs(pose.apparentAltitudeRad) <= MAX_POSE_ALTITUDE_RAD
+  ))
+    return bad('apparentAltitudeRad');
+  if (!finite(pose.rollRad)) return bad('rollRad');
+  return ok(pose);
+}
 
 /** Validates every field of a script (§7.12), naming the first invalid one. */
 export function checkScript(script: SimulatorScript): SensorResult<SimulatorScript> {
@@ -117,7 +141,7 @@ export function checkScript(script: SimulatorScript): SensorResult<SimulatorScri
       keyframe.timeUtcMs > previousUtcMs &&
       finite(keyframe.azimuthRad) &&
       finite(keyframe.apparentAltitudeRad) &&
-      Math.abs(keyframe.apparentAltitudeRad) <= ALTITUDE_LIMIT_RAD &&
+      Math.abs(keyframe.apparentAltitudeRad) <= MAX_POSE_ALTITUDE_RAD &&
       finite(keyframe.rollRad);
     if (!valid) return bad('pose');
     previousUtcMs = keyframe.timeUtcMs;

@@ -4,6 +4,7 @@
 
 import {
   cameraAxis,
+  checkDirection,
   checkRotation,
   rotationMatrix,
   type DeviceRotation,
@@ -67,4 +68,36 @@ export function rayDirection(
   offset?: RayOffset,
 ): SensorResult<EnuDirection> {
   return offset === undefined ? cameraAxis(rotation) : offAxisRay(rotation, offset);
+}
+
+/**
+ * The inverse of `offAxisRay` (Req 3.10, design §7.2): the Ray offset whose Off-axis ray, under
+ * `rotation`, is `direction`, or `null` when the direction lies behind the camera or its offset
+ * is beyond 80° on either axis. With `(x, y, z) = Rᵀ · direction`, the offset is
+ * `rightRad = atan2(x, -z)` and `upRad = atan2(y, -z)` (Req 3.8), for `z < 0` (in front).
+ *
+ * Fails with `invalid_number` naming the field for a rotation angle or direction component that
+ * is not finite, or `direction` when its length is not 1 within 1e-9 (as the azimuth functions).
+ */
+export function rayOffsetOfDirection(
+  rotation: DeviceRotation,
+  direction: EnuDirection,
+): SensorResult<RayOffset | null> {
+  const checkedRotation = checkRotation(rotation);
+  if (!checkedRotation.ok) return checkedRotation;
+  const checkedDirection = checkDirection(direction);
+  if (!checkedDirection.ok) return checkedDirection;
+  const [r0, r1, r2] = rotationMatrix(rotation);
+  const { east, north, up } = direction;
+  // Rᵀ · d: the columns of R are the rows of Rᵀ.
+  const x = r0[0] * east + r1[0] * north + r2[0] * up;
+  const y = r0[1] * east + r1[1] * north + r2[1] * up;
+  const z = r0[2] * east + r1[2] * north + r2[2] * up;
+  if (!(z < 0)) return ok(null);
+  const rightRad = Math.atan2(x, -z);
+  const upRad = Math.atan2(y, -z);
+  if (Math.abs(rightRad) > MAX_RAY_OFFSET_RAD || Math.abs(upRad) > MAX_RAY_OFFSET_RAD) {
+    return ok(null);
+  }
+  return ok({ rightRad, upRad });
 }

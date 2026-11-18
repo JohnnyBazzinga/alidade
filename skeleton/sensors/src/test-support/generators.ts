@@ -956,3 +956,41 @@ export function simulatorScript(
       };
     });
 }
+
+/**
+ * `innerRayOffset` (P-3.11a): `rightRad, upRad ∈ [-80° + 1e-6, 80° − 1e-6]`, the inner ends and
+ * `0` drawn on purpose. Excludes the last `1e-6` rad before the limit, where the offset of the
+ * ray may round across it (Req 3.11); the limit has example tests.
+ */
+export function innerRayOffset(): fc.Arbitrary<RayOffset> {
+  const limit = 80 * DEG - 1e-6;
+  const component = fc.oneof(
+    { weight: 1, arbitrary: fc.constantFrom(-limit, 0, limit) },
+    { weight: 9, arbitrary: uniform(-limit, limit) },
+  );
+  return fc.record({ rightRad: component, upRad: component });
+}
+
+/**
+ * `unitDirection` (P-3.11b): a direction in East-North-Up uniform on the sphere (three standard
+ * normal draws, normalised; draws shorter than `1e-3` before normalising are discarded). Axis
+ * directions (north, up, down) are drawn on purpose.
+ */
+export function unitDirection(): fc.Arbitrary<import('../rotation').EnuDirection> {
+  const normal = uniform(-1, 1);
+  const random = fc
+    .tuple(normal, normal, normal)
+    .filter(([x, y, z]) => Math.hypot(x, y, z) > 1e-3)
+    .map(([x, y, z]) => {
+      const length = Math.hypot(x, y, z);
+      return { east: x / length, north: y / length, up: z / length };
+    });
+  const axes = fc.constantFrom(
+    { east: 0, north: 1, up: 0 },
+    { east: 1, north: 0, up: 0 },
+    { east: 0, north: 0, up: 1 },
+    { east: 0, north: 0, up: -1 },
+    { east: 0, north: -1, up: 0 },
+  );
+  return fc.oneof({ weight: 1, arbitrary: axes }, { weight: 9, arbitrary: random });
+}

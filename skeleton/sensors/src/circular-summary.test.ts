@@ -77,3 +77,23 @@ describe('rss', () => {
     expect(rss(2)).toBe(2);
   });
 });
+
+describe('the summaries are total (Req 1.10, 11.8, D25)', () => {
+  it('gives a zero Spread for identical azimuths of 1e300 rad (the counterexample of D25)', () => {
+    // Before the angles were reduced to [0, 2π) first, `wrapPi(1e300 − mean)` and `sin(1e300)`
+    // disagreed and this gave a Spread of about 0.76 for identical angles.
+    const huge = summariseAzimuths([1e300, 1e300, 1e300]);
+    expect(expectOk(huge).spreadRad).toBeLessThan(1e-12);
+  });
+
+  it('fails, rather than returning an infinity, when the altitudes overflow', () => {
+    expect(summariseAltitudes([1e308, -1e308])).toEqual({
+      ok: false,
+      reason: 'invalid_number',
+      field: 'altitudesRad',
+    });
+    expect(summariseAltitudes([Number.NaN]).ok).toBe(false);
+    expect(summariseAzimuths([Number.POSITIVE_INFINITY]).ok).toBe(false);
+    expect(summariseAzimuths([]).ok).toBe(false);
+  });
+});

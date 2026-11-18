@@ -19,7 +19,14 @@ import {
   offAxisRay,
   orientationSampleFromEvent,
   positionFixFromReading,
+  invalidates,
   rayDirection,
+  rayOffsetOfDirection,
+  resetBetween,
+  selectWindow,
+  SENSOR_REASONS,
+  summariseAltitudes,
+  summariseAzimuths,
   systemClock,
   trueAzimuthFromMagnetic,
   yawReferenceFromCompass,
@@ -44,6 +51,24 @@ import {
   isTotalResult,
 } from './test-support/hostile';
 import { checkProperty, ErrorTracker } from './test-support/property-report';
+
+function selectsAsGiven(
+  samples: Parameters<typeof selectWindow>[0],
+  window: Parameters<typeof selectWindow>[1],
+): boolean {
+  try {
+    const result = selectWindow(samples, window);
+    if (!result.ok) return typeof result.reason === 'string';
+    let from = 0;
+    return result.value.every((item) => {
+      const at = samples.indexOf(item, from);
+      from = at + 1;
+      return at >= 0;
+    });
+  } catch {
+    return false;
+  }
+}
 
 /** Calls `f`; true when it neither throws nor returns anything but a total Result. */
 function total(f: () => unknown): boolean {
@@ -96,7 +121,32 @@ describe('P-11.8: every exported function is total', () => {
           total(() => directionAzimuthRad(direction)) &&
           total(() => directionApparentAltitudeRad(direction)) &&
           total(() => rayDirection(rotation, offset)) &&
+          total(() => rayOffsetOfDirection(rotation, direction)) &&
           (offset === undefined || total(() => offAxisRay(rotation, offset))),
+      ),
+    );
+  });
+
+  // The functions exported for a user interface (Req 1.10) satisfy Req 11.8 as every other.
+  it('P-11.8 (exports of Req 1.10): windows, summaries, invalidation, reasons', () => {
+    run(
+      'P-11.8 (exports of Req 1.10)',
+      fc.property(
+        hostileSamples(),
+        hostileWindow(),
+        hostileResets(),
+        fc.array(hostileNumber(), { maxLength: 40 }),
+        fc.tuple(hostileNumber(), hostileNumber()),
+        (samples, window, resets, numbers, [a, b]) =>
+          // `selectWindow` returns the caller's own items, `NaN` fields included, as they were
+          // given: it computes no number. The check is that it fails, or returns a subset of the
+          // items in their order, and does not throw.
+          selectsAsGiven(samples, window) &&
+          total(() => summariseAzimuths(numbers)) &&
+          total(() => summariseAltitudes(numbers)) &&
+          total(() => ({ ok: true, value: resetBetween(resets, a, b) })) &&
+          total(() => ({ ok: true, value: resets.map((r) => invalidates('relative', r.cause)) })) &&
+          SENSOR_REASONS.every((reason) => typeof reason === 'string'),
       ),
     );
   });
@@ -363,7 +413,15 @@ describe('P-11.8: every exported function is total', () => {
           }),
         ),
         fc.array(hostileNumber(), { maxLength: 4 }),
-        (s, seed, options, advances) => {
+        fc.array(
+          fc.record({
+            azimuthRad: hostileNumber(),
+            apparentAltitudeRad: hostileNumber(),
+            rollRad: hostileNumber(),
+          }),
+          { maxLength: 3 },
+        ),
+        (s, seed, options, advances, aims) => {
           let created: ReturnType<typeof createSimulator>;
           try {
             created = createSimulator(s, seed, options);
@@ -372,16 +430,32 @@ describe('P-11.8: every exported function is total', () => {
           }
           if (!isTotalResult(created)) return false;
           if (!created.ok) return true;
-          return exerciseSource(created.value.source, pending, () =>
-            advances.every((a) =>
-              total(
-                () =>
-                  created.ok &&
-                  created.value.controls.advanceTo(
-                    created.value.source.now() + (Number.isFinite(a) ? Math.abs(a) % 4_000_000 : a),
-                  ),
-              ),
-            ),
+          const controls = created.value.controls;
+          // Req 11.8 and 12.10 for `aim` and `truePose`: a hostile pose is a failure or is accepted, and
+          // the true pose is finite after every call, whichever way the call went.
+          const aimsAreTotal = (): boolean =>
+            aims.every(
+              (pose) =>
+                total(() => controls.aim(pose)) &&
+                Object.values(controls.truePose()).every(Number.isFinite) &&
+                total(() => controls.trueRotation()),
+            ) &&
+            // Events generated from an accepted hostile pose (an azimuth of 1e300, say) are total.
+            total(() => controls.advanceTo(created.ok ? created.value.source.now() + 1000 : 0));
+          return exerciseSource(
+            created.value.source,
+            pending,
+            () =>
+              advances.every((a) =>
+                total(
+                  () =>
+                    created.ok &&
+                    created.value.controls.advanceTo(
+                      created.value.source.now() +
+                        (Number.isFinite(a) ? Math.abs(a) % 4_000_000 : a),
+                    ),
+                ),
+              ) && aimsAreTotal(),
           );
         },
       ),

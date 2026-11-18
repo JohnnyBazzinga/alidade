@@ -1,6 +1,6 @@
 # Requirement coverage — skeleton-sensors
 
-Generated at checkpoint 18 from the test files: a criterion is listed against every test file that cites it
+Generated at checkpoint 18 (rows 12.4 and 12.8 to 12.11 amended at checkpoint 19; rows 1.10, 3.10, 3.11, 12.12 and 12.13 at checkpoint 20) from the test files: a criterion is listed against every test file that cites it
 (`Req N.M`, lists and ranges included). Criteria no test cites by number are listed with what covers them.
 
 | Criterion | Covered by |
@@ -14,6 +14,7 @@ Generated at checkpoint 18 from the test files: a criterion is listed against ev
 | 1.7 | orientation-sample |
 | 1.8 | *not cited:* `pnpm typecheck` (strict) and `pnpm lint` (`no-explicit-any`), as in Core |
 | 1.9 | *not cited:* review only: unit suffixes on every numeric name |
+| 1.10 | index, sensor-result, circular-summary, hostile.property (P-11.8 exports group) |
 | 2.1 | *not cited:* rotation.property (P-2.8: the closed formula against an independent product), rotation examples |
 | 2.2 | rotation |
 | 2.3 | purity |
@@ -33,6 +34,8 @@ Generated at checkpoint 18 from the test files: a criterion is listed against ev
 | 3.7 | ray.property |
 | 3.8 | ray.property |
 | 3.9 | ray.property |
+| 3.10 | ray |
+| 3.11 | ray, ray.property (P-3.11a, P-3.11b) |
 | 4.1 | purity |
 | 4.2 | browser/browser-sensor-source |
 | 4.3 | browser/browser-sensor-source, orientation-sample |
@@ -127,11 +130,16 @@ Generated at checkpoint 18 from the test files: a criterion is listed against ev
 | 12.1 | simulator/simulator |
 | 12.2 | simulator/simulator |
 | 12.3 | simulator/simulator |
-| 12.4 | simulator/simulator, simulator/simulator.property |
+| 12.4 | simulator/simulator, simulator/simulator.property (P-12.8 now covers a sequence of control calls) |
 | 12.5 | *not cited:* review only: every fixture synthetic except the WMM values (fixtures/wmm2025/SOURCE.md) |
 | 12.6 | simulator/direction-to-rotation.property |
 | 12.7 | simulator/simulator.property |
 | 12.8 | simulator/simulator.property |
+| 12.9 | simulator/simulator |
+| 12.10 | simulator/simulator, simulator/simulator.property, hostile.property |
+| 12.11 | simulator/simulator.property |
+| 12.12 | simulator/simulator |
+| 12.13 | simulator/simulator, simulator/simulator.property (P-12.13) |
 | 13.1 | *not cited:* the task 18 check: every FOR ALL criterion has a property |
 | 13.2 | *not cited:* browser/browser-sensor-source against `FakeBrowserEnvironment` |
 | 13.3 | *not cited:* browser/browser-sensor-source: insecure_context, sensor_unavailable, permission_denied, permission_required, position_unavailable, position_timeout, invalid_number |

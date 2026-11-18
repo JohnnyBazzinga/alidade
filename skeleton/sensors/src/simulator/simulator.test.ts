@@ -8,6 +8,7 @@ import type { SensorSource, SensorSourceOptions } from '../sensor-source';
 import { angleErrorRad, rad } from '../test-support/angle-compare';
 import { expectOk } from '../test-support/result-helpers';
 import { baseScript, SCRIPT_START_UTC_MS } from '../test-support/scripts';
+import { cameraAxis, directionApparentAltitudeRad, directionAzimuthRad } from '../rotation';
 import { yawReferenceFromCompass, yawReferenceFromKnownAzimuth } from '../yaw-reference';
 import { createSimulator, MAX_SIMULATOR_ADVANCE_MS } from './simulator';
 import type { SimulatorScript } from './simulator-script';
@@ -493,7 +494,7 @@ describe('Simulator: the Sensor source interface (Req 12.1)', () => {
       'stop',
     ]);
     expect('advanceTo' in source).toBe(false);
-    expect(Object.keys(controls)).toEqual(['advanceTo']);
+    expect(Object.keys(controls)).toEqual(['advanceTo', 'truePose', 'trueRotation', 'aim']);
   });
 });
 
@@ -544,5 +545,226 @@ describe('Simulator: seeds and validation (Req 12.4)', () => {
         field: 'seed',
       });
     }
+  });
+});
+
+const directionAzimuthOf = (axis: Parameters<typeof directionAzimuthRad>[0]): number => {
+  const azimuth = directionAzimuthRad(axis);
+  if (!azimuth.ok) throw new Error('azimuth');
+  return azimuth.value;
+};
+const altitudeOf = (axis: Parameters<typeof directionApparentAltitudeRad>[0]): number => {
+  const altitude = directionApparentAltitudeRad(axis);
+  if (!altitude.ok) throw new Error('altitude');
+  return altitude.value;
+};
+
+describe('Simulator controls: the true pose and aim (Req 12.9, 12.10)', () => {
+  const movingScript = (changes: Partial<SimulatorScript> = {}) =>
+    baseScript({
+      pose: [
+        { timeUtcMs: T0, azimuthRad: rad(350), apparentAltitudeRad: rad(0), rollRad: rad(0) },
+        {
+          timeUtcMs: T0 + 1000,
+          azimuthRad: rad(10),
+          apparentAltitudeRad: rad(20),
+          rollRad: rad(40),
+        },
+      ],
+      ...changes,
+    });
+
+  it('gives the scripted pose at the current simulated time: held, then linear, azimuth the short way', () => {
+    const sim = run(movingScript());
+    expect(sim.controls.truePose()).toEqual({
+      azimuthRad: rad(350),
+      apparentAltitudeRad: 0,
+      rollRad: 0,
+    });
+    expectOk(sim.controls.advanceTo(T0 + 500));
+    const halfway = sim.controls.truePose();
+    expect(angleErrorRad(halfway.azimuthRad, 0)).toBeLessThan(1e-12);
+    expect(halfway.apparentAltitudeRad).toBeCloseTo(rad(10), 12);
+    expect(halfway.rollRad).toBeCloseTo(rad(20), 12);
+    expectOk(sim.controls.advanceTo(T0 + 5000));
+    expect(sim.controls.truePose()).toEqual({
+      azimuthRad: rad(10),
+      apparentAltitudeRad: rad(20),
+      rollRad: rad(40),
+    });
+  });
+
+  it('gives the pose before noise, altitude bias and frame are applied', () => {
+    const noisy = movingScript({
+      orientationNoiseSigmaRad: rad(2),
+      altitudeBiasRad: rad(-3.3),
+      frame: { kind: 'absolute', northErrorRad: rad(5), resets: [] },
+    });
+    const sim = run(noisy, 9);
+    void sim.source.startOrientation();
+    expectOk(sim.controls.advanceTo(T0 + 1000));
+    expect(sim.controls.truePose().apparentAltitudeRad).toBeCloseTo(rad(20), 12);
+    expect(angleErrorRad(sim.controls.truePose().azimuthRad, rad(10))).toBeLessThan(1e-12);
+  });
+
+  it('returns a copy: changing it does not change the simulation', () => {
+    const sim = run(movingScript());
+    const pose = sim.controls.truePose() as { azimuthRad: number };
+    pose.azimuthRad = 1;
+    expect(sim.controls.truePose().azimuthRad).toBe(rad(350));
+  });
+
+  it('replaces the script pose from the current time on, and keeps the samples already delivered', async () => {
+    const sim = run(movingScript({ eventIntervalMs: 100 }));
+    void sim.source.startOrientation();
+    expectOk(sim.controls.advanceTo(T0 + 450));
+    const before = sim.samples.length;
+    expectOk(sim.controls.aim({ azimuthRad: rad(200), apparentAltitudeRad: rad(-10), rollRad: 0 }));
+    expect(sim.controls.truePose()).toEqual({
+      azimuthRad: rad(200),
+      apparentAltitudeRad: rad(-10),
+      rollRad: 0,
+    });
+    // The script's later keyframes (azimuth 10° at T0 + 1000) no longer apply.
+    expectOk(sim.controls.advanceTo(T0 + 3000));
+    expect(sim.samples.length).toBeGreaterThan(before);
+    const axisOf = (s: OrientationSample) => {
+      const a = cameraAxis(s.rotation);
+      if (!a.ok) throw new Error('axis');
+      return a.value;
+    };
+    for (const sample of sim.samples.slice(0, before)) {
+      // zero is 30° true in this Relative frame: the frame azimuth is the true one minus 30°
+      const axis = axisOf(sample);
+      expect(sample.timeUtcMs).toBeLessThanOrEqual(T0 + 450);
+      expect(Math.abs(altitudeOf(axis))).toBeLessThan(rad(25));
+    }
+    for (const sample of sim.samples.slice(before)) {
+      const axis = axisOf(sample);
+      expect(altitudeOf(axis)).toBeCloseTo(rad(-10), 9);
+      expect(angleErrorRad(directionAzimuthOf(axis), rad(200 - 30))).toBeLessThan(1e-9);
+    }
+  });
+
+  it('a second aim replaces the first', () => {
+    const sim = run(baseScript());
+    expectOk(sim.controls.aim({ azimuthRad: 1, apparentAltitudeRad: 0.1, rollRad: 0.2 }));
+    expectOk(sim.controls.aim({ azimuthRad: 2, apparentAltitudeRad: -0.1, rollRad: -0.2 }));
+    expect(sim.controls.truePose()).toEqual({
+      azimuthRad: 2,
+      apparentAltitudeRad: -0.1,
+      rollRad: -0.2,
+    });
+  });
+
+  it('accepts an altitude of exactly 80° and refuses one beyond it', () => {
+    const sim = run(baseScript());
+    expectOk(sim.controls.aim({ azimuthRad: 0, apparentAltitudeRad: rad(80), rollRad: 0 }));
+    expectOk(sim.controls.aim({ azimuthRad: 0, apparentAltitudeRad: -rad(80), rollRad: 0 }));
+    const refused = sim.controls.aim({
+      azimuthRad: 0,
+      apparentAltitudeRad: rad(80.0001),
+      rollRad: 0,
+    });
+    expect(refused).toEqual({ ok: false, reason: 'invalid_number', field: 'apparentAltitudeRad' });
+  });
+
+  it.each([
+    ['azimuthRad', { azimuthRad: Number.NaN, apparentAltitudeRad: 0, rollRad: 0 }],
+    ['azimuthRad', { azimuthRad: Number.POSITIVE_INFINITY, apparentAltitudeRad: 0, rollRad: 0 }],
+    ['apparentAltitudeRad', { azimuthRad: 0, apparentAltitudeRad: Number.NaN, rollRad: 0 }],
+    ['apparentAltitudeRad', { azimuthRad: 0, apparentAltitudeRad: rad(90), rollRad: 0 }],
+    [
+      'apparentAltitudeRad',
+      { azimuthRad: 0, apparentAltitudeRad: Number.NEGATIVE_INFINITY, rollRad: 0 },
+    ],
+    ['rollRad', { azimuthRad: 0, apparentAltitudeRad: 0, rollRad: Number.NaN }],
+    ['rollRad', { azimuthRad: 0, apparentAltitudeRad: 0, rollRad: Number.NEGATIVE_INFINITY }],
+  ])('refuses an invalid aim naming %s, and changes nothing', async (field, bad) => {
+    const withBadAim = run(movingScript({ orientationNoiseSigmaRad: rad(1) }), 5);
+    const reference = run(movingScript({ orientationNoiseSigmaRad: rad(1) }), 5);
+    void withBadAim.source.startOrientation();
+    void reference.source.startOrientation();
+    expectOk(withBadAim.controls.advanceTo(T0 + 300));
+    expectOk(reference.controls.advanceTo(T0 + 300));
+    const poseBefore = withBadAim.controls.truePose();
+    expect(withBadAim.controls.aim(bad)).toEqual({ ok: false, reason: 'invalid_number', field });
+    expect(withBadAim.controls.truePose()).toEqual(poseBefore);
+    expectOk(withBadAim.controls.advanceTo(T0 + 2000));
+    expectOk(reference.controls.advanceTo(T0 + 2000));
+    expect(withBadAim.samples).toEqual(reference.samples);
+    await flush();
+  });
+
+  it('reports the first invalid field when several are invalid', () => {
+    const sim = run(baseScript());
+    expect(
+      sim.controls.aim({ azimuthRad: 0, apparentAltitudeRad: Number.NaN, rollRad: Number.NaN }),
+    ).toEqual({ ok: false, reason: 'invalid_number', field: 'apparentAltitudeRad' });
+  });
+
+  it('keeps the seeded noise stream: aiming at the pose the script has gives the same samples', () => {
+    const script = baseScript({ orientationNoiseSigmaRad: rad(1), eventIntervalMs: 100 });
+    const plain = run(script, 21);
+    const aimed = run(script, 21);
+    void plain.source.startOrientation();
+    void aimed.source.startOrientation();
+    expectOk(plain.controls.advanceTo(T0 + 2000));
+    expectOk(aimed.controls.advanceTo(T0 + 1000));
+    expectOk(aimed.controls.aim(aimed.controls.truePose()));
+    expectOk(aimed.controls.advanceTo(T0 + 2000));
+    expect(aimed.samples).toEqual(plain.samples);
+  });
+});
+
+describe('Simulator controls: the true rotation (Req 12.12, 12.13)', () => {
+  it('points the Camera axis at the true pose', () => {
+    const sim = run(baseScript());
+    expectOk(sim.controls.aim({ azimuthRad: rad(100), apparentAltitudeRad: rad(5), rollRad: 0 }));
+    const rotation = expectOk(sim.controls.trueRotation());
+    const axis = expectOk(cameraAxis(rotation));
+    expect(angleErrorRad(directionAzimuthOf(axis), rad(100))).toBeLessThan(1e-12);
+    expect(altitudeOf(axis)).toBeCloseTo(rad(5), 12);
+  });
+
+  it('is the rotation of a noise-free sample, whatever noise, bias and frame the script has', () => {
+    const quiet = run(
+      baseScript({ frame: { kind: 'absolute', northErrorRad: 0, resets: [] }, declinationRad: 0 }),
+    );
+    void quiet.source.startOrientation();
+    expectOk(quiet.controls.advanceTo(T0 + 100));
+    const sample = quiet.samples[quiet.samples.length - 1];
+    expect(sample?.rotation).toEqual(expectOk(quiet.controls.trueRotation()));
+
+    const rough = run(
+      baseScript({
+        orientationNoiseSigmaRad: rad(3),
+        altitudeBiasRad: rad(-3.3),
+        frame: { kind: 'relative', zeroRad: rad(77), resets: [] },
+        declinationRad: rad(-4),
+      }),
+      4,
+    );
+    expect(expectOk(rough.controls.trueRotation())).toEqual(
+      expectOk(quiet.controls.trueRotation()),
+    );
+  });
+
+  it('follows aim and the script, and is a fresh object each time', () => {
+    const sim = run(
+      baseScript({
+        pose: [
+          { timeUtcMs: T0, azimuthRad: 0, apparentAltitudeRad: 0, rollRad: 0 },
+          { timeUtcMs: T0 + 1000, azimuthRad: rad(90), apparentAltitudeRad: 0, rollRad: 0 },
+        ],
+      }),
+    );
+    expectOk(sim.controls.advanceTo(T0 + 1000));
+    const east = expectOk(cameraAxis(expectOk(sim.controls.trueRotation())));
+    expect(angleErrorRad(directionAzimuthOf(east), rad(90))).toBeLessThan(1e-12);
+    expectOk(sim.controls.aim({ azimuthRad: rad(270), apparentAltitudeRad: rad(80), rollRad: 1 }));
+    const aimed = expectOk(cameraAxis(expectOk(sim.controls.trueRotation())));
+    expect(altitudeOf(aimed)).toBeCloseTo(rad(80), 12);
+    expect(sim.controls.trueRotation()).not.toBe(sim.controls.trueRotation());
   });
 });
