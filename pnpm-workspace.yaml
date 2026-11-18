@@ -1,3 +1,49 @@
 packages:
   - 'skeleton/*'
   - 'apps/*'
+# Dependencies must have been published at least 14 days (20160 minutes) before they are installed,
+# transitive ones included (skeleton-ui Req 20.6). Strict, because the setting is explicit.
+minimumReleaseAge: 20160
+minimumReleaseAgeExclude:
+  # These 39 name@version entries were installed before the policy existed and were generated from
+  # pnpm-lock.yaml and `npm view <name> time`. The list must not grow. Delete it after 2026-12-02,
+  # when all of them are at least 14 days old.
+  - '@eslint-community/regexpp@4.12.3'
+  - '@eslint/config-array@0.23.6'
+  - '@isaacs/nonrecursive-glob-match@1.1.0'
+  - '@jridgewell/resolve-uri@3.1.3'
+  - '@rolldown/binding-android-arm-eabi@1.2.19'
+  - '@rolldown/binding-android-arm64@1.2.19'
+  - '@rolldown/binding-darwin-arm64@1.2.19'
+  - '@rolldown/binding-darwin-x64@1.2.19'
+  - '@rolldown/binding-freebsd-x64@1.2.19'
+  - '@rolldown/binding-linux-arm-gnueabihf@1.2.19'
+  - '@rolldown/binding-linux-arm64-gnu@1.2.19'
+  - '@rolldown/binding-linux-arm64-musl@1.2.19'
+  - '@rolldown/binding-linux-ppc64-gnu@1.2.19'
+  - '@rolldown/binding-linux-s390x-gnu@1.2.19'
+  - '@rolldown/binding-linux-x64-gnu@1.2.19'
+  - '@rolldown/binding-linux-x64-musl@1.2.19'
+  - '@rolldown/binding-openharmony-arm64@1.2.19'
+  - '@rolldown/binding-wasm32-wasi@1.2.19'
+  - '@rolldown/binding-win32-arm64-msvc@1.2.19'
+  - '@rolldown/binding-win32-x64-msvc@1.2.19'
+  - '@rolldown/pluginutils@1.1.1'
+  - '@typescript-eslint/eslint-plugin@8.72.2'
+  - '@typescript-eslint/parser@8.72.2'
+  - '@typescript-eslint/project-service@8.72.2'
+  - '@typescript-eslint/scope-manager@8.72.2'
+  - '@typescript-eslint/tsconfig-utils@8.72.2'
+  - '@typescript-eslint/type-utils@8.72.2'
+  - '@typescript-eslint/types@8.72.2'
+  - '@typescript-eslint/typescript-estree@8.72.2'
+  - '@typescript-eslint/utils@8.72.2'
+  - '@typescript-eslint/visitor-keys@8.72.2'
+  - brace-expansion@5.0.13
+  - eslint@10.15.0
+  - minimatch@11.0.8
+  - postcss@8.5.33
+  - prettier@3.10.1
+  - rolldown@1.2.19
+  - typescript-eslint@8.72.2
+  - vite@8.3.8

@@ -51,8 +51,8 @@ into the skeleton-sensors requirements.
 
 ## Tasks
 
-- [ ] 1. Scaffold the package and prove the dependencies (design F13)
-  - [ ] 1.1 Create `skeleton/ui` (`@alidade/ui`) without dependencies
+- [x] 1. Scaffold the package and prove the dependencies (design F13)
+  - [x] 1.1 Create `skeleton/ui` (`@alidade/ui`) without dependencies
     - `package.json`: `exports` only `"."` (`./src/index.ts`); `private`; scripts `test`
       (`vitest run`), `test:deep` (`vitest run --config vitest.deep.config.ts`), `typecheck`
       (`tsc --noEmit -p tsconfig.json`), `dev` (`vite --config playground/vite.config.ts`, never
@@ -69,22 +69,22 @@ into the skeleton-sensors requirements.
       `.env.example` with `VITE_TILE_URL_TEMPLATE=` and `VITE_TILE_ATTRIBUTION=` and no values.
     - An empty `src/index.ts`. `pnpm install` only for the workspace link (no new package yet).
     - _Requirements: 1.1, 1.7, 1.8, 15.2, 20.4, 20.5_
-  - [ ] 1.2 Install the runtime and type dependencies, one at a time, each approved by hand
+  - [x] 1.2 Install the runtime and type dependencies, one at a time, each approved by hand
     - `react` `19.3.1`, `react-dom` `19.3.1`, `maplibre-gl` `6.16.0`, `@types/react` `19.3.0`,
       `@types/react-dom` `19.3.0` (design §3). Record each publication date from `npm view`.
     - _Requirements: 20.1, 20.2, 20.6_
-  - [ ] 1.3 Install the test dependencies, one at a time, each approved by hand
+  - [x] 1.3 Install the test dependencies, one at a time, each approved by hand
     - `jsdom` `30.1.3`, `@testing-library/react` `16.3.3`, `@testing-library/dom` `10.4.2`.
       Record each publication date.
     - _Requirements: 20.1, 20.2, 20.6_
-  - [ ] 1.4 The root lint
+  - [x] 1.4 The root lint
     - Install `eslint-plugin-react-hooks` `7.1.1` at the repository root (approved by hand, date
       recorded). In `eslint.config.js`, for `skeleton/ui/**/*.{ts,tsx}`: register the plugin as
       `react-hooks`, enable `react-hooks/rules-of-hooks` and `react-hooks/exhaustive-deps` as
       errors, and `@typescript-eslint/no-explicit-any` as an error (D21). Confirm, with a throwaway
       component that calls a hook conditionally, that `pnpm lint` fails; delete it.
     - _Requirements: 1.8, 20.2_
-  - [ ] 1.5 The smoke tests of the unverified assumptions (design §3), each a throwaway file
+  - [x] 1.5 The smoke tests of the unverified assumptions (design §3), each a throwaway file
     - (a) Vitest `projects` with `extends` inherits `provide`: a test in each project reads
       `inject('propertyRuns')`. If not, repeat the `provide` line per project (D1).
     - (b) The built-in JSX transform: render a trivial component in the `components` project with
@@ -101,19 +101,19 @@ into the skeleton-sensors requirements.
     - Report every result, delete the throwaway files, and **stop on any mismatch**.
     - _Requirements: 20.1, 20.2_
 
-- [ ] 2. Results, reasons, units and parameters
-  - [ ] 2.1 `src/result.ts` and `src/reasons.ts`
+- [x] 2. Results, reasons, units and parameters
+  - [x] 2.1 `src/result.ts` and `src/reasons.ts`
     - `UiResult`, `UiFailure` (with `field`, `id`, `reportedAccuracyM`, `errorName`), internal `ok`
       and `err`. `UI_ONLY_REASONS` (`as const satisfies Record<UiOnlyReason, true>`), `UiReason`,
       `UI_REASONS = [...SENSOR_REASONS, ...Object.keys(UI_ONLY_REASONS)]` (D2).
     - Example tests: no duplicate; the sixteen of Req 2.2 are all present; the list starts with
       `SENSOR_REASONS`; a Sensors or Core failure passes through unchanged (Req 2.4).
     - _Requirements: 2.2, 2.3, 2.4_
-  - [ ] 2.2 `src/math/degrees.ts`
+  - [x] 2.2 `src/math/degrees.ts`
     - `fromDeg`, `toDeg`: Core's `degToRad` and `radToDeg`, `NaN` passed on for a non-finite
       argument. The only module with a conversion factor.
     - _Requirements: 1.10_
-  - [ ] 2.3 `src/defaults.ts` and `src/math/session/parameters.ts`
+  - [x] 2.3 `src/defaults.ts` and `src/math/session/parameters.ts`
     - The named constants of Req 19.1 (written with `fromDeg`), `SessionParameters` (design §6),
       `defaultSessionParameters()` built from them and from Sensors' defaults, and
       `checkSessionParameters` (Req 19.4: `NaN`, infinite, not positive, vertex count not an
@@ -122,7 +122,7 @@ into the skeleton-sensors requirements.
     - Example tests: the record has no calibration and no `tapSigmaPx` field (Req 19.3); each
       invalid parameter named; the retention rule; the documentation comments of Req 19.5 exist.
     - _Requirements: 19.1, 19.2, 19.3, 19.4, 19.5_
-  - [ ] 2.4 Property-run configuration and error tracking
+  - [x] 2.4 Property-run configuration and error tracking
     - `src/test-support/fast-check-setup.ts` (the pattern of Sensors': `inject`, `propertyRuns()`,
       `cappedRuns(limit)`, never below 200 in `pnpm test`), `property-report.ts` (the error tracker
       and the `[deep]` report lines, plus **milliseconds per case** for the checkpoint reports),
@@ -131,23 +131,23 @@ into the skeleton-sensors requirements.
       `±MAX_VALUE`, the doubles either side of each limit, negative sizes, `null` where nullable).
     - _Requirements: 21.1_
 
-- [ ] 3. Display formatting and contrast
-  - [ ] 3.1 `src/math/display-format.ts` (§7.1)
+- [x] 3. Display formatting and contrast
+  - [x] 3.1 `src/math/display-format.ts` (§7.1)
     - `formatAzimuthDeg`, `formatSignedDeg`, `parseDegrees`. Examples: `2π − 1e-9` at one decimal
       is `0.0`; `-0.04°` at one decimal has no minus sign; `parseDegrees` of `'12.5°'`, `' -3 '`,
       and the failures `'1e3'`, `'Infinity'`, `''`, `'1,5'`; a non-finite angle formats as the dash.
     - _Requirements: 3.8_
-  - [ ] 3.2 Properties P-3.9 and P-3.10
+  - [x] 3.2 Properties P-3.9 and P-3.10
     - As in §8, 100 000 cases in `test:deep`.
     - _Requirements: 3.9, 3.10_
-  - [ ] 3.3 `src/math/contrast.ts` (§7.2) and property P-13.10
+  - [x] 3.3 `src/math/contrast.ts` (§7.2) and property P-13.10
     - `relativeLuminance`, `contrastRatio`. Example: black on white is 21; the three values of
       design §7.18 for `ink` on `bg` (15.69), `inkDim` on `raised` (7.56) and `rule` on `raised`
       (3.42) to two decimals.
     - _Requirements: 13.2, 13.10_
 
-- [ ] 4. Messages
-  - [ ] 4.1 `src/math/messages.ts` (§7.17, D18)
+- [x] 4. Messages
+  - [x] 4.1 `src/math/messages.ts` (§7.17, D18)
     - `MESSAGES: Record<UiReason, MessageSource>`, `MUST_MENTION`, `messageFor`. Write the English
       for all reasons (Sensors' 31 and the UI's 16), each part one sentence of at most 160
       characters ending in a full stop, none containing the code, an underscore, `NaN`, `Infinity`,
@@ -157,22 +157,22 @@ into the skeleton-sensors requirements.
       part); every reason of Req 3.7 matches its `MUST_MENTION` words and is not just "try again";
       the three `coarse_location` cases; the same failure gives the same Message.
     - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.7_
-  - [ ] 4.2 Property P-3.11
+  - [x] 4.2 Property P-3.11
     - As in §8: arbitrary `field` and `id`, `reportedAccuracyM` any double, every reason.
     - _Requirements: 3.3, 3.11_
 
-- [ ] 5. Camera calibration, image layout and geometry
-  - [ ] 5.1 `src/math/camera-calibration.ts` (§7.3) and properties P-4.6, P-4.7
+- [x] 5. Camera calibration, image layout and geometry
+  - [x] 5.1 `src/math/camera-calibration.ts` (§7.3) and properties P-4.6, P-4.7
     - `checkCalibration` in the order of Req 4.1, `focalLengthSourcePx`. Examples: each invalid
       case names its field; `fovSigmaRad` of `0.01°` accepted, `0.0099°` refused; `fovRad ± sigma`
       reaching `0` or `π` refused; no default exists (a type-level test that the function takes a
       required argument and `null` gives `calibration_missing` in the functions that need one).
     - _Requirements: 4.1, 4.2, 4.3, 4.6, 4.7_
-  - [ ] 5.2 Generators `sourceSize`, `elementSize`, `calibration`, `layoutCase`, `pointInOffsetSpace`
+  - [x] 5.2 Generators `sourceSize`, `elementSize`, `calibration`, `layoutCase`, `pointInOffsetSpace`
     - As in §8: including the `F ≈ 0.07` corner in one draw in four, and a calibration whose image
       size differs from the source's with the same aspect ratio.
     - _Requirements: 5.7, 5.8_
-  - [ ] 5.3 `src/math/image-layout.ts` and `image-geometry.ts` (§7.4, D7)
+  - [x] 5.3 `src/math/image-layout.ts` and `image-geometry.ts` (§7.4, D7)
     - `imageLayout`, `pointToRayOffset`, `rayOffsetToPoint`, the checks in the order of Req 5.4,
       `calibration_mismatch` at a relative `1 %`, `F` from the displayed image.
     - Examples: the `720 × 1280` source in a `390 × 844` element under both fits, by hand; each
@@ -180,22 +180,22 @@ into the skeleton-sensors requirements.
       `contain` bar is `outside_image`; a swapped stream is `calibration_mismatch` (Req 4.5);
       a calibration at twice the source's size with the same aspect gives the same offset.
     - _Requirements: 4.4, 4.5, 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.16_
-  - [ ] 5.4 Properties P-5.7 to P-5.15
+  - [x] 5.4 Properties P-5.7 to P-5.15
     - As in §8, each at 100 000 cases in `test:deep`. P-5.14 and P-5.13 use Sensors' `offAxisRay`.
     - _Requirements: 5.7, 5.8, 5.9, 5.10, 5.11, 5.12, 5.13, 5.14, 5.15_
 
-- [ ] 6. Uncertainty of a point of the image
-  - [ ] 6.1 `src/math/ray-uncertainty.ts` (§7.5)
+- [x] 6. Uncertainty of a point of the image
+  - [x] 6.1 `src/math/ray-uncertainty.ts` (§7.5)
     - `imageAngularSigmaRad`; `tapSigmaPx` required and checked.
     - Examples: Req 6.6 (`εTap = 1/500` at `F = 500`, `tapSigmaPx = 1`); `εFov = 0` at the centre;
       `tapSigmaPx` of `-1`, `NaN` refused naming it.
     - _Requirements: 6.1, 6.2, 6.3, 6.6_
-  - [ ] 6.2 Properties P-6.4 and P-6.5
+  - [x] 6.2 Properties P-6.4 and P-6.5
     - P-6.5 at offsets within `±75°`, with Sensors' `offAxisRay` at the identity rotation.
     - _Requirements: 6.4, 6.5_
 
-- [ ] 7. Histories from the Simulator, and the cost probe
-  - [ ] 7.1 Generator `scriptHistory` and its helper `history-from-script.ts` (§8)
+- [x] 7. Histories from the Simulator, and the cost probe
+  - [x] 7.1 Generator `scriptHistory` and its helper `history-from-script.ts` (§8)
     - From a drawn script (the domains of Sensors' `simulatorScript`, in both frames, with and
       without headings), `createSimulator`, `aim` calls at drawn times, `advanceTo`, the listeners'
       samples, resets and fix, and Sensors' `createSampleHistory` and `add…`. The helper can build
@@ -203,7 +203,7 @@ into the skeleton-sensors requirements.
       one event interval. It uses only Sensors' public API.
     - Example test: a built history equals the one built by adding the same events by hand.
     - _Requirements: 9.9, 9.11, 10.9, 11.7_
-  - [ ] 7.2 The cost probe
+  - [x] 7.2 The cost probe
     - A throwaway test, not committed: 1 000 draws of one case of the shape the capped properties
       share (create a Simulator, aim, advance about 1.5 s, build the history, `selectWindow`,
       `captureBearing`, `captureAltitude`); print the milliseconds per case (mean, 95th
@@ -350,8 +350,8 @@ into the skeleton-sensors requirements.
   - [ ] 17.2 `map-adapter.ts` (§7.11)
     - Tile source checks, `map_unavailable`, held writes until `load`, `setFix` through
       `fixFeatures` in one `setData`, `fitToFeatures`, the throttled `tiles_unavailable`,
-      `destroy`.
-    - Example tests: every criterion of Req 15.1 to 15.10 (design §9).
+      `destroy`. `setData` returns a Promise in `maplibre-gl` 6.x: it is called in a `try` with a rejection handler, so that a rejection reaches `onError` as `tiles_unavailable` and is never an unhandled rejection (design D25.8); the options omit `attributionControl`.
+    - Example tests: every criterion of Req 15.1 to 15.10 (and a rejected `setData` promise, with the test failing on an unhandled rejection) (design §9).
     - _Requirements: 15.1, 15.2, 15.3, 15.5, 15.6, 15.8, 15.9, 15.10, 15.13_
   - [ ] 17.3 Properties P-15.11 and P-15.12 (the `adapters` project)
     - Calls in any order, valid and invalid; they are in `test:deep`.

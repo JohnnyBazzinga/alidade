@@ -86,7 +86,7 @@ The private folder `notes/` holds real locations and is not read or copied. Ever
 
 1. THE UI SHALL provide one function, `messageFor(failure)`, that returns a Message for every UI reason, built from one table keyed by UI reason. Each Message SHALL have a `whatHappened` that says what went wrong in plain English and a `whatToDo` that says what the user can do next.
 2. THE table SHALL be complete: its type SHALL be `Record<UiReason, …>`, so that adding a reason without a Message fails type checking, and a test SHALL check at run time that `UI_REASONS` lists exactly the keys of the table, that the set equals the union of the reasons of Sensors, of Core and of Requirement 2.2, and that no reason has an empty part.
-3. EACH part of a Message SHALL be one sentence of at most 160 characters, ending with a full stop, that contains none of: the reason's code, any `field` or `id` of the failure, an underscore, `NaN`, `Infinity`, `undefined`, `null` or `[object`.
+3. EACH part of a Message SHALL be one sentence of at most 160 characters, ending with a full stop, that contains none of: the reason's code, an underscore, `NaN`, `Infinity`, `undefined`, `null` or `[object`. A Message SHALL NOT depend on the `field`, `id` or `errorName` of the failure: the Message of a failure SHALL equal the Message of the same failure without them.
 4. WHERE a reason has a number that helps the user (`coarse_location` with `reportedAccuracyM`), THE Message SHALL include it, rounded to the nearest 10 m below 1000 m and to 0.1 km from 1000 m, and SHALL NOT include it when it is missing, `NaN` or infinite.
 5. THE Message SHALL be a pure function of the failure: the same failure SHALL give the same Message, in English only.
 6. THE Components layer SHALL show every failure it shows through `messageFor`, and SHALL NOT show `reason`, `field` or `errorName` to the user.
@@ -94,7 +94,7 @@ The private folder `notes/` holds real locations and is not read or copied. Ever
 8. THE display module SHALL provide a function that formats an azimuth in degrees with a given number of decimals, in `[0°, 360°)`, and one for an altitude or a signed angle in `[-180°, 180°]`; it SHALL provide a function that parses a number of degrees typed by the user into radians, returning `invalid_number` for text that is not one finite number.
 9. FOR ALL azimuths in `[0, 2π)` rad and decimals in `[0, 4]`, the formatted azimuth SHALL be a number in `[0, 360)` (never `360.0`) and SHALL differ from the azimuth in degrees by at most `0.5 · 10^-decimals + 1e-9`, compared as a wrapped difference.
 10. FOR ALL signed angles in `[-π, π]` rad and decimals in `[0, 4]`, the formatted text SHALL parse back to within `0.5 · 10^-decimals + 1e-9` degrees of the angle, and SHALL NOT be `-0` or begin with a minus sign when it rounds to zero.
-11. FOR ALL failures, built from every UI reason with `field` and `id` strings of 0 to 40 arbitrary characters and `reportedAccuracyM` any number including `NaN` and `Infinity`, `messageFor` SHALL return Messages that satisfy criterion 3.
+11. FOR ALL failures, built from every UI reason with `field`, `id` and `errorName` strings of 0 to 40 arbitrary characters and `reportedAccuracyM` any number including `NaN` and `Infinity`, `messageFor` SHALL return Messages that satisfy criterion 3.
 
 ### Requirement 4: Camera calibration
 
@@ -108,7 +108,7 @@ The private folder `notes/` holds real locations and is not read or copied. Ever
 4. IF the aspect ratio of the actual Source image differs from that of the calibration's image size by more than `1 %` (relative), THEN every use of the calibration with it SHALL return a failure with reason `calibration_mismatch`, because the browser has cropped the image differently from the way the field of view was measured.
 5. THE UI SHALL treat the Source image's width and height as those of the image displayed upright in the portrait screen; IF the stream delivers them swapped, THEN criterion 4 applies and refuses it rather than correcting it.
 6. FOR ALL Source image sizes in `[64, 8192]` source pixels per side, and `fovRad` in `[20°, 150°]` with `fovSigmaRad` in `[0.01°, 5°]` that satisfy criterion 1, the calibration SHALL be accepted; for each of the invalid cases of criterion 1, a failure naming the right field SHALL be returned.
-7. FOR ALL Source image sizes and Camera calibrations as in criterion 6 with `fovAxis` `diagonal`, the calibration with `fovAxis` `width` and `fovRad' = 2 · atan((width / diagonal) · tan(fovRad / 2))` SHALL give the same focal length within a relative `1e-12`, and likewise for `height`.
+7. FOR ALL Source image sizes and Camera calibrations as in criterion 6 with `fovAxis` `diagonal`, the calibration with `fovAxis` `width` and `fovRad' = 2 · atan((width / diagonal) · tan(fovRad / 2))` (with any `fovSigmaRad` that is valid for it, since the focal length does not depend on it) SHALL give the same focal length within a relative `1e-12`, and likewise for `height`.
 
 ### Requirement 5: Image layout and image geometry
 

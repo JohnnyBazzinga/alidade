@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM"],
+    "jsx": "react-jsx"
+  },
+  // Sensors' source is type-checked with this package (it is imported as source), and it imports
+  // `magvar`, whose declaration is a file of Sensors' own (no `@types/magvar` exists).
+  "include": [
+    "src",
+    "playground",
+    "vitest.config.ts",
+    "vitest.deep.config.ts",
+    "../sensors/src/magvar.d.ts"
+  ]
+}

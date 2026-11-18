@@ -1,5 +1,6 @@
 import eslint from '@eslint/js';
 import { defineConfig } from 'eslint/config';
+import reactHooks from 'eslint-plugin-react-hooks';
 import tseslint from 'typescript-eslint';
 
 export default defineConfig(
@@ -23,6 +24,17 @@ export default defineConfig(
     files: ['skeleton/sensors/**/*.ts'],
     rules: {
       '@typescript-eslint/no-explicit-any': 'error',
+    },
+  },
+  {
+    // skeleton/ui (Req 1.8, design D21): no `any`, and the two named hook rules as errors. The
+    // plugin's `recommended` preset is not used: it adds compiler rules whose noise is unknown.
+    files: ['skeleton/ui/**/*.{ts,tsx}'],
+    plugins: { 'react-hooks': reactHooks },
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'error',
+      'react-hooks/rules-of-hooks': 'error',
+      'react-hooks/exhaustive-deps': 'error',
     },
   },
 );
