@@ -691,3 +691,17 @@ three hotspot reasons wait for the lead's word after the wind checkpoint).
     `docs/hosting.md`. List the device checks V1 to V10 that are still open (V9 with F19 and F21's Open-Meteo
     details), the open questions that wait for the owner (O1 to O8), the publication date of every dependency
     (`uqr` 2026-04-03), and every flag of design §15 with its status. Report and stop.
+
+- [x] 19. The words carry the disagreement (2026-11-19; Req 6.11, 14.11, 19.1; design §7.8, §7.12, §7.18)
+  - [x] 19.1 Tests first: the fixture recomputed by an independent script (the count line of two and
+    three, `disagreement` in the words, a fifth case of three that disagree; the script first
+    reproduces the four cases of the old template); the lead's incident as an example that holds the
+    whole Emergency text; the words of three that disagree; the Fix's legend in the map model; the
+    worst case rebuilt (896); `MAX_EMERGENCY_TEXT_CHARS` 900 and the least `maxEmergencyTextChars` 896
+    in the tests of the defaults, the parameters and the hostile list.
+  - [x] 19.2 Code: `fix-words.ts` (`disagreement`, the best-fit headline), `emergency-text.ts` (the
+    position line of sightings that disagree, the count line, `WORST_EMERGENCY_TEXT_CHARS` 896),
+    `map-model.ts` (`fixLegend`), `parameters.ts` (896), `defaults.ts` (900).
+  - [x] 19.3 P-14.8, P-14.9, P-16.4 at 5 000 cases; mutation checks: the position line, the count line,
+    the legend and the headline each ignoring the disagreement fail a test.
+  - _Requirements: 6.11, 14.11, 19.1_

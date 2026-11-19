@@ -12,6 +12,8 @@ import { bearingOf } from './incident-fixtures';
 
 export interface WordsCase {
   readonly name: string;
+  /** The assessment's disagreement; `none` when the case leaves it out (Req 5.5, 6.11). */
+  readonly disagreement?: 'none' | 'three_disagree';
   readonly fix: {
     readonly latDeg: number;
     readonly lonDeg: number;
@@ -113,7 +115,7 @@ export function assessmentOfCase(c: WordsCase): Assessment {
     setAside,
     fix: { ok: true, value: fixOfCase(c) },
     checkLevel: n === 2 ? 'two' : n === 3 ? 'three' : 'four_or_more',
-    disagreement: 'none',
+    disagreement: c.disagreement ?? 'none',
   };
 }
 

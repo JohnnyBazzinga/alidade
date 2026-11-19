@@ -1,5 +1,5 @@
 {
-  "description": "Four synthetic Fixes near the origin 30 N, 40 W, with the words of the Fix (task 7.5) and the Emergency texts of task 8.1 (computed outside the code from the template of design section 7.12 and the words above). Read-only: a test is fixed to match this file, never the reverse. The expected words were computed outside the code from the rules of design section 7.8 (95 % scale 2.4477, metres per degree 111 195.08, lengths rounded up). The Fix's Ellipse is the 1-sigma one; azimuths and positions are in degrees, converted by the test with Core. Sighting times are at the centre of a second, as the sighting code holds them. The long axis of an ellipse has no direction: the words reduce its azimuth to 0 to 180 degrees and name one of four axes (north to south, north-east to south-west, east to west, south-east to north-west), so the same axis always reads the same way.",
+  "description": "Five synthetic Fixes near the origin 30 N, 40 W, with the words of the Fix (task 7.5) and the Emergency texts of task 8.1 (computed outside the code from the template of design section 7.12 and the words above; recomputed on 2026-11-19 by an independent script for the count line of two and three sightings and the case of three that disagree, Req 6.11 and 14.11). Read-only: a test is fixed to match this file, never the reverse. The expected words were computed outside the code from the rules of design section 7.8 (95 % scale 2.4477, metres per degree 111 195.08, lengths rounded up). The Fix's Ellipse is the 1-sigma one; azimuths and positions are in degrees, converted by the test with Core. Sighting times are at the centre of a second, as the sighting code holds them. The long axis of an ellipse has no direction: the words reduce its azimuth to 0 to 180 degrees and name one of four axes (north to south, north-east to south-west, east to west, south-east to north-west), so the same axis always reads the same way.",
   "nowUtcMs": 1790000000000,
   "fixes": [
     {
@@ -28,6 +28,7 @@
       ],
       "setAsideCount": 0,
       "fixWords": {
+        "disagreement": null,
         "headline": "Probably here: 30.0123° N, 40.0456° W, within about 50 m (95 %).",
         "area": "The 95 % area is an ellipse with semi-axes 40 m and 40 m, long axis north to south (0°).",
         "basis": "Based on 2 sightings; newest 2 min ago, oldest 10 min ago.",
@@ -36,9 +37,9 @@
         "limits": "This is a 95 % region if every sighting was aimed at the same point and its errors are independent and as stated. Phone compasses are off by several degrees; setting north on the Sun or a landmark reduces that."
       },
       "emergency": {
-        "device": "Smoke seen by phone compass sightings; not confirmed.\nPosition: 30.0123° N, 40.0456° W, probably within about 50 m (95 %).\nThe 95 % area is an ellipse with semi-axes 40 m and 40 m, long axis north to south (0°).\nBased on 2 sightings; newest 2 min ago, oldest 10 min ago.\nGeometry: good. The lines cross at a good angle.\nThese positions come from phone compass sightings, which are off by several degrees.\nWritten at 14:13 UTC. The app that wrote this does not call or notify anyone.",
-        "deviceWithOwnPosition": "Smoke seen by phone compass sightings; not confirmed.\nPosition: 30.0123° N, 40.0456° W, probably within about 50 m (95 %).\nThe 95 % area is an ellipse with semi-axes 40 m and 40 m, long axis north to south (0°).\nBased on 2 sightings; newest 2 min ago, oldest 10 min ago.\nGeometry: good. The lines cross at a good angle.\nMy own position: 30.0010° N, 40.0020° W, known to about 10 m.\nThese positions come from phone compass sightings, which are off by several degrees.\nWritten at 14:13 UTC. The app that wrote this does not call or notify anyone.",
-        "simulation": "SIMULATION: synthetic scene, not a real place.\nSmoke seen by phone compass sightings; not confirmed.\nPosition: 30.0123° N, 40.0456° W, probably within about 50 m (95 %).\nThe 95 % area is an ellipse with semi-axes 40 m and 40 m, long axis north to south (0°).\nBased on 2 sightings; newest 2 min ago, oldest 10 min ago.\nGeometry: good. The lines cross at a good angle.\nThese positions come from phone compass sightings, which are off by several degrees.\nWritten at 14:13 UTC. The app that wrote this does not call or notify anyone."
+        "device": "Smoke seen by phone compass sightings; not confirmed.\nPosition: 30.0123° N, 40.0456° W, probably within about 50 m (95 %).\nThe 95 % area is an ellipse with semi-axes 40 m and 40 m, long axis north to south (0°).\nBased on 2 sightings; newest 2 min ago, oldest 10 min ago.\nGeometry: good. The lines cross at a good angle.\nTwo sightings cannot check each other.\nThese positions come from phone compass sightings, which are off by several degrees.\nWritten at 14:13 UTC. The app that wrote this does not call or notify anyone.",
+        "deviceWithOwnPosition": "Smoke seen by phone compass sightings; not confirmed.\nPosition: 30.0123° N, 40.0456° W, probably within about 50 m (95 %).\nThe 95 % area is an ellipse with semi-axes 40 m and 40 m, long axis north to south (0°).\nBased on 2 sightings; newest 2 min ago, oldest 10 min ago.\nGeometry: good. The lines cross at a good angle.\nTwo sightings cannot check each other.\nMy own position: 30.0010° N, 40.0020° W, known to about 10 m.\nThese positions come from phone compass sightings, which are off by several degrees.\nWritten at 14:13 UTC. The app that wrote this does not call or notify anyone.",
+        "simulation": "SIMULATION: synthetic scene, not a real place.\nSmoke seen by phone compass sightings; not confirmed.\nPosition: 30.0123° N, 40.0456° W, probably within about 50 m (95 %).\nThe 95 % area is an ellipse with semi-axes 40 m and 40 m, long axis north to south (0°).\nBased on 2 sightings; newest 2 min ago, oldest 10 min ago.\nGeometry: good. The lines cross at a good angle.\nTwo sightings cannot check each other.\nThese positions come from phone compass sightings, which are off by several degrees.\nWritten at 14:13 UTC. The app that wrote this does not call or notify anyone."
       }
     },
     {
@@ -67,6 +68,7 @@
       ],
       "setAsideCount": 0,
       "fixWords": {
+        "disagreement": null,
         "headline": "Probably here: 30.027° N, 40.000° W, within about 840 m (95 %).",
         "area": "The 95 % area is an ellipse with semi-axes 770 m and 210 m, long axis north to south (0°).",
         "basis": "Based on 2 sightings; newest 1 min ago, oldest 1 h 1 min ago.",
@@ -75,9 +77,9 @@
         "limits": "This is a 95 % region if every sighting was aimed at the same point and its errors are independent and as stated. Phone compasses are off by several degrees; setting north on the Sun or a landmark reduces that."
       },
       "emergency": {
-        "device": "Smoke seen by phone compass sightings; not confirmed.\nPosition: 30.027° N, 40.000° W, probably within about 840 m (95 %).\nThe 95 % area is an ellipse with semi-axes 770 m and 210 m, long axis north to south (0°).\nBased on 2 sightings; newest 1 min ago, oldest 1 h 1 min ago.\nGeometry: poor. Both of you look along nearly the same line; the smoke could be much nearer or farther than it shows.\nThese positions come from phone compass sightings, which are off by several degrees.\nWritten at 14:13 UTC. The app that wrote this does not call or notify anyone.",
-        "deviceWithOwnPosition": "Smoke seen by phone compass sightings; not confirmed.\nPosition: 30.027° N, 40.000° W, probably within about 840 m (95 %).\nThe 95 % area is an ellipse with semi-axes 770 m and 210 m, long axis north to south (0°).\nBased on 2 sightings; newest 1 min ago, oldest 1 h 1 min ago.\nGeometry: poor. Both of you look along nearly the same line; the smoke could be much nearer or farther than it shows.\nMy own position: 30.0010° N, 40.0020° W, known to about 10 m.\nThese positions come from phone compass sightings, which are off by several degrees.\nWritten at 14:13 UTC. The app that wrote this does not call or notify anyone.",
-        "simulation": "SIMULATION: synthetic scene, not a real place.\nSmoke seen by phone compass sightings; not confirmed.\nPosition: 30.027° N, 40.000° W, probably within about 840 m (95 %).\nThe 95 % area is an ellipse with semi-axes 770 m and 210 m, long axis north to south (0°).\nBased on 2 sightings; newest 1 min ago, oldest 1 h 1 min ago.\nGeometry: poor. Both of you look along nearly the same line; the smoke could be much nearer or farther than it shows.\nThese positions come from phone compass sightings, which are off by several degrees.\nWritten at 14:13 UTC. The app that wrote this does not call or notify anyone."
+        "device": "Smoke seen by phone compass sightings; not confirmed.\nPosition: 30.027° N, 40.000° W, probably within about 840 m (95 %).\nThe 95 % area is an ellipse with semi-axes 770 m and 210 m, long axis north to south (0°).\nBased on 2 sightings; newest 1 min ago, oldest 1 h 1 min ago.\nGeometry: poor. Both of you look along nearly the same line; the smoke could be much nearer or farther than it shows.\nTwo sightings cannot check each other.\nThese positions come from phone compass sightings, which are off by several degrees.\nWritten at 14:13 UTC. The app that wrote this does not call or notify anyone.",
+        "deviceWithOwnPosition": "Smoke seen by phone compass sightings; not confirmed.\nPosition: 30.027° N, 40.000° W, probably within about 840 m (95 %).\nThe 95 % area is an ellipse with semi-axes 770 m and 210 m, long axis north to south (0°).\nBased on 2 sightings; newest 1 min ago, oldest 1 h 1 min ago.\nGeometry: poor. Both of you look along nearly the same line; the smoke could be much nearer or farther than it shows.\nTwo sightings cannot check each other.\nMy own position: 30.0010° N, 40.0020° W, known to about 10 m.\nThese positions come from phone compass sightings, which are off by several degrees.\nWritten at 14:13 UTC. The app that wrote this does not call or notify anyone.",
+        "simulation": "SIMULATION: synthetic scene, not a real place.\nSmoke seen by phone compass sightings; not confirmed.\nPosition: 30.027° N, 40.000° W, probably within about 840 m (95 %).\nThe 95 % area is an ellipse with semi-axes 770 m and 210 m, long axis north to south (0°).\nBased on 2 sightings; newest 1 min ago, oldest 1 h 1 min ago.\nGeometry: poor. Both of you look along nearly the same line; the smoke could be much nearer or farther than it shows.\nTwo sightings cannot check each other.\nThese positions come from phone compass sightings, which are off by several degrees.\nWritten at 14:13 UTC. The app that wrote this does not call or notify anyone."
       }
     },
     {
@@ -116,6 +118,7 @@
       ],
       "setAsideCount": 2,
       "fixWords": {
+        "disagreement": null,
         "headline": "Probably here: 30.25° N, 39.80° W, within about 12.8 km (95 %).",
         "area": "The 95 % area is an ellipse with semi-axes 12.0 km and 3.0 km, long axis north-east to south-west (60°).",
         "basis": "Based on 4 sightings (2 set aside); newest less than a minute ago, oldest 25 min ago.",
@@ -163,6 +166,7 @@
       ],
       "setAsideCount": 0,
       "fixWords": {
+        "disagreement": null,
         "headline": "Probably here: 30.0500° N, 40.1000° W, within about 310 m (95 %).",
         "area": "The 95 % area is an ellipse with semi-axes 300 m and 100 m, long axis north to south (176°).",
         "basis": "Based on 3 sightings; newest 1 min ago, oldest 15 min ago.",
@@ -171,9 +175,55 @@
         "limits": "This is a 95 % region if every sighting was aimed at the same point and its errors are independent and as stated. Phone compasses are off by several degrees; setting north on the Sun or a landmark reduces that."
       },
       "emergency": {
-        "device": "Smoke seen by phone compass sightings; not confirmed.\nPosition: 30.0500° N, 40.1000° W, probably within about 310 m (95 %).\nThe 95 % area is an ellipse with semi-axes 300 m and 100 m, long axis north to south (176°).\nBased on 3 sightings; newest 1 min ago, oldest 15 min ago.\nGeometry: poor. Both of you look along nearly the same line; the smoke could be much nearer or farther than it shows.\nThese positions come from phone compass sightings, which are off by several degrees.\nWritten at 14:13 UTC. The app that wrote this does not call or notify anyone.",
-        "deviceWithOwnPosition": "Smoke seen by phone compass sightings; not confirmed.\nPosition: 30.0500° N, 40.1000° W, probably within about 310 m (95 %).\nThe 95 % area is an ellipse with semi-axes 300 m and 100 m, long axis north to south (176°).\nBased on 3 sightings; newest 1 min ago, oldest 15 min ago.\nGeometry: poor. Both of you look along nearly the same line; the smoke could be much nearer or farther than it shows.\nMy own position: 30.0010° N, 40.0020° W, known to about 10 m.\nThese positions come from phone compass sightings, which are off by several degrees.\nWritten at 14:13 UTC. The app that wrote this does not call or notify anyone.",
-        "simulation": "SIMULATION: synthetic scene, not a real place.\nSmoke seen by phone compass sightings; not confirmed.\nPosition: 30.0500° N, 40.1000° W, probably within about 310 m (95 %).\nThe 95 % area is an ellipse with semi-axes 300 m and 100 m, long axis north to south (176°).\nBased on 3 sightings; newest 1 min ago, oldest 15 min ago.\nGeometry: poor. Both of you look along nearly the same line; the smoke could be much nearer or farther than it shows.\nThese positions come from phone compass sightings, which are off by several degrees.\nWritten at 14:13 UTC. The app that wrote this does not call or notify anyone."
+        "device": "Smoke seen by phone compass sightings; not confirmed.\nPosition: 30.0500° N, 40.1000° W, probably within about 310 m (95 %).\nThe 95 % area is an ellipse with semi-axes 300 m and 100 m, long axis north to south (176°).\nBased on 3 sightings; newest 1 min ago, oldest 15 min ago.\nGeometry: poor. Both of you look along nearly the same line; the smoke could be much nearer or farther than it shows.\nThree sightings can show that they disagree, but not which one is off.\nThese positions come from phone compass sightings, which are off by several degrees.\nWritten at 14:13 UTC. The app that wrote this does not call or notify anyone.",
+        "deviceWithOwnPosition": "Smoke seen by phone compass sightings; not confirmed.\nPosition: 30.0500° N, 40.1000° W, probably within about 310 m (95 %).\nThe 95 % area is an ellipse with semi-axes 300 m and 100 m, long axis north to south (176°).\nBased on 3 sightings; newest 1 min ago, oldest 15 min ago.\nGeometry: poor. Both of you look along nearly the same line; the smoke could be much nearer or farther than it shows.\nThree sightings can show that they disagree, but not which one is off.\nMy own position: 30.0010° N, 40.0020° W, known to about 10 m.\nThese positions come from phone compass sightings, which are off by several degrees.\nWritten at 14:13 UTC. The app that wrote this does not call or notify anyone.",
+        "simulation": "SIMULATION: synthetic scene, not a real place.\nSmoke seen by phone compass sightings; not confirmed.\nPosition: 30.0500° N, 40.1000° W, probably within about 310 m (95 %).\nThe 95 % area is an ellipse with semi-axes 300 m and 100 m, long axis north to south (176°).\nBased on 3 sightings; newest 1 min ago, oldest 15 min ago.\nGeometry: poor. Both of you look along nearly the same line; the smoke could be much nearer or farther than it shows.\nThree sightings can show that they disagree, but not which one is off.\nThese positions come from phone compass sightings, which are off by several degrees.\nWritten at 14:13 UTC. The app that wrote this does not call or notify anyone."
+      }
+    },
+    {
+      "name": "three-disagree",
+      "about": "three sightings that do not agree (the assessment says three_disagree): the best fit, never probably within",
+      "disagreement": "three_disagree",
+      "fix": {
+        "latDeg": 30.031,
+        "lonDeg": -40.012,
+        "semiMajorM": 140.0,
+        "semiMinorM": 70.0,
+        "azimuthDeg": 30,
+        "warnings": [],
+        "excludedIds": []
+      },
+      "used": [
+        {
+          "latDeg": 30.0,
+          "lonDeg": -40.02,
+          "timeUtcMs": 1789999879500
+        },
+        {
+          "latDeg": 30.0,
+          "lonDeg": -40.0,
+          "timeUtcMs": 1789999759500
+        },
+        {
+          "latDeg": 30.04,
+          "lonDeg": -39.98,
+          "timeUtcMs": 1789999639500
+        }
+      ],
+      "setAsideCount": 0,
+      "fixWords": {
+        "disagreement": "The sightings do not agree: at least one is off, and three sightings cannot tell which one; a fourth sighting can.",
+        "headline": "Best fit of sightings that do not agree: 30.031° N, 40.012° W, within about 420 m (95 %), but the 95 % area may not contain the smoke.",
+        "area": "The 95 % area is an ellipse with semi-axes 350 m and 180 m, long axis north-east to south-west (30°).",
+        "basis": "Based on 3 sightings; newest 2 min ago, oldest 6 min ago.",
+        "geometry": "Geometry: fair. The lines cross at a moderate angle.",
+        "warnings": [],
+        "limits": "This is a 95 % region if every sighting was aimed at the same point and its errors are independent and as stated. Phone compasses are off by several degrees; setting north on the Sun or a landmark reduces that."
+      },
+      "emergency": {
+        "device": "Smoke seen by phone compass sightings; not confirmed.\nPosition: the sightings do not agree, at least one is off, and the area given may not contain the smoke; best fit 30.031° N, 40.012° W, within about 420 m (95 %).\nThe 95 % area is an ellipse with semi-axes 350 m and 180 m, long axis north-east to south-west (30°).\nBased on 3 sightings; newest 2 min ago, oldest 6 min ago.\nGeometry: fair. The lines cross at a moderate angle.\nThree sightings can show that they disagree, but not which one is off.\nThese positions come from phone compass sightings, which are off by several degrees.\nWritten at 14:13 UTC. The app that wrote this does not call or notify anyone.",
+        "deviceWithOwnPosition": "Smoke seen by phone compass sightings; not confirmed.\nPosition: the sightings do not agree, at least one is off, and the area given may not contain the smoke; best fit 30.031° N, 40.012° W, within about 420 m (95 %).\nThe 95 % area is an ellipse with semi-axes 350 m and 180 m, long axis north-east to south-west (30°).\nBased on 3 sightings; newest 2 min ago, oldest 6 min ago.\nGeometry: fair. The lines cross at a moderate angle.\nThree sightings can show that they disagree, but not which one is off.\nMy own position: 30.0010° N, 40.0020° W, known to about 10 m.\nThese positions come from phone compass sightings, which are off by several degrees.\nWritten at 14:13 UTC. The app that wrote this does not call or notify anyone.",
+        "simulation": "SIMULATION: synthetic scene, not a real place.\nSmoke seen by phone compass sightings; not confirmed.\nPosition: the sightings do not agree, at least one is off, and the area given may not contain the smoke; best fit 30.031° N, 40.012° W, within about 420 m (95 %).\nThe 95 % area is an ellipse with semi-axes 350 m and 180 m, long axis north-east to south-west (30°).\nBased on 3 sightings; newest 2 min ago, oldest 6 min ago.\nGeometry: fair. The lines cross at a moderate angle.\nThree sightings can show that they disagree, but not which one is off.\nThese positions come from phone compass sightings, which are off by several degrees.\nWritten at 14:13 UTC. The app that wrote this does not call or notify anyone."
       }
     }
   ],

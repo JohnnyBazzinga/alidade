@@ -22,15 +22,36 @@ describe('fixWords: the rules of the words', () => {
   if (c === undefined) throw new Error('fixture');
 
   it('holds none of the words that claim certainty, and says probably and within about (Req 6.3)', () => {
+    // Amended 2026-11-19 (Req 6.11): sightings that disagree are never "probably here", so the
+    // case of three that disagree is checked apart, below.
     for (const each of WORDS_FIXTURE.fixes) {
       const words = fixWords(fixOfCase(each), assessmentOfCase(each), NOW, PARAMETERS);
       if (!words.ok) throw new Error('failed');
       const text = fixWordsText(words.value);
       expect(text).not.toMatch(/exact|located at|confirmed|precisely/i);
-      expect(text).toContain('Probably');
+      if (each.disagreement === undefined) expect(text).toContain('Probably');
       expect(text).toContain('within about');
       expect(text).not.toMatch(/NaN|Infinity|undefined|null/);
     }
+  });
+
+  it('begins with the disagreement, gives the best fit, never probably, and keeps the Geometry class (Req 6.11)', () => {
+    const disagreeing = WORDS_FIXTURE.fixes.find((each) => each.disagreement === 'three_disagree');
+    if (disagreeing === undefined) throw new Error('fixture');
+    const words = fixWords(fixOfCase(disagreeing), assessmentOfCase(disagreeing), NOW, PARAMETERS);
+    if (!words.ok) throw new Error('failed');
+    const text = fixWordsText(words.value);
+    expect(text.startsWith('The sightings do not agree: at least one is off')).toBe(true);
+    expect(text).toContain('a fourth sighting can');
+    expect(words.value.headline.startsWith('Best fit of sightings that do not agree: ')).toBe(true);
+    expect(text).toContain('the 95 % area may not contain the smoke');
+    expect(text).not.toMatch(/probably/i);
+    expect(words.value.geometry).toMatch(/^Geometry: /);
+    // The same Fix with no disagreement reads as before, with no disagreement sentence.
+    const agreeing = { ...assessmentOfCase(disagreeing), disagreement: 'none' as const };
+    const plain = fixWords(fixOfCase(disagreeing), agreeing, NOW, PARAMETERS);
+    expect(plain.ok && plain.value.disagreement).toBeNull();
+    expect(plain.ok && plain.value.headline.startsWith('Probably here: ')).toBe(true);
   });
 
   it('says the set-aside count only when there is one, and the excluded ones in the plural for two', () => {

@@ -1,6 +1,8 @@
 // The Fix in words (Req 6.2, 6.3, 6.7, 5.8, 16.1, 16.4, design D9, §7.8). Every position and
 // length comes from `format.ts`, so that a position never reaches a sentence without its metres
 // in the same sentence. The words say "probably within" and never claim certainty (Req 6.3).
+// When the assessment has found that the sightings disagree, they begin with it and give the
+// position as the best fit of sightings that disagree, never "probably" (Req 6.11).
 
 import {
   ellipse95,
@@ -11,6 +13,7 @@ import {
 } from '@alidade/core';
 import { err, ok, type VigiaResult } from '../../result';
 import type { Assessment } from '../assessment/assess';
+import { disagreementStatement } from '../assessment/statements';
 import { ageText } from '../civil-time';
 import { toDeg } from '../degrees';
 import { checkParameters, type VigiaParameters } from '../parameters';
@@ -20,7 +23,16 @@ import { halfIntervalM } from './from-you';
 import { geometryClass, geometrySentence } from './geometry-class';
 
 export interface FixWords {
-  /** `Probably here: …, within about R (95 %).`: the position and its uncertainty in one sentence. */
+  /**
+   * The disagreement the assessment found, first in the words (Req 6.11), or `null` when the
+   * sightings agree.
+   */
+  readonly disagreement: string | null;
+  /**
+   * `Probably here: …, within about R (95 %).`: the position and its uncertainty in one sentence.
+   * When the sightings disagree: `Best fit of sightings that do not agree: …, within about R
+   * (95 %), but the 95 % area may not contain the smoke.`
+   */
   readonly headline: string;
   /** The 95 % semi-axes and the direction of the long axis. */
   readonly area: string;
@@ -38,6 +50,7 @@ const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
 /** The words of the Fix as one text, in the order of the screen. */
 export function fixWordsText(words: FixWords): string {
   return [
+    ...(words.disagreement === null ? [] : [words.disagreement]),
     words.headline,
     words.area,
     words.basis,
@@ -141,8 +154,13 @@ export function fixWords(
   if (!range.ok) return range;
   if (range.value !== null) warnings.push(range.value);
 
+  const disagreement = disagreementStatement(assessment.disagreement, assessment.checkLevel);
   return ok({
-    headline: `Probably here: ${position.value.text}, within about ${radius.value} (95 %).`,
+    disagreement,
+    headline:
+      disagreement === null
+        ? `Probably here: ${position.value.text}, within about ${radius.value} (95 %).`
+        : `Best fit of sightings that do not agree: ${position.value.text}, within about ${radius.value} (95 %), but the 95 % area may not contain the smoke.`,
     area: `The 95 % area is an ellipse with semi-axes ${major.value} and ${minor.value}, long axis ${axis.value}.`,
     basis,
     geometry: geometrySentence(geometry.value),

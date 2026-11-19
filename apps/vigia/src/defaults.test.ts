@@ -24,7 +24,7 @@ const EXPECTED = {
   FAIR_ELLIPSE_RATIO: { value: 1.5, unit: 'ratio', basis: 'judgement' },
   MAX_CODE_LENGTH_CHARS: { value: 2048, unit: 'chars', basis: 'judgement' },
   MAX_LINK_LENGTH_CHARS: { value: 160, unit: 'chars', basis: 'judgement' },
-  MAX_EMERGENCY_TEXT_CHARS: { value: 800, unit: 'chars', basis: 'judgement' },
+  MAX_EMERGENCY_TEXT_CHARS: { value: 900, unit: 'chars', basis: 'judgement' },
   ADVICE_MIN_DISTANCE_M: { value: 300, unit: 'm', basis: 'judgement' },
   EXPIRY_CHECK_INTERVAL_MS: { value: 60_000, unit: 'ms', basis: 'judgement' },
   WIND_GRID_DEG: { value: 0.1, unit: 'deg', basis: 'judgement' },

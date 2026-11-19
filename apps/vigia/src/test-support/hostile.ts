@@ -15,7 +15,7 @@ const T = 1_790_000_000_000;
 /**
  * The limits of the package, and the doubles just either side of each: the default values of
  * `VigiaParameters` (Req 19.1) and the bounds the checks of `checkParameters` compare with
- * (design §7.20: 740 characters, `CODE_LENGTH + 'https://a.b/#'.length` = 63), and the ranges of
+ * (design §7.20: 896 characters, `CODE_LENGTH + 'https://a.b/#'.length` = 63), and the ranges of
  * the sighting code (design §8.1). They are copied here as plain numbers on purpose: this file
  * must not import the code whose limits it attacks.
  */
@@ -29,9 +29,9 @@ export const LIMITS: readonly number[] = [
   1.5, // fairEllipseRatio
   2048, // maxCodeLengthChars
   160, // maxLinkLengthChars
-  800, // maxEmergencyTextChars
-  740, // least maxEmergencyTextChars
-  730, // worst case of the Emergency text
+  900, // maxEmergencyTextChars
+  896, // least maxEmergencyTextChars: the worst case of the Emergency text
+  731, // the worst case of the Emergency text with four or more Sightings
   63, // least maxLinkLengthChars
   50, // CODE_LENGTH
   300, // adviceMinDistanceM

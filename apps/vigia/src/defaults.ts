@@ -74,10 +74,11 @@ export const MAX_LINK_LENGTH_CHARS = 160;
 
 /**
  * The longest Emergency text: short enough to read out to an operator, and long enough for the
- * position, its uncertainty, the basis and the geometry in words (the worst case is 730
- * characters). Unit: chars. Basis: judgement (800).
+ * position, its uncertainty, the basis, the geometry and what the sightings could not check, in
+ * plain separate lines (the worst case is 896 characters: three sightings that disagree). Raised
+ * from 800 on 2026-11-19 (Req 14.11). Unit: chars. Basis: judgement (900).
  */
-export const MAX_EMERGENCY_TEXT_CHARS = 800;
+export const MAX_EMERGENCY_TEXT_CHARS = 900;
 
 /**
  * The nearest to the smoke that the next-sighting advice asks the user to stand: closer than

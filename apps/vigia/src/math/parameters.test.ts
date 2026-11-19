@@ -165,12 +165,12 @@ describe('checkParameters: the consistency of Req 19.3 and design §7.20, at and
     expect(checkParameters(withField('maxLinkLengthChars', 64)).ok).toBe(true);
   });
 
-  it('maxEmergencyTextChars must hold the worst case of the Emergency text: 740', () => {
-    expect(checkParameters(withField('maxEmergencyTextChars', 739))).toEqual(
+  it('maxEmergencyTextChars must hold the worst case of the Emergency text: 896 (Req 14.11, 19.1)', () => {
+    expect(checkParameters(withField('maxEmergencyTextChars', 895))).toEqual(
       invalid('maxEmergencyTextChars'),
     );
-    expect(checkParameters(withField('maxEmergencyTextChars', 740)).ok).toBe(true);
-    expect(checkParameters(withField('maxEmergencyTextChars', 741)).ok).toBe(true);
+    expect(checkParameters(withField('maxEmergencyTextChars', 896)).ok).toBe(true);
+    expect(checkParameters(withField('maxEmergencyTextChars', 897)).ok).toBe(true);
   });
 });
 

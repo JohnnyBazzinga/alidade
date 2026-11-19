@@ -15,7 +15,7 @@ import {
 import { NOW_UTC_MS, PARAMETERS } from '../../test-support/incident-fixtures';
 import { checkProperty, ErrorTracker } from '../../test-support/property-report';
 import { assess, type Assessment } from '../assessment/assess';
-import { emergencyText } from './emergency-text';
+import { emergencyText, WORST_EMERGENCY_TEXT_CHARS } from './emergency-text';
 import { fixWords, fixWordsText } from './fix-words';
 import { fromYouWords } from './from-you';
 
@@ -104,8 +104,8 @@ describe('P-14.8: the Emergency text (Req 14.1, 14.3, 14.6, 14.8)', () => {
           throw new Error(`emergencyText failed: ${text.reason}`);
         }
         const t = text.value;
-        tracker.record('length (characters)', t.length, '≤ 730');
-        if (t.length > PARAMETERS.maxEmergencyTextChars || t.length > 730)
+        tracker.record('length (characters)', t.length, `≤ ${WORST_EMERGENCY_TEXT_CHARS}`);
+        if (t.length > PARAMETERS.maxEmergencyTextChars || t.length > WORST_EMERGENCY_TEXT_CHARS)
           throw new Error(`length ${t.length}`);
         if (/NaN|Infinity|undefined|null/.test(t)) throw new Error('a value that is not a number');
         if (assessment.fix?.ok) {

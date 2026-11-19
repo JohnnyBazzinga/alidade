@@ -292,7 +292,7 @@ function firstInvalidField(p: VigiaParameters): string | null {
     ['fairEllipseRatio', p.fairEllipseRatio <= 1],
     ['longEllipseRatio', p.longEllipseRatio <= p.fairEllipseRatio],
     ['maxLinkLengthChars', p.maxLinkLengthChars < 50 + 13],
-    ['maxEmergencyTextChars', p.maxEmergencyTextChars < 740],
+    ['maxEmergencyTextChars', p.maxEmergencyTextChars < 896],
   ];
   return consistency.find(([, violated]) => violated)?.[0] ?? null;
 }
@@ -682,6 +682,7 @@ export const HOSTILE_LIST: readonly HostileEntry[] = [
     'fixWordsText',
     fc.tuple(
       fc.record({
+        disagreement: fc.option(hostileString()),
         headline: hostileString(),
         area: hostileString(),
         basis: hostileString(),

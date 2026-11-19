@@ -16,12 +16,13 @@ import { compassWord8, lengthText95, positionText } from './format';
 
 /**
  * The longest text the template can make, from the longest string of each line (a simulation
- * line, an own position of 4 decimals, 32 sightings of which 30 are set aside, lengths written as
- * "over 1000 km", ages of 10 000 days, the longest axis words and the poor geometry sentence): 731
- * characters, built by a test. `checkParameters` requires `maxEmergencyTextChars` of at least
- * 740, so the text cannot exceed it.
+ * line, an own position of 4 decimals, 30 sightings set aside, lengths written as "over 1000 km",
+ * ages of 10 000 days, the longest axis words, the poor geometry sentence, and since 2026-11-19
+ * the position line of three sightings that disagree with the line of what three can check):
+ * 896 characters, built by a test. `checkParameters` requires `maxEmergencyTextChars` of at
+ * least 896, so the text cannot exceed it (Req 14.8, 19.1).
  */
-export const WORST_EMERGENCY_TEXT_CHARS = 731;
+export const WORST_EMERGENCY_TEXT_CHARS = 896;
 
 export interface EmergencyInput {
   readonly assessment: Assessment;
@@ -38,6 +39,11 @@ const POSITIONS_LINE =
   'These positions come from phone compass sightings, which are off by several degrees.';
 const DIRECTIONS_LINE =
   'These directions come from phone compass sightings, which are off by several degrees.';
+/** What the sightings could not check, by the count of used Sightings (Req 14.11). */
+const COUNT_LINES: Readonly<Record<number, string>> = {
+  2: 'Two sightings cannot check each other.',
+  3: 'Three sightings can show that they disagree, but not which one is off.',
+};
 
 /** The own position and its accuracy, rounded up; an accuracy of 0 m is written as the least step, 10 m. */
 function ownText(own: {
@@ -110,12 +116,18 @@ export function emergencyText(
   if (!position.ok) return position;
   const radius = lengthText95(e95.value.semiMajorM + position.value.printBoundM);
   if (!radius.ok) return radius;
+  // Sightings that disagree say so in the line of the position, before any metres, and never
+  // "probably within" (Req 14.11).
   lines.push(
-    `Position: ${position.value.text}, probably within about ${radius.value} (95 %).`,
+    assessment.disagreement === 'none'
+      ? `Position: ${position.value.text}, probably within about ${radius.value} (95 %).`
+      : `Position: the sightings do not agree, at least one is off, and the area given may not contain the smoke; best fit ${position.value.text}, within about ${radius.value} (95 %).`,
     words.value.area,
     words.value.basis,
     words.value.geometry,
   );
+  const countLine = COUNT_LINES[assessment.used.length];
+  if (countLine !== undefined) lines.push(countLine);
   if (own !== null) lines.push(`My own position: ${own.value}.`);
   lines.push(POSITIONS_LINE, written);
   return ok(lines.join('\n'));

@@ -20,6 +20,32 @@ const modelOf = (a: Assessment) => {
 /** The wind Overlay's two layers (design §7.18; asserted again in task 17). */
 const WIND_LAYER_IDS = ['wind', 'wind-head'];
 
+describe('mapModel: the legend of the Fix (Req 6.11, design §7.18)', () => {
+  it('says what the point and its ellipse are, with no Fix none', () => {
+    const m = modelOf(assessed(postsIncident(['west', 'east', 'side'])));
+    expect(m.fixLegend).toBe(
+      'The point and its ellipse: where the smoke probably is, and its 95 % area.',
+    );
+    expect(modelOf(assessed(postsIncident(['west']))).fixLegend).toBeNull();
+  });
+
+  it('says that the sightings disagree, and still draws the Fix with its ellipse', () => {
+    // The scene's three posts, the west one 40° off: the assessment says three_disagree.
+    const a = assessed(
+      postsIncident(['west', 'east', 'side'], (post) =>
+        post === 'west' ? { errorRad: (40 * Math.PI) / 180 } : {},
+      ),
+    );
+    expect(a.disagreement).toBe('three_disagree');
+    const m = modelOf(a);
+    expect(m.fixLegend).toBe(
+      'The point and its ellipse: the best fit of sightings that do not agree; the 95 % area may not contain the smoke.',
+    );
+    expect(m.fix).toEqual(a.fix?.ok ? a.fix.value : null);
+    expect(m.fix).not.toBeNull();
+  });
+});
+
 describe('mapModel (Req 18.3, 18.7, design §7.18)', () => {
   const fourWithOneHidden = () =>
     postsIncident(['west', 'east', 'side', 'southwest'], (post) =>

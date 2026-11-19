@@ -29,7 +29,17 @@ export interface MapModel {
   readonly fix: Fix | null;
   readonly lineLengthM: number;
   readonly layers: readonly AppLayer[];
+  /**
+   * The legend of the Fix's point and ellipse, `null` with no Fix. When the sightings disagree it
+   * says so, and that the 95 % area may not contain the smoke; the Fix is drawn all the same (Req
+   * 6.1, 6.11).
+   */
+  readonly fixLegend: string | null;
 }
+
+const FIX_LEGEND = 'The point and its ellipse: where the smoke probably is, and its 95 % area.';
+const FIX_LEGEND_DISAGREE =
+  'The point and its ellipse: the best fit of sightings that do not agree; the 95 % area may not contain the smoke.';
 
 /**
  * The map of an assessment. The line length is 5 000 m with no Fix, otherwise 1.3 times the
@@ -89,6 +99,8 @@ export function mapModel(
     bearings: used,
     fix,
     lineLengthM,
+    fixLegend:
+      fix === null ? null : assessment.disagreement === 'none' ? FIX_LEGEND : FIX_LEGEND_DISAGREE,
     layers: [
       {
         id: SET_ASIDE_LAYER_IDS[0],
