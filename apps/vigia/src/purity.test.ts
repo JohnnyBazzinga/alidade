@@ -60,6 +60,18 @@ const ENV_FILES = Object.keys(
 
 /** Every non-test source file. Adding one without listing it here fails the test below. */
 const SOURCES: readonly string[] = [
+  'src/adapters/clipboard.ts',
+  'src/adapters/network-gate.ts',
+  'src/adapters/page-address.ts',
+  'src/adapters/qr-encoder.ts',
+  'src/adapters/random.ts',
+  'src/adapters/storage.ts',
+  'src/adapters/transport/manual-transport.ts',
+  'src/adapters/transport/memory-network.ts',
+  'src/math/network/gate-decision.ts',
+  'src/math/network/host-list.ts',
+  'src/math/network/request-boxes.ts',
+  'src/math/transport/transport.ts',
   'src/defaults.ts',
   'src/math/civil-time.ts',
   'src/math/assessment/assess.ts',

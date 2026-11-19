@@ -86,6 +86,35 @@ export function checkProperty<Ts extends [unknown, ...unknown[]]>(
   if (isDeepRun()) console.log(formatReport(report));
 }
 
+/**
+ * `checkProperty` for a property whose predicate is asynchronous (the Adapters' Promises). Same
+ * report, same failure message; awaits every case in order.
+ */
+export async function checkPropertyAsync<Ts extends [unknown, ...unknown[]]>(
+  id: string,
+  property: fc.IAsyncProperty<Ts>,
+  tracker: ErrorTracker,
+  parameters: fc.Parameters<Ts> = {},
+): Promise<void> {
+  const startMs = performance.now();
+  const details = await fc.check(property, parameters);
+  const elapsedMs = performance.now() - startMs;
+  if (details.failed) {
+    const cause =
+      details.errorInstance instanceof Error ? `\nCause: ${details.errorInstance.message}` : '';
+    throw new Error(`${fc.defaultReportMessage(details) ?? `${id} failed`}${cause}`);
+  }
+  const report: PropertyReport = {
+    id,
+    numRuns: details.numRuns,
+    numSkips: details.numSkips,
+    msPerCase: details.numRuns === 0 ? 0 : elapsedMs / details.numRuns,
+    errors: tracker.entries(),
+  };
+  reports.push(report);
+  if (isDeepRun()) console.log(formatReport(report));
+}
+
 export function formatReport(report: PropertyReport): string {
   const lines = [
     `[deep] ${report.id}: ${report.numRuns} cases, ${report.numSkips} discarded, ` +

@@ -10,6 +10,14 @@
 import { validateBearing } from '@alidade/core';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
+import { createClipboard } from './adapters/clipboard';
+import { createNetworkGate } from './adapters/network-gate';
+import { createPage } from './adapters/page-address';
+import { createQrEncoder, type QrMatrix } from './adapters/qr-encoder';
+import { createRandom, MAX_BYTES_PER_CALL } from './adapters/random';
+import { createMemoryStorage, createStorage, type StorageLike } from './adapters/storage';
+import { createManualTransport } from './adapters/transport/manual-transport';
+import { createMemoryNetwork, DIRECT_DELIVERY } from './adapters/transport/memory-network';
 import { assess } from './math/assessment/assess';
 import {
   checkStatement,
@@ -62,11 +70,23 @@ import { fromYouWords, halfIntervalM } from './math/fix/from-you';
 import { geometryClass, geometrySentence } from './math/fix/geometry-class';
 import { mapModel } from './math/fix/map-model';
 import { messageFor } from './math/messages';
+import { decideRequest } from './math/network/gate-decision';
+import {
+  buildHostList,
+  HOST_LIST,
+  WIND_ENTRY,
+  type HostList,
+  type TileProvider,
+} from './math/network/host-list';
+import { windPoint, windRequestUrl } from './math/network/request-boxes';
 import { sightingGuidance } from './math/texts';
 import { toDeg, fromDeg } from './math/degrees';
 import { checkParameters, defaultParameters, type VigiaParameters } from './math/parameters';
 import { VIGIA_REASONS, type VigiaReason } from './reasons';
-import { pageAddress, sightingArb, symbols } from './test-support/generators';
+import { closed, pageAddress, sightingArb, symbols } from './test-support/generators';
+import { createFakeFetch, type FakeBehaviour } from './test-support/fake-fetch';
+import { FakeTimer } from './test-support/fake-timer';
+import { createFakeCrypto, createFakeNavigator, createFakePage } from './test-support/fake-browser';
 import { cappedRuns } from './test-support/fast-check-setup';
 import {
   hostileAction,
@@ -86,13 +106,13 @@ import {
   type Sighting,
 } from './math/incident/sighting';
 import { partsOf, problemsOf } from './test-support/message-rules';
-import { checkProperty, ErrorTracker } from './test-support/property-report';
+import { checkProperty, checkPropertyAsync, ErrorTracker } from './test-support/property-report';
 import { views } from './test-support/source-views';
 
 interface HostileEntry {
   readonly name: string;
   /** Runs the property of this function: P-2.6 for one entry of the list. */
-  readonly run: () => void;
+  readonly run: () => void | Promise<void>;
 }
 
 /** A value is total when its numbers are finite and, if it is a Result, it is a total one. */
@@ -128,6 +148,38 @@ function hostileEntry<Args extends unknown[]>(
           expect(() => {
             result = fn(...given);
           }, `${name} threw`).not.toThrow();
+          expect(isTotal(result), `${name} returned a value with NaN or infinity`).toBe(true);
+          extra(given, result);
+        }),
+        new ErrorTracker(),
+        { numRuns: cappedRuns(10_000) },
+      ),
+  };
+}
+
+/**
+ * `hostileEntry` for a function that returns a Promise (the Adapters': a gate that waits for a
+ * response, a clipboard, a Transport). Same property: the Promise settles with a value (never a
+ * rejection), the value is total, and the extra check holds.
+ */
+function hostileAsyncEntry<Args extends unknown[]>(
+  name: string,
+  args: fc.Arbitrary<Args>,
+  fn: (...args: Args) => Promise<unknown>,
+  extra: (args: Args, result: unknown) => void = () => undefined,
+): HostileEntry {
+  return {
+    name,
+    run: () =>
+      checkPropertyAsync(
+        `P-2.6 ${name}`,
+        fc.asyncProperty(args, async (given) => {
+          let result: unknown;
+          try {
+            result = await fn(...given);
+          } catch (error) {
+            throw new Error(`${name} rejected: ${String(error)}`, { cause: error });
+          }
           expect(isTotal(result), `${name} returned a value with NaN or infinity`).toBe(true);
           extra(given, result);
         }),
@@ -298,6 +350,66 @@ function firstInvalidField(p: VigiaParameters): string | null {
 }
 
 // --- the list --------------------------------------------------------------------------------
+
+/** A tile provider and templates for the Host list entries (synthetic; the owner lists the real one). */
+const TILE_PROVIDER: TileProvider = {
+  host: 'tiles.example-maps.test',
+  sourceName: 'Example Maps (synthetic)',
+  termsUrl: 'https://example-maps.test/terms',
+  attribution: 'Map data by Example Maps',
+};
+const TILE_TEMPLATES = [
+  'https://tiles.example-maps.test/{z}/{x}/{y}.png',
+  'https://evil.test/{z}/{x}/{y}.png',
+  'https://tiles.example-maps.test/{z}/{x}/{y}.png?style=plain',
+] as const;
+
+/**
+ * A position for the wind request. Domain: a hostile double for each coordinate one draw in two;
+ * otherwise a latitude in `[-1.55, 1.55]` rad and a longitude in `[-3.14, 3.14]` rad (both ends
+ * drawn), which are Supported.
+ */
+const hostilePosition = fc.oneof(
+  fc.record({ latRad: hostileNumber(), lonRad: hostileNumber() }),
+  fc.record({ latRad: closed(-1.55, 1.55), lonRad: closed(-3.14, 3.14) }),
+);
+
+/** The URL of the wind builder for a Supported position, and nothing else (for the gate's entries). */
+const windUrl = fc
+  .record({ latRad: closed(-1.55, 1.55), lonRad: closed(-3.14, 3.14) })
+  .map((position) => {
+    const url = windRequestUrl(position, defaultParameters());
+    return url.ok ? url.value : '';
+  });
+
+/**
+ * A Storage object. Domain: it answers with a hostile string, or its calls throw an Error with a
+ * hostile name, `null`, a number or an object with a non-string `name`.
+ */
+const hostileStorage: fc.Arbitrary<StorageLike> = fc
+  .tuple(fc.constantFrom('ok', 'error', 'null', 'number', 'object'), hostileString())
+  .map(([mode, text]): StorageLike => {
+    const fail = (): never => {
+      switch (mode) {
+        case 'error': {
+          const error = new Error(text);
+          error.name = text;
+          throw error;
+        }
+        case 'null':
+          throw null;
+        case 'number':
+          throw 42;
+        default:
+          throw { name: 7 };
+      }
+    };
+    return {
+      getItem: () => (mode === 'ok' ? text : fail()),
+      setItem: () => (mode === 'ok' ? undefined : fail()),
+      removeItem: () => (mode === 'ok' ? undefined : fail()),
+    };
+  });
 
 export const HOSTILE_LIST: readonly HostileEntry[] = [
   hostileEntry('messageFor', fc.tuple(hostileFailure), messageFor, ([failure], result) => {
@@ -815,6 +927,316 @@ export const HOSTILE_LIST: readonly HostileEntry[] = [
   hostileEntry('incidentMode', fc.tuple(hostileString()), incidentMode, ([text], result) => {
     expect(result).toBe(text.startsWith('Z') ? 'simulation' : 'device');
   }),
+  // --- the Network gate, the Host list and the wind request (task 10) ---
+  hostileEntry(
+    'decideRequest',
+    fc.tuple(fc.oneof(hostileString(), windUrl), fc.constantFrom(HOST_LIST, [] as HostList)),
+    decideRequest,
+    ([, list], result) => {
+      if (Reflect.get(result as object, 'ok') === true) {
+        expect(list).toContain(Reflect.get(result as object, 'value'));
+      } else {
+        expect(result).toMatchObject({ ok: false, reason: 'host_not_allowed' });
+        expect([
+          'url',
+          'canonical',
+          'scheme',
+          'userinfo',
+          'port',
+          'fragment',
+          'host',
+          'path',
+          'query',
+        ]).toContain(Reflect.get(result as object, 'field'));
+      }
+    },
+  ),
+  hostileEntry(
+    'buildHostList',
+    fc.tuple(
+      fc.array(fc.oneof(hostileString(), fc.constantFrom(...TILE_TEMPLATES)), { maxLength: 3 }),
+      fc.constantFrom([TILE_PROVIDER], [] as readonly TileProvider[]),
+    ),
+    buildHostList,
+    ([templates], result) => {
+      if (Reflect.get(result as object, 'ok') === true) {
+        const list = Reflect.get(result as object, 'value') as HostList;
+        expect(list).toHaveLength(1 + templates.length);
+        expect(list[0]).toBe(WIND_ENTRY);
+      } else {
+        expect(result).toMatchObject({ ok: false, reason: 'host_not_allowed' });
+      }
+    },
+  ),
+  hostileEntry(
+    'windPoint',
+    fc.tuple(hostilePosition, hostileParameters),
+    windPoint,
+    ([position, p], result) => {
+      const invalidField = firstInvalidField(p);
+      if (invalidField !== null) {
+        expect(result).toEqual({ ok: false, reason: 'invalid_number', field: invalidField });
+      } else if (Reflect.get(result as object, 'ok') === true) {
+        const point = Reflect.get(result as object, 'value') as { latDeg: number; lonDeg: number };
+        const lat = toDeg(position.latRad);
+        const lon = toDeg(position.lonRad);
+        expect(lat.ok && lon.ok).toBe(true);
+        if (lat.ok && lon.ok) {
+          expect(Math.abs(point.latDeg - lat.value)).toBeLessThanOrEqual(p.windGridDeg / 2 + 1e-9);
+          expect(Math.abs(point.lonDeg - lon.value)).toBeLessThanOrEqual(p.windGridDeg / 2 + 1e-9);
+        }
+      }
+    },
+  ),
+  hostileEntry(
+    'windRequestUrl',
+    fc.tuple(hostilePosition, hostileParameters),
+    windRequestUrl,
+    ([, p], result) => {
+      const invalidField = firstInvalidField(p);
+      if (invalidField !== null) {
+        expect(result).toEqual({ ok: false, reason: 'invalid_number', field: invalidField });
+      } else if (Reflect.get(result as object, 'ok') === true) {
+        // What the builder writes, the gate's decision accepts (P-11.9).
+        const url = Reflect.get(result as object, 'value') as string;
+        expect(decideRequest(url, HOST_LIST).ok).toBe(true);
+      }
+    },
+  ),
+  hostileAsyncEntry(
+    'createNetworkGate',
+    fc.tuple(
+      fc.oneof(hostileString(), windUrl),
+      hostileParameters,
+      fc.constantFrom('reject', 'throw', 'hang', 'text', 'stream', 'status') as fc.Arbitrary<
+        'reject' | 'throw' | 'hang' | 'text' | 'stream' | 'status'
+      >,
+      hostileString(),
+    ),
+    async (url, p, mode, body) => {
+      const bytes = new TextEncoder().encode(body.slice(0, 2000));
+      const fake = createFakeFetch((): FakeBehaviour => {
+        switch (mode) {
+          case 'reject':
+            return { kind: 'reject', error: body };
+          case 'throw':
+            return { kind: 'throw', error: body };
+          case 'hang':
+            return { kind: 'hang' };
+          case 'text':
+            return { kind: 'text', status: 200, text: body };
+          case 'stream':
+            return { kind: 'stream', status: 200, chunks: [bytes, bytes] };
+          case 'status':
+            return { kind: 'text', status: 503, text: body };
+        }
+      });
+      const timer = new FakeTimer();
+      const made = createNetworkGate(fake.fetchLike, HOST_LIST, p, timer);
+      if (!made.ok) return made;
+      const pending = made.value.get(url);
+      timer.advance(p.requestTimeoutMs);
+      return pending;
+    },
+    ([, p], result) => {
+      const invalidField = firstInvalidField(p);
+      if (invalidField !== null) {
+        expect(result).toEqual({ ok: false, reason: 'invalid_number', field: invalidField });
+      } else if (Reflect.get(result as object, 'ok') === false) {
+        expect(['host_not_allowed', 'overlay_unavailable']).toContain(
+          Reflect.get(result as object, 'reason'),
+        );
+      }
+    },
+  ),
+  hostileEntry(
+    'DIRECT_DELIVERY',
+    fc.tuple(hostileString(), hostileString(), hostileString(), hostileNumber()),
+    DIRECT_DELIVERY,
+    (_args, result) => {
+      expect(result).toEqual([{ copies: 1, delayMs: 0 }]);
+    },
+  ),
+  // --- the Adapters (task 11) ---
+  hostileEntry(
+    'createStorage',
+    fc.tuple(hostileStorage, hostileString()),
+    (storage, text) => {
+      const made = createStorage(storage);
+      return [
+        made.read(),
+        made.write(text),
+        made.remove(),
+        made.readBackup(),
+        made.writeBackup(text),
+      ];
+    },
+    (_args, result) => {
+      for (const one of result as unknown[]) expect(isTotalResult(one)).toBe(true);
+    },
+  ),
+  hostileEntry(
+    'createMemoryStorage',
+    fc.tuple(hostileString()),
+    (text) => {
+      const made = createMemoryStorage();
+      made.write(text);
+      made.writeBackup(text);
+      return [made.read(), made.readBackup()];
+    },
+    ([text], result) => {
+      expect(result).toEqual([
+        { ok: true, value: text },
+        { ok: true, value: text },
+      ]);
+    },
+  ),
+  hostileAsyncEntry(
+    'createClipboard',
+    fc.tuple(
+      fc.constantFrom('ok', 'absent', 'reject', 'throw') as fc.Arbitrary<
+        'ok' | 'absent' | 'reject' | 'throw'
+      >,
+      fc.constantFrom('ok', 'absent', 'reject', 'throw') as fc.Arbitrary<
+        'ok' | 'absent' | 'reject' | 'throw'
+      >,
+      hostileString(),
+    ),
+    async (clipboardMode, shareMode, text) => {
+      const navigator = createFakeNavigator({ clipboard: clipboardMode, share: shareMode });
+      const made = createClipboard(navigator);
+      return [await made.copyText(text), await made.shareLink(text), made.canShare];
+    },
+    ([clipboardMode, shareMode, text], result) => {
+      const [copied, shared, canShare] = result as [unknown, unknown, unknown];
+      expect(isTotalResult(copied)).toBe(true);
+      expect(isTotalResult(shared)).toBe(true);
+      expect(canShare).toBe(shareMode !== 'absent');
+      expect(Reflect.get(copied as object, 'ok')).toBe(clipboardMode === 'ok');
+      expect(Reflect.get(shared as object, 'ok')).toBe(shareMode === 'ok');
+      void text;
+    },
+  ),
+  hostileEntry(
+    'createRandom',
+    fc.tuple(
+      fc.constantFrom('ok', 'throws', 'missing') as fc.Arbitrary<'ok' | 'throws' | 'missing'>,
+      hostileNumber(),
+    ),
+    (mode, count) => {
+      const crypto = createFakeCrypto();
+      crypto.failing = mode === 'throws';
+      const made = createRandom(mode === 'missing' ? null : crypto);
+      return made.ok ? made.value.bytes(count) : made;
+    },
+    ([mode, count], result) => {
+      if (mode === 'missing') {
+        expect(result).toEqual({ ok: false, reason: 'random_unavailable' });
+      } else {
+        const valid = Number.isInteger(count) && count >= 0 && count <= MAX_BYTES_PER_CALL;
+        expect((result as Uint8Array).length).toBe(valid && mode === 'ok' ? count + 0 : 0); // `+ 0`: a count of -0 is 0 bytes
+      }
+    },
+  ),
+  hostileEntry(
+    'createPage',
+    fc.tuple(hostileString(), hostileString(), fc.boolean(), hostileString()),
+    (href, hash, failing, address) => {
+      const fake = createFakePage('https://app.example.test/');
+      fake.location.href = href;
+      fake.location.hash = hash;
+      fake.history.failing = failing;
+      const page = createPage(fake.location, fake.history, fake.events);
+      let heard = 0;
+      const off = page.onFragmentChange(() => {
+        heard += 1;
+      });
+      fake.events.dispatch();
+      off();
+      page.replaceAddress(address);
+      return {
+        address: page.address(),
+        fragment: page.fragment(),
+        heard,
+        urls: fake.history.calls.map((c) => c.url ?? ''),
+      };
+    },
+    ([href, hash], result) => {
+      const r = result as { address: string; fragment: string; heard: number; urls: string[] };
+      expect(r.address).toBe(href);
+      expect(r.fragment).toBe(hash.startsWith('#') ? hash.slice(1) : hash);
+      expect(r.heard).toBe(1);
+      for (const url of r.urls) expect(url).not.toContain('#');
+    },
+  ),
+  hostileEntry(
+    'createQrEncoder',
+    fc.tuple(fc.oneof(hostileString(), pageAddress()), hostileParameters),
+    (link, p) => {
+      const made = createQrEncoder(p);
+      return made.ok ? made.value.qrMatrix(link) : made;
+    },
+    ([link, p], result) => {
+      const invalidField = firstInvalidField(p);
+      if (invalidField !== null) {
+        expect(result).toEqual({ ok: false, reason: 'invalid_number', field: invalidField });
+      } else if (link.length > p.maxLinkLengthChars) {
+        expect(result).toEqual({ ok: false, reason: 'link_too_long' });
+      } else if (Reflect.get(result as object, 'ok') === true) {
+        const matrix = Reflect.get(result as object, 'value') as QrMatrix;
+        expect(matrix.size).toBe(4 * matrix.version + 17);
+      }
+    },
+  ),
+  hostileAsyncEntry(
+    'createMemoryNetwork',
+    fc.tuple(
+      fc.array(fc.record({ copies: hostileNumber(), delayMs: hostileNumber() }), { maxLength: 3 }),
+      hostileString(),
+    ),
+    async (steps, code) => {
+      const timer = new FakeTimer();
+      const network = createMemoryNetwork(() => steps, timer);
+      const a = network.join('A');
+      const b = network.join('B');
+      const got: string[] = [];
+      b.onReceive((text) => got.push(text));
+      const sent = await a.send(code);
+      // Past the longest finite delay of the plan, so that every valid delivery has been made.
+      const finiteDelays = steps
+        .map((step) => step.delayMs)
+        .filter((d) => Number.isFinite(d) && d > 0);
+      timer.advance(Math.max(0, ...finiteDelays) + 1);
+      return { sent, got, running: timer.running() };
+    },
+    ([, code], result) => {
+      const r = result as { sent: unknown; got: string[]; running: number };
+      expect(isTotalResult(r.sent)).toBe(true);
+      for (const text of r.got) expect(text).toBe(code);
+      expect(r.running).toBe(0);
+    },
+  ),
+  hostileAsyncEntry(
+    'createManualTransport',
+    fc.tuple(hostileString(), fc.boolean()),
+    async (text, throws) => {
+      const transport = createManualTransport({
+        present: () => {
+          if (throws) throw new Error(text);
+        },
+      });
+      const got: string[] = [];
+      transport.onReceive((t) => got.push(t));
+      transport.receive(text);
+      return { sent: await transport.send(text), got };
+    },
+    ([text, throws], result) => {
+      const r = result as { sent: unknown; got: string[] };
+      expect(r.got).toEqual([text]);
+      expect(Reflect.get(r.sent as object, 'ok')).toBe(!throws);
+      expect(isTotalResult(r.sent)).toBe(true);
+    },
+  ),
 ];
 
 /**
@@ -829,9 +1251,7 @@ export const NOT_HOSTILE_TESTED: Readonly<Record<string, string>> = {
 describe('P-2.6: the hostile totality (Req 2.1, 2.6, 19.3)', () => {
   // The case count is the run's (200 in `pnpm test`, 10 000 in `test:deep`).
   for (const entry of HOSTILE_LIST) {
-    it(`${entry.name} never throws and returns finite numbers or a failure`, () => {
-      entry.run();
-    });
+    it(`${entry.name} never throws and returns finite numbers or a failure`, () => entry.run());
   }
 });
 
@@ -848,9 +1268,12 @@ export function exportedFunctionNames(code: string): string[] {
   return [...names, ...[...arrows].map((m) => m[1] ?? '')];
 }
 
-/** Every Math-layer source (a file under a `math/` folder, tests excluded), read as text. */
+/**
+ * Every source of the Math layer and of the Adapters (a file under a `math/` or an `adapters/`
+ * folder, tests excluded), read as text.
+ */
 const MATH_SOURCES: Readonly<Record<string, string>> = import.meta.glob<string>(
-  ['./**/math/**/*.ts', '!./**/*.test.ts'],
+  ['./**/math/**/*.ts', './**/adapters/**/*.ts', '!./**/*.test.ts'],
   { query: '?raw', import: 'default', eager: true },
 );
 
