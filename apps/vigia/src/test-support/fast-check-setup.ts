@@ -9,6 +9,8 @@ import { inject } from 'vitest';
 declare module 'vitest' {
   export interface ProvidedContext {
     propertyRuns: number;
+    /** True in the `no-overlays` project, where the Overlays registry is the empty module (D21). */
+    overlaysCut: boolean;
   }
 }
 

@@ -1,0 +1,153 @@
+// The Overlays panel of the Map screen (design §9, D15; Req 1.10, 13.1, 13.7, 18.4), read
+// generically from the registered definitions. `useOverlaySlot` creates one controller for each
+// definition, keeps them told of the observers and the Fix (no request: only the user's switch and
+// Refresh ask for data), and gives the Map screen their layers, their legend and this panel. With
+// no definition there is no panel.
+
+import { COLOURS, SIZES } from '@alidade/ui';
+import { useEffect, useMemo, useState } from 'react';
+import { ageText, clockTextUtc } from '../../../math/civil-time';
+import { mapModel } from '../../../math/fix/map-model';
+import { FailureNotice } from '../../../components/FailureNotice';
+import { LOOK } from '../../../components/look';
+import type { OverlaySlot } from '../../../components/MapScreen';
+import type { OpenView } from '../../../components/store';
+import type {
+  OverlayContext,
+  OverlayController,
+  OverlayDefinition,
+  OverlayDeps,
+  OverlayState,
+} from '../math/overlay-types';
+import { Legend } from './Legend';
+import { SourcesList } from './SourcesList';
+
+interface Item {
+  readonly definition: OverlayDefinition;
+  readonly controller: OverlayController;
+  readonly state: OverlayState;
+}
+
+const NO_CONTEXT: OverlayContext = { observers: [], fix: null, lineLengthM: 5000 };
+
+function contextOf(open: OpenView | null, deps: OverlayDeps): OverlayContext {
+  if (open === null || !open.assessment.ok) return NO_CONTEXT;
+  const model = mapModel(open.assessment.value, deps.parameters);
+  if (!model.ok) return NO_CONTEXT;
+  return {
+    observers: open.assessment.value.used.map((e) => e.sighting.bearing.observer),
+    fix: model.value.fix?.position ?? null,
+    lineLengthM: model.value.lineLengthM,
+  };
+}
+
+function OverlayItem({ item, nowUtcMs }: { readonly item: Item; readonly nowUtcMs: number }) {
+  const { definition, controller, state } = item;
+  return (
+    <div data-testid={`overlay-${definition.id}`} style={LOOK.stack}>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={state.enabled}
+        aria-label={definition.title}
+        onClick={() => controller.setEnabled(!state.enabled)}
+        style={{
+          ...LOOK.button,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          border: `1px solid ${state.enabled ? COLOURS.brass : COLOURS.rule}`,
+        }}
+      >
+        <span>{definition.title}</span>
+        <span style={{ color: state.enabled ? COLOURS.brass : COLOURS.inkDim }}>
+          {state.enabled ? 'On' : 'Off'}
+        </span>
+      </button>
+      {state.failure !== null && <FailureNotice failure={state.failure} />}
+      {!state.enabled && state.fetchedUtcMs === null && <p style={LOOK.text}>{definition.sends}</p>}
+      {state.enabled && (
+        <>
+          {state.status === 'loading' && <p style={LOOK.dim}>Asking for the data.</p>}
+          {state.words.map((w) => (
+            <p key={w} style={LOOK.text}>
+              {w}
+            </p>
+          ))}
+          {state.fetchedUtcMs !== null && (
+            <p style={LOOK.dim}>
+              Fetched {clockTextUtc(state.fetchedUtcMs)}, {ageText(nowUtcMs - state.fetchedUtcMs)}.
+            </p>
+          )}
+          <SourcesList sources={definition.sources} />
+          <button
+            type="button"
+            aria-label={`Refresh ${definition.title}`}
+            onClick={() => controller.refresh()}
+            style={LOOK.button}
+          >
+            Refresh
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
+export function OverlayPanel({
+  items,
+  nowUtcMs,
+}: {
+  readonly items: readonly Item[];
+  readonly nowUtcMs: number;
+}) {
+  return (
+    <section data-testid="overlay-panel" style={{ ...LOOK.panel, gap: SIZES.gapPx * 1.5 }}>
+      <h2 style={LOOK.title}>Extra map information</h2>
+      {items.map((item) => (
+        <OverlayItem key={item.definition.id} item={item} nowUtcMs={nowUtcMs} />
+      ))}
+    </section>
+  );
+}
+
+/** The Overlays' part of the Map screen, or `null` when no Overlay is registered. */
+export function useOverlaySlot(
+  definitions: readonly OverlayDefinition[],
+  deps: OverlayDeps,
+  open: OpenView | null,
+): OverlaySlot | null {
+  const { gate, clock, parameters, mode } = deps;
+  const controllers = useMemo(
+    () =>
+      definitions.map((definition) => ({
+        definition,
+        controller: definition.create({ gate, clock, parameters, mode }),
+      })),
+    [definitions, gate, clock, parameters, mode],
+  );
+  const [version, setVersion] = useState(0);
+  useEffect(() => {
+    const offs = controllers.map((c) => c.controller.subscribe(() => setVersion((v) => v + 1)));
+    return () => {
+      for (const off of offs) off();
+    };
+  }, [controllers]);
+  const context = useMemo(
+    () => contextOf(open, { gate, clock, parameters, mode }),
+    [open, gate, clock, parameters, mode],
+  );
+  useEffect(() => {
+    for (const c of controllers) c.controller.update(context);
+  }, [controllers, context]);
+  return useMemo(() => {
+    if (controllers.length === 0) return null;
+    void version;
+    const items = controllers.map((c) => ({ ...c, state: c.controller.getState() }));
+    return {
+      layers: items.flatMap((i) => i.state.layers),
+      legend: <Legend entries={items.flatMap((i) => i.state.legend)} />,
+      panel: <OverlayPanel items={items} nowUtcMs={clock()} />,
+    };
+  }, [controllers, version, clock]);
+}

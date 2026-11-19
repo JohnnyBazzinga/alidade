@@ -100,6 +100,43 @@ const SOURCES: readonly string[] = [
   'src/math/texts.ts',
   'src/reasons.ts',
   'src/result.ts',
+  // task 13.1
+  'src/components/environment.ts',
+  'src/components/FailureNotice.tsx',
+  'src/components/GuidanceBlock.tsx',
+  'src/components/LimitsBlock.tsx',
+  'src/components/look.ts',
+  'src/components/SimulationBanner.tsx',
+  'src/components/store.ts',
+  'src/components/TabBar.tsx',
+  // task 13.2
+  'src/components/AdviceView.tsx',
+  'src/components/ConfirmSmokeDialog.tsx',
+  'src/components/DeleteAllDialog.tsx',
+  'src/components/FixWordsView.tsx',
+  'src/components/SightScreen.tsx',
+  'src/components/SmokeScreen.tsx',
+  // task 13.3
+  'src/components/QrImage.tsx',
+  'src/components/ShareSheet.tsx',
+  'src/components/SightingRow.tsx',
+  'src/components/SightingsScreen.tsx',
+  // task 13.4
+  'src/components/InboxSheet.tsx',
+  // task 13.5
+  'src/components/MapScreen.tsx',
+  'src/overlays/index.ts',
+  'src/overlays/shared/components/Legend.tsx',
+  'src/overlays/shared/components/OverlayPanel.tsx',
+  'src/overlays/shared/components/SourcesList.tsx',
+  'src/overlays/shared/math/overlay-types.ts',
+  // task 13.6
+  'src/components/EmergencyScreen.tsx',
+  'src/components/PrivacyPage.tsx',
+  // task 13.7
+  'src/App.tsx',
+  'src/overlays-empty.ts',
+  'src/system.ts',
 ];
 
 const VIEWS: Readonly<Record<string, View>> = Object.fromEntries(

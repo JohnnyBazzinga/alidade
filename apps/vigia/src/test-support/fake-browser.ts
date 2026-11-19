@@ -133,11 +133,23 @@ export function createFakeCrypto(): FakeCrypto {
 // --- the page --------------------------------------------------------------------------------
 
 export interface FakePage {
-  readonly location: LocationLike & { href: string; hash: string };
+  readonly location: LocationLike & {
+    href: string;
+    hash: string;
+    /** Every value written to `hash`, in order. */
+    readonly hashWrites: string[];
+    /** Writing `hash` throws. */
+    hashFailing: boolean;
+    /** Sets the two fields apart, as no browser would: for the hostile inputs. */
+    setRaw(href: string, hash: string): void;
+  };
   readonly history: HistoryLike & {
     /** The arguments of every `replaceState`. */
     readonly calls: { state: unknown; unused: string; url: string | undefined }[];
+    /** `replaceState` throws. */
     failing: boolean;
+    /** `replaceState` returns without changing the address. */
+    ignoring: boolean;
   };
   readonly events: EventsLike & {
     readonly listeners: Set<() => void>;
@@ -147,15 +159,43 @@ export interface FakePage {
 }
 
 export function createFakePage(href = 'https://app.example.test/'): FakePage {
-  const location = { href, hash: href.includes('#') ? href.slice(href.indexOf('#')) : '' };
+  // `href` and `hash` are plain fields that a test may set apart; writing `hash` through the
+  // location, and a `replaceState` that succeeds, change both together, as a browser does.
+  const hashOf = (address: string) =>
+    address.includes('#') ? address.slice(address.indexOf('#')) : '';
+  let hashField = hashOf(href);
+  const location: FakePage['location'] = {
+    href,
+    hashWrites: [],
+    hashFailing: false,
+    setRaw(rawHref, rawHash) {
+      location.href = rawHref;
+      hashField = rawHash;
+    },
+    get hash() {
+      return hashField;
+    },
+    set hash(value: string) {
+      location.hashWrites.push(value);
+      if (location.hashFailing) throw named('SecurityError', 'denied');
+      const bare = value.startsWith('#') ? value.slice(1) : value;
+      const cut = location.href.indexOf('#');
+      location.href = `${cut < 0 ? location.href : location.href.slice(0, cut)}#${bare}`;
+      hashField = bare === '' ? '' : `#${bare}`;
+    },
+  };
   const calls: FakePage['history']['calls'] = [];
   const history: FakePage['history'] = {
     calls,
     failing: false,
+    ignoring: false,
     replaceState(this: unknown, state: unknown, unused: string, url?: string) {
       if (this !== history) illegal();
       calls.push({ state, unused, url });
       if (history.failing) throw named('SecurityError', 'denied');
+      if (history.ignoring || url === undefined) return;
+      location.href = url;
+      hashField = hashOf(url);
     },
   };
   const listeners = new Set<() => void>();

@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { fromDeg } from '../degrees';
 import {
+  accuracyText,
   axisWords,
   compassWord8,
+  directionText,
   lengthText95,
   lengthTextNearest,
   METRES_PER_DEGREE,
@@ -252,5 +254,51 @@ describe('axisWords: a line has no direction, so one axis reads one way (design 
       reason: 'invalid_number',
       field: 'azimuthRad',
     });
+  });
+});
+
+describe('directionText: a direction with its 1-sigma, the sigma rounded up (Req 3.6, 9.4)', () => {
+  it('writes the azimuth to 0.1° and the sigma rounded up to 0.1°', () => {
+    expect(text(directionText(rad(45.5), rad(2)))).toBe('45.5° ± 2.0°');
+    expect(text(directionText(rad(45.5), rad(2.01)))).toBe('45.5° ± 2.1°');
+    expect(text(directionText(rad(45.5), rad(1.95)))).toBe('45.5° ± 2.0°');
+    expect(text(directionText(rad(359.96), rad(0.5)))).toBe('0.0° ± 0.5°');
+    expect(text(directionText(rad(0.04), rad(0.01)))).toBe('0.0° ± 0.1°');
+  });
+
+  it('refuses an angle that is not finite, and a sigma that is not above 0', () => {
+    expect(directionText(Number.NaN, rad(1))).toMatchObject({ ok: false, field: 'azimuthRad' });
+    expect(directionText(1, 0)).toMatchObject({ ok: false, field: 'sigmaRad' });
+    expect(directionText(1, Number.POSITIVE_INFINITY)).toMatchObject({
+      ok: false,
+      field: 'sigmaRad',
+    });
+  });
+
+  // The shrunk counterexample of P-2.6 (task 13.3): a sigma this large was written in exponent
+  // form. A sigma above half a turn says nothing about a direction and is refused.
+  it('refuses a sigma above π: P-2.6 counterexample [-1800000, 17453292519943295000]', () => {
+    expect(directionText(-1800000, 17453292519943295000)).toMatchObject({
+      ok: false,
+      field: 'sigmaRad',
+    });
+    expect(directionText(1, Math.PI).ok).toBe(true);
+    expect(directionText(1, Math.PI * (1 + 1e-12))).toMatchObject({ ok: false, field: 'sigmaRad' });
+  });
+});
+
+describe('accuracyText: a position accuracy, rounded up (Req 3.6, 9.4)', () => {
+  it('writes whole metres rounded up below 1 000 m, and lengthText95 from there', () => {
+    expect(text(accuracyText(8))).toBe('8 m');
+    expect(text(accuracyText(7.2))).toBe('8 m');
+    expect(text(accuracyText(0))).toBe('1 m');
+    expect(text(accuracyText(999))).toBe('999 m');
+    expect(text(accuracyText(999.5))).toBe('1.0 km');
+    expect(text(accuracyText(2041))).toBe('2.1 km');
+  });
+
+  it('refuses an accuracy that is not finite or below 0', () => {
+    expect(accuracyText(-1)).toMatchObject({ ok: false, field: 'accuracyM' });
+    expect(accuracyText(Number.NaN)).toMatchObject({ ok: false, field: 'accuracyM' });
   });
 });

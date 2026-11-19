@@ -2,9 +2,20 @@
 // statements by count are in `assessment/statements.ts`; the sentences built from numbers are in
 // `fix/`. None names an emergency number, holds a link that dials, or claims certainty.
 
+/** The assumption under which the ellipse is a 95 % region (Req 6.3): shown beside UI's limits note. */
+export const FIX_ASSUMPTION_TEXT =
+  'This is a 95 % region if every sighting was aimed at the same point and its errors are independent and as stated.';
+
 /** What the 95 % ellipse does and does not say (Req 6.3, 16.1). */
-export const FIX_LIMITS_TEXT =
-  'This is a 95 % region if every sighting was aimed at the same point and its errors are independent and as stated. Phone compasses are off by several degrees; setting north on the Sun or a landmark reduces that.';
+export const FIX_LIMITS_TEXT = `${FIX_ASSUMPTION_TEXT} Phone compasses are off by several degrees; setting north on the Sun or a landmark reduces that.`;
+
+/** On the Sight screen in Simulation mode (Req 3.3). */
+export const SIMULATION_VALUES_TEXT =
+  "In the simulator the camera's field of view and the tap's uncertainty are simulation values, not a phone's.";
+
+/** At the top of every screen in Simulation mode (design §9, Req 17.4). */
+export const SIMULATION_BANNER_TEXT =
+  'SIMULATION: invented scene, invented sensors; nothing here is a real place.';
 
 /** At the top of the first screen (Req 14.5). */
 export const NOT_CALLING_TEXT =
@@ -29,3 +40,18 @@ export function sightingGuidance(windShown: boolean): readonly string[] {
     ? [...always, 'The smoke leans downwind, so aim lower down the column, at its base.']
     : always;
 }
+
+/** What a sighting code holds, before the first Share of a session and in every Share (Req 15.2). */
+export const CODE_HOLDS_TEXT =
+  'A sighting code holds where you stood, to about 1 m, how well the phone knew that position, the time, the direction and its uncertainty, and which smoke it is of. Whoever holds the code sees where you stood and when. Once it has left this phone, it cannot be taken back.';
+
+/** Which presentation of a code is for whom (Req 10.7, 10.8). */
+export const LINK_PURPOSE_TEXT = 'The link is for someone far away who has a connection.';
+export const QR_PURPOSE_TEXT =
+  'The QR code is for someone beside you: it works only when the phones are together, and the other phone needs a connection to open the page.';
+export const TEXT_PURPOSE_TEXT =
+  'The text code is for a phone that has the app open, even with no connection.';
+
+/** Where a code is added (Req 15.7). */
+export const NO_PROOF_TEXT =
+  "A code carries no proof of who made it: anyone who knows this smoke's identifier can make one that looks real, and a wrong one moves the position. Every sighting is listed with where it came from and when, and you can hide one.";

@@ -3,8 +3,8 @@ import { defineConfig } from 'vitest/config';
 /** Cases per property in the checkpoint run. Each property has its own cap (design §11). */
 export const DEEP_PROPERTY_RUNS = 100_000;
 
-// The checkpoint run: the property files of the `math` and `adapters` projects at the second
-// count, one file at a time so that the reports of worst errors are not interleaved, with no time
+// The checkpoint run: the property files of the `math`, `adapters` and `components` projects at
+// the second count, one file at a time so that the reports of worst errors are not interleaved, with no time
 // limit. Run with `pnpm --filter @alidade/vigia test:deep`.
 export default defineConfig({
   test: {
@@ -19,7 +19,8 @@ export default defineConfig({
         test: {
           name: 'math',
           environment: 'node',
-          include: ['src/**/*.property.test.ts', '!src/**/adapters/**'],
+          include: ['src/**/*.property.test.ts'],
+          exclude: ['src/**/adapters/**', 'src/components/**', 'src/overlays/**/components/**'],
           setupFiles: ['src/test-support/fast-check-setup.ts'],
         },
       },
@@ -30,6 +31,19 @@ export default defineConfig({
           environment: 'node',
           include: ['src/**/adapters/**/*.property.test.ts'],
           setupFiles: ['src/test-support/fast-check-setup.ts'],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          // The store's properties (P-10.10, P-15.9) read the page's title: a simulated DOM.
+          name: 'components',
+          environment: 'jsdom',
+          include: [
+            'src/components/**/*.property.test.{ts,tsx}',
+            'src/overlays/**/components/**/*.property.test.{ts,tsx}',
+          ],
+          setupFiles: ['src/test-support/fast-check-setup.ts', 'src/test-support/dom-setup.ts'],
         },
       },
     ],

@@ -4,7 +4,7 @@
 // step. This file is an I/O boundary: degrees are its output.
 
 import { greatCircleDistanceM, isSupportedPosition, wrapTwoPi, type Position } from '@alidade/core';
-import { formatSignedDeg } from '@alidade/ui';
+import { formatAzimuthDeg, formatSignedDeg } from '@alidade/ui';
 import { err, ok, type VigiaResult } from '../../result';
 import { fromDeg, toDeg } from '../degrees';
 
@@ -165,4 +165,41 @@ export function axisWords(azimuthRad: number): VigiaResult<string> {
   const roundedDeg = Math.round(azimuthDeg.value) % 180;
   const sector = Math.floor(((roundedDeg + 22.5) % 180) / 45);
   return ok(`${AXIS_WORDS[sector] ?? AXIS_WORDS[0]} (${roundedDeg}°)`);
+}
+
+/** Tenths of a degree, rounded up; the float noise of a whole tenth (`2.0000000000000004`) is not a tenth more. */
+const TENTH_SLACK = 1e-9;
+
+/**
+ * A Bearing's direction with its 1-sigma (Req 3.6, 9.4): `45.5° ± 2.0°`, the azimuth to the
+ * nearest 0.1° by UI's `formatAzimuthDeg` and the sigma rounded **up** to 0.1°, so that the text
+ * never claims more than the Bearing had. Fails with `invalid_number` naming `azimuthRad` for an
+ * angle that is not finite and `sigmaRad` for a sigma that is not in `(0, π]`.
+ */
+export function directionText(azimuthRad: number, sigmaRad: number): VigiaResult<string> {
+  if (!Number.isFinite(azimuthRad)) return err('invalid_number', { field: 'azimuthRad' });
+  // A sigma above half a turn says nothing about a direction (and would print in exponent form).
+  if (!(Number.isFinite(sigmaRad) && sigmaRad > 0 && sigmaRad <= Math.PI)) {
+    return err('invalid_number', { field: 'sigmaRad' });
+  }
+  const sigmaDeg = toDeg(sigmaRad);
+  if (!sigmaDeg.ok || !Number.isFinite(sigmaDeg.value)) {
+    return err('invalid_number', { field: 'sigmaRad' });
+  }
+  const tenths = Math.max(1, Math.ceil(sigmaDeg.value * 10 - TENTH_SLACK));
+  return ok(`${formatAzimuthDeg(azimuthRad, 1)}° ± ${(tenths / 10).toFixed(1)}°`);
+}
+
+/**
+ * A position accuracy (Req 3.6, 9.4), rounded up: whole metres below 1 000 m (at least `1 m`),
+ * then as `lengthText95`. Fails with `invalid_number` naming `accuracyM` for an accuracy that is
+ * not finite or below 0.
+ */
+export function accuracyText(accuracyM: number): VigiaResult<string> {
+  if (!(Number.isFinite(accuracyM) && accuracyM >= 0)) {
+    return err('invalid_number', { field: 'accuracyM' });
+  }
+  const wholeM = Math.ceil(accuracyM);
+  if (wholeM < 1000) return ok(`${Math.max(1, wholeM)} m`);
+  return lengthText95(accuracyM);
 }

@@ -24,8 +24,7 @@ describe('address and fragment', () => {
 
   it('reads the location again each time', () => {
     const { fake, page } = pageOf('https://app.example.test/');
-    fake.location.href = 'https://app.example.test/#NEW';
-    fake.location.hash = '#NEW';
+    fake.location.setRaw('https://app.example.test/#NEW', '#NEW');
     expect(page.fragment()).toBe('NEW');
     expect(page.address()).toBe('https://app.example.test/#NEW');
   });
@@ -53,6 +52,40 @@ describe('replaceAddress (Req 10.3)', () => {
     fake.history.failing = true;
     expect(() => page.replaceAddress('https://app.example.test/')).not.toThrow();
     expect(fake.history.calls).toHaveLength(1);
+  });
+
+  // The lead's decision after task group 12: the adapter says whether the code has left the
+  // address, so that the Inbox sheet can say so when it has not.
+  it('reports that the fragment is gone when the history replaced the address', () => {
+    const { fake, page } = pageOf('https://app.example.test/p#SECRET');
+    expect(page.replaceAddress('https://app.example.test/p')).toBe(true);
+    expect(page.fragment()).toBe('');
+    expect(fake.location.hashWrites).toEqual([]);
+  });
+
+  it('falls back to clearing the fragment through the location when the history throws', () => {
+    const { fake, page } = pageOf('https://app.example.test/p#SECRET');
+    fake.history.failing = true;
+    expect(page.replaceAddress('https://app.example.test/p')).toBe(true);
+    expect(fake.location.hashWrites).toEqual(['']);
+    expect(page.fragment()).toBe('');
+    expect(page.address()).not.toContain('SECRET');
+  });
+
+  it('reports that the fragment is still there when both the history and the location refuse', () => {
+    const { fake, page } = pageOf('https://app.example.test/p#SECRET');
+    fake.history.failing = true;
+    fake.location.hashFailing = true;
+    expect(() => page.replaceAddress('https://app.example.test/p')).not.toThrow();
+    expect(page.replaceAddress('https://app.example.test/p')).toBe(false);
+    expect(page.fragment()).toBe('SECRET');
+  });
+
+  it('clears through the location when the history call returns but the fragment remains', () => {
+    const { fake, page } = pageOf('https://app.example.test/p#SECRET');
+    fake.history.ignoring = true;
+    expect(page.replaceAddress('https://app.example.test/p')).toBe(true);
+    expect(fake.location.hashWrites).toEqual(['']);
   });
 });
 

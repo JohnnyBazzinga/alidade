@@ -1,0 +1,115 @@
+// The common parts of the screens (Req 16.1, 16.2, 17.4, design §9): the limits block, the
+// guidance on how to sight smoke, the Simulation banner and the tab bar.
+
+import { COLOURS, SIZES } from '@alidade/ui';
+import { fireEvent, render, within } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
+import { FIX_ASSUMPTION_TEXT, SIMULATION_BANNER_TEXT, sightingGuidance } from '../math/texts';
+import { GuidanceBlock } from './GuidanceBlock';
+import { LimitsBlock } from './LimitsBlock';
+import { SimulationBanner } from './SimulationBanner';
+import { TabBar, TABS } from './TabBar';
+
+describe('LimitsBlock (Req 16.1)', () => {
+  it('shows UI\u2019s limits note with every Bearing', () => {
+    const { getByTestId, container } = render(<LimitsBlock withFix={false} />);
+    expect(getByTestId('limits-note').textContent).toContain(
+      'Phone compasses are off by several degrees.',
+    );
+    expect(container.textContent).not.toContain(FIX_ASSUMPTION_TEXT);
+  });
+
+  it('with a Fix, also says under what assumption the ellipse is 95 %', () => {
+    const { getByTestId, container } = render(<LimitsBlock withFix />);
+    expect(getByTestId('limits-note')).toBeTruthy();
+    expect(container.textContent).toContain(FIX_ASSUMPTION_TEXT);
+  });
+});
+
+describe('GuidanceBlock (Req 3.7, 16.2)', () => {
+  it('before the first capture: every sentence of how to aim, in view', () => {
+    const { getByTestId } = render(<GuidanceBlock collapsed={false} windShown={false} />);
+    const block = getByTestId('guidance');
+    for (const sentence of sightingGuidance(false)) expect(block.textContent).toContain(sentence);
+    expect(block.querySelector('details')).toBeNull();
+  });
+
+  it('after a capture: the same sentences one tap away', () => {
+    const { getByTestId } = render(<GuidanceBlock collapsed windShown={false} />);
+    const details = getByTestId('guidance').querySelector('details');
+    expect(details).not.toBeNull();
+    expect(details?.open).toBe(false);
+    expect(details?.querySelector('summary')?.textContent).toBe('How to aim at smoke');
+    for (const sentence of sightingGuidance(false))
+      expect(details?.textContent).toContain(sentence);
+  });
+
+  it('with a wind reading shown, says that the smoke leans downwind', () => {
+    const { getByTestId } = render(<GuidanceBlock collapsed={false} windShown />);
+    const last = sightingGuidance(true).at(-1) ?? '';
+    expect(last).toContain('downwind');
+    expect(getByTestId('guidance').textContent).toContain(last);
+  });
+});
+
+describe('SimulationBanner (Req 17.4)', () => {
+  it('says the scene and the sensors are invented, in the page\u2019s flow', () => {
+    const { getByTestId } = render(<SimulationBanner />);
+    const banner = getByTestId('simulation-banner');
+    expect(banner.textContent).toBe(SIMULATION_BANNER_TEXT);
+    expect(banner.style.position).toBe('');
+  });
+});
+
+describe('TabBar (design §9)', () => {
+  it('has the four tabs in order, the current one marked', () => {
+    const { getAllByRole } = render(
+      <TabBar current="map" inboxCount={0} onSelect={() => undefined} />,
+    );
+    const tabs = getAllByRole('tab');
+    expect(tabs.map((t) => t.textContent)).toEqual(['Smoke', 'Sightings', 'Map', 'Emergency']);
+    expect(tabs.map((t) => t.getAttribute('aria-selected'))).toEqual([
+      'false',
+      'false',
+      'true',
+      'false',
+    ]);
+    expect(TABS.map((t) => t.id)).toEqual(['smoke', 'sightings', 'map', 'emergency']);
+  });
+
+  it('selects a tab on a tap', () => {
+    const chosen: string[] = [];
+    const { getByRole } = render(
+      <TabBar current="smoke" inboxCount={0} onSelect={(t) => void chosen.push(t)} />,
+    );
+    fireEvent.click(getByRole('tab', { name: 'Emergency' }));
+    expect(chosen).toEqual(['emergency']);
+  });
+
+  it('every tab is a touch target of at least 48 px, in UI\u2019s colours', () => {
+    const { getAllByRole } = render(
+      <TabBar current="smoke" inboxCount={0} onSelect={() => undefined} />,
+    );
+    for (const tab of getAllByRole('tab')) {
+      expect(Number.parseFloat(tab.style.minHeight)).toBeGreaterThanOrEqual(SIZES.touchPx);
+      expect(Object.values(COLOURS).map((c) => c.toLowerCase())).toContain(
+        rgbToHex(tab.style.color),
+      );
+    }
+  });
+
+  it('shows on the Smoke tab how many sightings wait in the Inbox', () => {
+    const { getByRole } = render(
+      <TabBar current="map" inboxCount={2} onSelect={() => undefined} />,
+    );
+    const smoke = getByRole('tab', { name: /Smoke/ });
+    expect(within(smoke).getByTestId('inbox-badge').textContent).toBe('2');
+  });
+});
+
+/** `rgb(r, g, b)` as jsdom writes a colour, to `#rrggbb`. */
+function rgbToHex(rgb: string): string {
+  const m = /^rgb\((\d+), (\d+), (\d+)\)$/.exec(rgb);
+  if (m === null) return rgb.toLowerCase();
+  return `#${[m[1], m[2], m[3]].map((v) => Number(v).toString(16).padStart(2, '0')).join('')}`;
+}

@@ -2,15 +2,17 @@
 // replacement of the address once a code has been read from it, and a change of the fragment. It
 // takes the browser's location, history and event target as arguments and reads no global.
 //
-// `replaceAddress` returns nothing: no reason of the closed set (Req 2.2) says "the address could
-// not be replaced", so a history that throws is swallowed here and the fragment stays in the
-// address bar. The screens read `address()` afterwards if they need to know.
+// `replaceAddress` reports whether the fragment is gone from the address (the lead's decision after
+// task group 12). When the history call throws, or returns and leaves the fragment, it falls back
+// to clearing the fragment through the location. No reason of the closed set (Req 2.2) says "the
+// address could not be replaced": a `false` is a statement of the Inbox sheet, not a failure.
 
 import type { Unsubscribe } from '../math/transport/transport';
 
 export interface LocationLike {
   readonly href: string;
-  readonly hash: string;
+  /** Written only by the fallback of `replaceAddress`. */
+  hash: string;
 }
 
 export interface HistoryLike {
@@ -27,8 +29,11 @@ export interface VigiaPage {
   address(): string;
   /** The text after `#`, or `''`. */
   fragment(): string;
-  /** Replaces the current history entry with this address, with no state. A `#` and what follows are dropped. */
-  replaceAddress(addressWithoutFragment: string): void;
+  /**
+   * Replaces the current history entry with this address, with no state. A `#` and what follows
+   * are dropped. Returns whether the address holds no fragment afterwards.
+   */
+  replaceAddress(addressWithoutFragment: string): boolean;
   onFragmentChange(listener: () => void): Unsubscribe;
 }
 
@@ -37,6 +42,15 @@ export function createPage(
   history: HistoryLike,
   events: EventsLike,
 ): VigiaPage {
+  /** The fragment, or `null` when the location cannot be read (then it is not known to be gone). */
+  const readFragment = (): string | null => {
+    try {
+      const hash = String(location.hash);
+      return hash.startsWith('#') ? hash.slice(1) : hash;
+    } catch {
+      return null;
+    }
+  };
   return {
     address() {
       try {
@@ -46,12 +60,7 @@ export function createPage(
       }
     },
     fragment() {
-      try {
-        const hash = String(location.hash);
-        return hash.startsWith('#') ? hash.slice(1) : hash;
-      } catch {
-        return '';
-      }
+      return readFragment() ?? '';
     },
     replaceAddress(addressWithoutFragment) {
       const cut = addressWithoutFragment.indexOf('#');
@@ -59,8 +68,15 @@ export function createPage(
       try {
         history.replaceState(null, '', address);
       } catch {
-        // See the note at the top of the file.
+        // See the note at the top of the file: the fallback below.
       }
+      if (readFragment() === '') return true;
+      try {
+        location.hash = '';
+      } catch {
+        // The location refused as well: the fragment stays, and the caller is told.
+      }
+      return readFragment() === '';
     },
     onFragmentChange(listener) {
       const wrapped = (): void => {

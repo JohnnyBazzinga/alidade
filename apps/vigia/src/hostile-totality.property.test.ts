@@ -59,8 +59,10 @@ import { adviceWords, nextSightingAdvice, type Advice } from './math/fix/advice'
 import { emergencyText } from './math/fix/emergency-text';
 import { fixWords, fixWordsText, type FixWords } from './math/fix/fix-words';
 import {
+  accuracyText,
   axisWords,
   compassWord8,
+  directionText,
   lengthText95,
   lengthTextNearest,
   positionDecimals,
@@ -730,6 +732,22 @@ export const HOSTILE_LIST: readonly HostileEntry[] = [
     },
   ),
   hostileEntry('compassWord8', fc.tuple(hostileNumber()), compassWord8),
+  // --- the formatters of the screens (task 13.3) ---
+  hostileEntry(
+    'directionText',
+    fc.tuple(hostileNumber(), hostileNumber()),
+    directionText,
+    ([azimuthRad, sigmaRad], result) => {
+      const valid = Number.isFinite(azimuthRad) && sigmaRad > 0 && sigmaRad <= Math.PI;
+      expect(Reflect.get(result as object, 'ok')).toBe(valid);
+      if (valid) {
+        expect(Reflect.get(result as object, 'value')).toMatch(/^\d{1,3}\.\d° ± \d+\.\d°$/);
+      }
+    },
+  ),
+  hostileEntry('accuracyText', fc.tuple(hostileNumber()), accuracyText, ([accuracyM], result) => {
+    expect(Reflect.get(result as object, 'ok')).toBe(Number.isFinite(accuracyM) && accuracyM >= 0);
+  }),
   hostileEntry('axisWords', fc.tuple(hostileNumber()), axisWords),
   hostileEntry(
     'geometryClass',
@@ -1143,8 +1161,7 @@ export const HOSTILE_LIST: readonly HostileEntry[] = [
     fc.tuple(hostileString(), hostileString(), fc.boolean(), hostileString()),
     (href, hash, failing, address) => {
       const fake = createFakePage('https://app.example.test/');
-      fake.location.href = href;
-      fake.location.hash = hash;
+      fake.location.setRaw(href, hash);
       fake.history.failing = failing;
       const page = createPage(fake.location, fake.history, fake.events);
       let heard = 0;
@@ -1153,19 +1170,29 @@ export const HOSTILE_LIST: readonly HostileEntry[] = [
       });
       fake.events.dispatch();
       off();
-      page.replaceAddress(address);
+      const before = { address: page.address(), fragment: page.fragment() };
+      const gone = page.replaceAddress(address);
       return {
-        address: page.address(),
-        fragment: page.fragment(),
+        ...before,
+        gone,
+        after: page.fragment(),
         heard,
         urls: fake.history.calls.map((c) => c.url ?? ''),
       };
     },
     ([href, hash], result) => {
-      const r = result as { address: string; fragment: string; heard: number; urls: string[] };
+      const r = result as {
+        address: string;
+        fragment: string;
+        gone: boolean;
+        after: string;
+        heard: number;
+        urls: string[];
+      };
       expect(r.address).toBe(href);
       expect(r.fragment).toBe(hash.startsWith('#') ? hash.slice(1) : hash);
       expect(r.heard).toBe(1);
+      expect(r.gone).toBe(r.after === '');
       for (const url of r.urls) expect(url).not.toContain('#');
     },
   ),
