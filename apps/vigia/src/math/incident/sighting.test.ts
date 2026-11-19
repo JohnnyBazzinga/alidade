@@ -1,4 +1,4 @@
-import type { Bearing } from '@alidade/core';
+import { validateBearing, type Bearing } from '@alidade/core';
 import { describe, expect, it } from 'vitest';
 import { defaultParameters } from '../parameters';
 import { decodeSighting, encodeSighting } from '../code/sighting-code';
@@ -17,12 +17,17 @@ const BEARING: Bearing = {
   azimuthSigmaRad: 0.0349,
 };
 
-describe('withSightingId (Req 3.4, design §7.3)', () => {
+describe('withSightingId (Req 3.4, 2.1, design §7.3)', () => {
+  const relabel = (bearing: Bearing, id: string): Bearing => {
+    const result = withSightingId(bearing, id);
+    if (!result.ok) throw new Error(`failed: ${result.reason} ${result.field ?? ''}`);
+    return result.value;
+  };
+
   it('changes the id and no other field', () => {
-    const relabelled = withSightingId(BEARING, 'H4TN9RV6C');
+    const relabelled = relabel(BEARING, 'H4TN9RV6C');
     expect(relabelled).toEqual({ ...BEARING, id: 'H4TN9RV6C' });
     expect(Object.keys(relabelled).sort()).toEqual(Object.keys(BEARING).sort());
-    expect(relabelled.observer).toBe(BEARING.observer);
     for (const field of [
       'positionAccuracyM',
       'timeUtcMs',
@@ -41,7 +46,37 @@ describe('withSightingId (Req 3.4, design §7.3)', () => {
 
   it('keeps -0 and the bits of every number', () => {
     const negativeZero: Bearing = { ...BEARING, azimuthRad: -0 };
-    expect(Object.is(withSightingId(negativeZero, 'X').azimuthRad, -0)).toBe(true);
+    expect(Object.is(relabel(negativeZero, 'X').azimuthRad, -0)).toBe(true);
+  });
+
+  it('returns Core\u2019s failure, unchanged, for a Bearing Core does not accept: no NaN comes back out', () => {
+    for (const [field, change] of [
+      ['azimuthRad', { azimuthRad: Number.NaN }],
+      ['timeUtcMs', { timeUtcMs: Infinity }],
+      ['azimuthSigmaRad', { azimuthSigmaRad: 0 }],
+      ['positionAccuracyM', { positionAccuracyM: -1 }],
+      ['observer.latRad', { observer: { latRad: Number.NaN, lonRad: 0 } }],
+      ['observer.latRad', { observer: { latRad: 1.57, lonRad: 0 } }],
+    ] as const) {
+      const bad: Bearing = { ...BEARING, ...change };
+      expect(withSightingId(bad, 'H4TN9RV6C'), field).toEqual(
+        validateBearing({ ...bad, id: 'H4TN9RV6C' }),
+      );
+      expect(withSightingId(bad, 'H4TN9RV6C'), field).toEqual({
+        ok: false,
+        reason: 'invalid_observation',
+        field,
+        id: 'H4TN9RV6C',
+      });
+    }
+  });
+
+  it('validates the Bearing with the new id: an empty id is refused naming id', () => {
+    expect(withSightingId(BEARING, '')).toEqual({
+      ok: false,
+      reason: 'invalid_observation',
+      field: 'id',
+    });
   });
 });
 
@@ -132,7 +167,7 @@ describe('captureToSighting (Req 3.4, 3.8, 3.9, design §7.3)', () => {
     const decoded = decodeSighting(code, PARAMETERS);
     expect(decoded.ok && decoded.value.bearing).toEqual(sighting.bearing);
     expect(sighting.bearing.timeUtcMs).toBe(1_790_000_000_500);
-    expect(sighting.bearing).not.toEqual(withSightingId(captured(), id.value));
+    expect(sighting.bearing).not.toEqual({ ...captured(), id: id.value });
   });
 
   it('keeps the Bearing\u2019s other fields to the precision of the code', () => {

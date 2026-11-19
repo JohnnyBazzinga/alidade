@@ -1,6 +1,6 @@
 // The Sighting: one Bearing as Vigia handles it (glossary, design §6, §7.3).
 
-import type { Bearing } from '@alidade/core';
+import { validateBearing, type Bearing } from '@alidade/core';
 import { ok, type VigiaResult } from '../../result';
 import { decodeSighting, encodeSighting } from '../code/sighting-code';
 import type { VigiaParameters } from '../parameters';
@@ -21,10 +21,15 @@ export interface Sighting {
 /**
  * The Bearing with a new `id` and nothing else changed (Req 3.4, P-3.9). Sensors' capture names
  * a Bearing `bearing-<time of the freeze>`, which two phones, or two Stations of the Simulator,
- * can share; Core refuses a set with a repeated id.
+ * can share; Core refuses a set with a repeated id. The result is validated with Core's
+ * `validateBearing` first, and its failure is returned unchanged, so that a `NaN` in the input
+ * never comes back out (Req 2.1).
  */
-export function withSightingId(bearing: Bearing, sightingId: string): Bearing {
-  return { ...bearing, id: sightingId };
+export function withSightingId(bearing: Bearing, sightingId: string): VigiaResult<Bearing> {
+  const relabelled: Bearing = { ...bearing, id: sightingId };
+  const valid = validateBearing(relabelled);
+  if (!valid.ok) return valid;
+  return ok(relabelled);
 }
 
 /**
@@ -63,11 +68,13 @@ export function captureToSighting(
 ): VigiaResult<{ readonly sighting: Sighting; readonly code: string }> {
   const sightingId = sightingIdFromBytes(bytes);
   if (!sightingId.ok) return sightingId;
+  const bearing = withSightingId(captured, sightingId.value);
+  if (!bearing.ok) return bearing;
   return canonicalise(
     {
       sightingId: sightingId.value,
       incidentId,
-      bearing: withSightingId(captured, sightingId.value),
+      bearing: bearing.value,
       origin: 'local',
       receivedUtcMs: null,
     },

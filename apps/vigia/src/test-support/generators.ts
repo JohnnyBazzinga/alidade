@@ -2,9 +2,19 @@
 // from and what it excludes (testing.md rule 4). Test support, not exported. The helpers
 // `uniform`, `closed` and `uniformInteger` are copies of UI's.
 
-import type { Bearing } from '@alidade/core';
+import {
+  destinationPosition,
+  greatCircleDistanceM,
+  initialAzimuthRad,
+  type Bearing,
+  type Fix,
+  type Position,
+} from '@alidade/core';
 import fc from 'fast-check';
+import type { Incident } from '../math/incident/incident-state';
 import type { Sighting } from '../math/incident/sighting';
+import { entryOfBearing, incidentOfEntries } from './geometry-fixtures';
+import { NOW_UTC_MS, ORIGIN, sightingIdOf } from './incident-fixtures';
 
 const TWO_POW_53 = 2 ** 53;
 const DEG = Math.PI / 180;
@@ -222,4 +232,236 @@ export function pageAddress(): fc.Arbitrary<string> {
         .map(([pt, p, q, f]) => `http://localhost${pt}${p}${q}${f}`),
     },
   );
+}
+
+// ---------------------------------------------------------------------------------------------
+// Sets of Bearings for the assessment and the advice (design §11).
+
+export interface BearingSet {
+  readonly target: Position;
+  readonly bearings: readonly Bearing[];
+}
+
+/** The angle at which the lines of two Bearings cross, in `[0, π/2]` (a line has no direction). */
+export function crossingRad(a: Bearing, b: Bearing): number {
+  const difference = Math.abs(wrapPiOf(a.azimuthRad - b.azimuthRad));
+  return Math.min(difference, Math.PI - difference);
+}
+
+function wrapPiOf(angleRad: number): number {
+  const twoPi = 2 * Math.PI;
+  const wrapped = ((angleRad % twoPi) + twoPi) % twoPi;
+  return wrapped > Math.PI ? wrapped - twoPi : wrapped;
+}
+
+/** The largest crossing angle over every pair (0 for fewer than two Bearings). */
+export function largestCrossingRad(bearings: readonly Bearing[]): number {
+  let largest = 0;
+  for (let i = 0; i < bearings.length; i += 1) {
+    for (let j = i + 1; j < bearings.length; j += 1) {
+      largest = Math.max(largest, crossingRad(bearings[i] as Bearing, bearings[j] as Bearing));
+    }
+  }
+  return largest;
+}
+
+/** The smallest crossing angle over every pair (π/2 for fewer than two Bearings). */
+export function smallestCrossingRad(bearings: readonly Bearing[]): number {
+  let smallest = Math.PI / 2;
+  for (let i = 0; i < bearings.length; i += 1) {
+    for (let j = i + 1; j < bearings.length; j += 1) {
+      smallest = Math.min(smallest, crossingRad(bearings[i] as Bearing, bearings[j] as Bearing));
+    }
+  }
+  return smallest;
+}
+
+function destination(from: Position, azimuthRad: number, distanceM: number): Position {
+  const result = destinationPosition(from, azimuthRad, distanceM);
+  if (!result.ok) throw new Error('destinationPosition failed');
+  return result.value;
+}
+
+function azimuthTo(from: Position, to: Position): number {
+  const result = initialAzimuthRad(from, to);
+  if (!result.ok) throw new Error('initialAzimuthRad failed');
+  return result.value;
+}
+
+/**
+ * `consistentBearings(count)` (Req 5.12, 5.13, 7.7): a target within 20 km of the synthetic origin
+ * (`30° N, 40° W`); `count` observers each 500 m to 15 km from it at a uniform azimuth; every
+ * Bearing points exactly at the target with a 1-sigma in `[0.5°, 3°]` and a position accuracy in
+ * `[1, 20]` m, taken at the same time, with ids from `sightingIdOf`. It does not discard
+ * anything itself: the property rejects the sets whose largest crossing angle is under 30° (or
+ * whose every pair is not at least 30°) with `fc.pre`, so that the discards are counted; an
+ * example covers a set of 2°.
+ */
+export function consistentBearings(
+  count: number,
+  sigmaRangeDeg: readonly [number, number] = [0.5, 3],
+): fc.Arbitrary<BearingSet> {
+  const observer = fc.tuple(
+    closed(0, 2 * Math.PI),
+    closed(500, 15_000),
+    closed(sigmaRangeDeg[0], sigmaRangeDeg[1]),
+    closed(1, 20),
+  );
+  return fc
+    .tuple(
+      closed(0, 2 * Math.PI),
+      closed(0, 20_000),
+      fc.array(observer, { minLength: count, maxLength: count }),
+    )
+    .map(([targetAzimuthRad, targetRangeM, observers]) => {
+      const target = destination(ORIGIN, targetAzimuthRad, targetRangeM);
+      const bearings = observers.map(
+        ([azimuthRad, rangeM, sigmaDeg, accuracyM], index): Bearing => {
+          const from = destination(target, azimuthRad, rangeM);
+          return {
+            id: sightingIdOf(index + 1),
+            observer: from,
+            positionAccuracyM: accuracyM,
+            timeUtcMs: NOW_UTC_MS - 60_000,
+            azimuthRad: azimuthTo(from, target),
+            azimuthSigmaRad: sigmaDeg * DEG,
+          };
+        },
+      );
+      return { target, bearings };
+    });
+}
+
+export interface SightingSet {
+  readonly incident: Incident;
+  readonly nowUtcMs: number;
+}
+
+/**
+ * `sightingSet` (Req 5.10, 5.11): an Incident of 2 to 12 Sightings from observers within 20 km of
+ * the origin, pointing at a target within 20 km of it with an error that is 0 in two draws of
+ * three, uniform in ±30° in most of the rest, and a uniform azimuth one draw in twelve (so that
+ * disagreements and divergence occur); 1-sigma in `[0.5°, 3°]`; times from `now − 4 h` to `now +
+ * 10 min` (so some are older than `maxIncidentAgeMs` and some later than `now +
+ * clockSkewToleranceMs`); `hidden` one draw in six; the Incident created between `now − 4 h` and
+ * `now`. `now` is `NOW_UTC_MS`. Excludes fewer than two or more than twelve Sightings, and an
+ * observer within 1 m of the target (it cannot sight it; `assess.test.ts` has its example).
+ */
+export function sightingSet(): fc.Arbitrary<SightingSet> {
+  const hours = 3_600_000;
+  const entry = fc.tuple(
+    closed(0, 2 * Math.PI),
+    closed(0, 20_000),
+    fc.oneof(
+      { weight: 8, arbitrary: fc.constant(0) },
+      { weight: 3, arbitrary: closed(-30 * DEG, 30 * DEG) },
+      { weight: 1, arbitrary: closed(0, 2 * Math.PI) },
+    ),
+    closed(0.5, 3),
+    uniformInteger(NOW_UTC_MS - 4 * hours, NOW_UTC_MS + 600_000),
+    fc.integer({ min: 0, max: 5 }).map((x) => x === 0),
+  );
+  return fc
+    .tuple(
+      closed(0, 2 * Math.PI),
+      closed(0, 20_000),
+      fc.array(entry, { minLength: 2, maxLength: 12 }),
+      uniformInteger(NOW_UTC_MS - 4 * hours, NOW_UTC_MS),
+    )
+    .filter(([targetAzimuthRad, targetRangeM, entries]) => {
+      const target = destination(ORIGIN, targetAzimuthRad, targetRangeM);
+      return entries.every(([azimuthRad, rangeM]) => {
+        const apart = greatCircleDistanceM(destination(ORIGIN, azimuthRad, rangeM), target);
+        return apart.ok && apart.value >= 1;
+      });
+    })
+    .map(([targetAzimuthRad, targetRangeM, entries, createdUtcMs]) => {
+      const target = destination(ORIGIN, targetAzimuthRad, targetRangeM);
+      const built = entries.map(
+        ([azimuthRad, rangeM, errorRad, sigmaDeg, timeUtcMs, hidden], index) => {
+          const from = destination(ORIGIN, azimuthRad, rangeM);
+          const pointing = azimuthTo(from, target) + errorRad;
+          const bearing: Bearing = {
+            id: sightingIdOf(index + 1),
+            observer: from,
+            positionAccuracyM: 8,
+            timeUtcMs,
+            azimuthRad: wrapTwoPiOf(pointing),
+            azimuthSigmaRad: sigmaDeg * DEG,
+          };
+          return entryOfBearing(index + 1, bearing, hidden);
+        },
+      );
+      return { incident: incidentOfEntries(built, createdUtcMs), nowUtcMs: NOW_UTC_MS };
+    });
+}
+
+function wrapTwoPiOf(angleRad: number): number {
+  const twoPi = 2 * Math.PI;
+  return ((angleRad % twoPi) + twoPi) % twoPi;
+}
+
+/**
+ * A Fix built directly from a Position and an Ellipse (as UI's `fixAround`), with the covariance
+ * that the Ellipse describes, no residuals and the given warnings.
+ */
+export function fixOf(
+  position: Position,
+  ellipse: {
+    readonly semiMajorM: number;
+    readonly semiMinorM: number;
+    readonly azimuthRad: number;
+  },
+  warnings: readonly ('poor_geometry' | 'outliers_excluded')[] = [],
+): Fix {
+  const { semiMajorM: a, semiMinorM: b, azimuthRad: mu } = ellipse;
+  // The major axis is the unit vector (sin μ, cos μ) in (east, north); the minor one is at right angles.
+  const ue = Math.sin(mu);
+  const un = Math.cos(mu);
+  return {
+    position,
+    covariance: {
+      varEastM2: a * a * ue * ue + b * b * un * un,
+      varNorthM2: a * a * un * un + b * b * ue * ue,
+      covEastNorthM2: (a * a - b * b) * ue * un,
+    },
+    ellipse: { semiMajorM: a, semiMinorM: b, azimuthRad: mu },
+    residuals: [],
+    iterations: 3,
+    warnings,
+    excludedIds: [],
+  };
+}
+
+/**
+ * `fixCase` (design §11): a Fix built directly. Domain: the position's latitude in [-84°, 84°]
+ * and longitude in (-180°, 180°) (as UI's `mapPosition`), the 1-sigma semi-major axis
+ * log-uniform in [1, 100 000] m with both ends drawn, the semi-minor axis in [1, semi-major]
+ * (equal to it, a circle, one draw in six), the azimuth of the major axis in [0, π), and the
+ * warnings `[]` or `['poor_geometry']`. Only the Ellipse, the Position and the warnings are read by
+ * the functions it feeds.
+ */
+export function fixCase(): fc.Arbitrary<Fix> {
+  return fc
+    .tuple(
+      closed(-84 * DEG, 84 * DEG),
+      uniform(-Math.PI, Math.PI).filter((x) => x > -Math.PI),
+      fc.oneof(
+        { weight: 1, arbitrary: fc.constantFrom(1, 100_000) },
+        { weight: 9, arbitrary: uniform(0, 5).map((e) => 10 ** e) },
+      ),
+      fc.oneof({ weight: 1, arbitrary: fc.constant(1) }, { weight: 5, arbitrary: closed(0, 1) }),
+      uniform(0, Math.PI),
+      fc.oneof(
+        { weight: 3, arbitrary: fc.constant([] as const) },
+        { weight: 1, arbitrary: fc.constant(['poor_geometry'] as const) },
+      ),
+    )
+    .map(([latRad, lonRad, a, fraction, mu, warnings]) =>
+      fixOf(
+        { latRad, lonRad },
+        { semiMajorM: a, semiMinorM: Math.max(1, 1 + fraction * (a - 1)), azimuthRad: mu },
+        warnings,
+      ),
+    );
 }

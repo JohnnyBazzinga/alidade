@@ -1,6 +1,7 @@
 import { validateBearing } from '@alidade/core';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
+import { NOW_UTC_MS } from './incident-fixtures';
 import {
   ALPHABET_FOR_TESTS,
   byteSource,
@@ -13,6 +14,7 @@ import {
   MIN_SIGMA_RAD,
   pageAddress,
   sightingArb,
+  sightingSet,
   symbols,
 } from './generators';
 
@@ -147,5 +149,19 @@ describe('pageAddress (Req 10.9)', () => {
     expect(draws.some((a) => !a.includes('?') && !a.includes('#'))).toBe(true);
     expect(draws.some((a) => a.length > 109)).toBe(true);
     expect(draws.some((a) => a.length <= 40)).toBe(true);
+  });
+});
+
+describe('sightingSet (Req 5.10, 5.11)', () => {
+  const draws = sample(sightingSet(), 400, 8);
+
+  it('draws 2 to 12 Sightings, some hidden, some too old, some in the future', () => {
+    const sizes = draws.map((d) => d.incident.entries.length);
+    expect(Math.min(...sizes)).toBe(2);
+    expect(Math.max(...sizes)).toBe(12);
+    const all = draws.flatMap((d) => d.incident.entries);
+    expect(all.some((e) => e.hidden)).toBe(true);
+    expect(all.some((e) => e.sighting.bearing.timeUtcMs < NOW_UTC_MS - 1_800_000)).toBe(true);
+    expect(all.some((e) => e.sighting.bearing.timeUtcMs > NOW_UTC_MS + 120_000)).toBe(true);
   });
 });

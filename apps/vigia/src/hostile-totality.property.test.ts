@@ -7,8 +7,15 @@
 // naming it. Every later task that adds a public Math function adds it to this list in the same
 // task; the completeness test below fails otherwise.
 
+import { validateBearing } from '@alidade/core';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
+import { assess } from './math/assessment/assess';
+import {
+  checkStatement,
+  disagreementStatement,
+  incidentStatement,
+} from './math/assessment/statements';
 import { ageText, clockTextUtc } from './math/civil-time';
 import {
   ALPHABET,
@@ -29,14 +36,55 @@ import {
   isSightingId,
   sightingIdFromBytes,
 } from './math/incident/ids';
+import { applyAction } from './math/incident/apply-action';
+import {
+  compareIds,
+  emptyState,
+  hasOnlyFiniteNumbers,
+  newestTimeUtcMs,
+  sanitiseState,
+  type VigiaState,
+} from './math/incident/incident-state';
+import { mergeSighting } from './math/incident/merge';
+import { parseStoredState, serialiseState } from './math/incident/storage-format';
+import { adviceWords, nextSightingAdvice, type Advice } from './math/fix/advice';
+import { emergencyText } from './math/fix/emergency-text';
+import { fixWords, fixWordsText, type FixWords } from './math/fix/fix-words';
+import {
+  axisWords,
+  compassWord8,
+  lengthText95,
+  lengthTextNearest,
+  positionDecimals,
+  positionText,
+} from './math/fix/format';
+import { fromYouWords, halfIntervalM } from './math/fix/from-you';
+import { geometryClass, geometrySentence } from './math/fix/geometry-class';
+import { mapModel } from './math/fix/map-model';
 import { messageFor } from './math/messages';
+import { sightingGuidance } from './math/texts';
 import { toDeg, fromDeg } from './math/degrees';
 import { checkParameters, defaultParameters, type VigiaParameters } from './math/parameters';
 import { VIGIA_REASONS, type VigiaReason } from './reasons';
 import { pageAddress, sightingArb, symbols } from './test-support/generators';
 import { cappedRuns } from './test-support/fast-check-setup';
+import {
+  hostileAction,
+  hostileAssessment,
+  hostileFix,
+  hostileIncident,
+  hostileState,
+  hostileStoredText,
+  reachedState,
+} from './test-support/hostile-incident';
+import { invariants } from './test-support/incident-invariants';
 import { allFinite, hostileNumber, hostileString, isTotalResult } from './test-support/hostile';
-import { canonicalise, captureToSighting, type Sighting } from './math/incident/sighting';
+import {
+  canonicalise,
+  captureToSighting,
+  withSightingId,
+  type Sighting,
+} from './math/incident/sighting';
 import { partsOf, problemsOf } from './test-support/message-rules';
 import { checkProperty, ErrorTracker } from './test-support/property-report';
 import { views } from './test-support/source-views';
@@ -150,6 +198,46 @@ const hostileSighting: fc.Arbitrary<Sighting> = fc
 
 /** Any Sighting: a hostile one, or (one in two) a valid one so that the successes are reached. */
 const anySighting: fc.Arbitrary<Sighting> = fc.oneof(hostileSighting, sightingArb());
+
+/**
+ * An Advice. Domain: each of the three kinds; for a Fix, two hostile directions, a hostile
+ * distance and areas, any class and a count of 0 to 40.
+ */
+const hostileAdvice: fc.Arbitrary<Advice> = fc.oneof(
+  fc.constant<Advice>({ kind: 'none' }),
+  fc.constant<Advice>({ kind: 'one_sighting' }),
+  fc
+    .record({
+      d1: hostileNumber(),
+      d2: hostileNumber(),
+      distanceM: hostileNumber(),
+      areaBeforeM2: hostileNumber(),
+      areaAfterM2: fc.oneof(hostileNumber(), fc.constant(null)),
+      geometry: fc.constantFrom('none' as const, 'poor' as const, 'fair' as const, 'good' as const),
+      usedCount: fc.integer({ min: 0, max: 40 }),
+    })
+    .map((r): Advice => ({
+      kind: 'fix',
+      directionsRad: [r.d1, r.d2],
+      distanceM: r.distanceM,
+      areaBeforeM2: r.areaBeforeM2,
+      areaAfterM2: r.areaAfterM2,
+      geometry: r.geometry,
+      usedCount: r.usedCount,
+    })),
+);
+
+/** An Incident that was really built: the first of a reached state, or an empty one. */
+const reachedIncident = reachedState().map(
+  (state) =>
+    state.incidents[0] ?? {
+      incidentId: 'K7PQ3MWXA2',
+      createdUtcMs: 1_790_000_000_000,
+      creation: 'created' as const,
+      entries: [],
+      conflicts: [],
+    },
+);
 
 const FIELDS = Object.keys(defaultParameters()) as (keyof VigiaParameters)[];
 
@@ -361,6 +449,306 @@ export const HOSTILE_LIST: readonly HostileEntry[] = [
       }
     },
   ),
+  // --- the Incident store (task 5.2) ---
+  hostileEntry('emptyState', fc.tuple(), emptyState, (_args, result) => {
+    expect(result).toEqual({ incidents: [], openIncidentId: null });
+  }),
+  hostileEntry(
+    'compareIds',
+    fc.tuple(hostileString(), hostileString()),
+    compareIds,
+    ([a, b], result) => {
+      expect(result).toBe(a < b ? -1 : a > b ? 1 : 0);
+    },
+  ),
+  hostileEntry('hasOnlyFiniteNumbers', fc.tuple(hostileState()), hasOnlyFiniteNumbers),
+  hostileEntry('newestTimeUtcMs', fc.tuple(reachedIncident), newestTimeUtcMs),
+  hostileEntry(
+    'sanitiseState',
+    fc.tuple(hostileState(), hostileParameters),
+    sanitiseState,
+    ([, p], result) => {
+      const kept = (result as { state: VigiaState; dropped: number }).state;
+      // Whatever came in, what comes out holds I1 to I7, and the count is a count.
+      if (firstInvalidField(p) === null) expect(invariants(kept, p)).toEqual([]);
+      expect(Number.isInteger((result as { dropped: number }).dropped)).toBe(true);
+    },
+  ),
+  hostileEntry(
+    'mergeSighting',
+    fc.tuple(
+      reachedIncident,
+      anySighting,
+      fc.oneof(hostileString(), symbols(50)),
+      fc.oneof(hostileNumber(), fc.constant(null)),
+      hostileParameters,
+    ),
+    mergeSighting,
+    ([, , , , p], result) => {
+      const invalidField = firstInvalidField(p);
+      if (invalidField !== null) {
+        expect(result).toEqual({ ok: false, reason: 'invalid_number', field: invalidField });
+      }
+    },
+  ),
+  hostileEntry(
+    'applyAction',
+    fc.tuple(fc.oneof(reachedState(), hostileState()), hostileAction(), hostileParameters),
+    applyAction,
+    ([state, , p], result) => {
+      const invalidField = firstInvalidField(p);
+      if (invalidField !== null) {
+        expect(result).toEqual({ ok: false, reason: 'invalid_number', field: invalidField });
+        return;
+      }
+      // A state that held the invariants still holds them after any action that is accepted.
+      if (typeof result === 'object' && result !== null && Reflect.get(result, 'ok') === true) {
+        const next = (Reflect.get(result, 'value') as { state: VigiaState }).state;
+        if (invariants(state, p).length === 0) expect(invariants(next, p)).toEqual([]);
+      }
+    },
+  ),
+  hostileEntry(
+    'serialiseState',
+    fc.tuple(hostileState(), hostileNumber()),
+    serialiseState,
+    (_args, result) => {
+      expect(typeof result).toBe('string');
+      const parsed = JSON.parse(result as string) as { savedUtcMs: unknown };
+      expect(Number.isFinite(parsed.savedUtcMs)).toBe(true);
+    },
+  ),
+  hostileEntry(
+    'parseStoredState',
+    fc.tuple(fc.oneof(hostileStoredText(), fc.constant(null)), hostileNumber(), hostileParameters),
+    parseStoredState,
+    ([, now, p], result) => {
+      const invalidField = firstInvalidField(p);
+      if (invalidField !== null) {
+        expect(result).toEqual({ ok: false, reason: 'invalid_number', field: invalidField });
+      } else if (!Number.isFinite(now)) {
+        expect(result).toEqual({ ok: false, reason: 'invalid_number', field: 'nowUtcMs' });
+      } else if (
+        typeof result === 'object' &&
+        result !== null &&
+        Reflect.get(result, 'ok') === true
+      ) {
+        const parse = Reflect.get(result, 'value') as {
+          kind: string;
+          state?: VigiaState;
+          dropped?: number;
+        };
+        if (parse.kind === 'loaded' && parse.state !== undefined) {
+          expect(invariants(parse.state, p)).toEqual([]);
+          expect(Number.isInteger(parse.dropped)).toBe(true);
+        }
+      }
+    },
+  ),
+  // --- the assessment (task 6.2) ---
+  hostileEntry(
+    'assess',
+    fc.tuple(hostileIncident(), hostileNumber(), hostileParameters),
+    assess,
+    ([incident, now, p], result) => {
+      const invalidField = firstInvalidField(p);
+      if (invalidField !== null) {
+        expect(result).toEqual({ ok: false, reason: 'invalid_number', field: invalidField });
+      } else if (!Number.isFinite(now)) {
+        expect(result).toEqual({ ok: false, reason: 'invalid_number', field: 'nowUtcMs' });
+      } else if (
+        typeof result === 'object' &&
+        result !== null &&
+        Reflect.get(result, 'ok') === true
+      ) {
+        // A partition of the entries, whatever came in.
+        const a = Reflect.get(result, 'value') as { used: unknown[]; setAside: unknown[] };
+        expect(a.used.length + a.setAside.length).toBe(incident.entries.length);
+      }
+    },
+  ),
+  hostileEntry(
+    'checkStatement',
+    fc.tuple(
+      fc.constantFrom(
+        'none' as const,
+        'one' as const,
+        'two' as const,
+        'three' as const,
+        'four_or_more' as const,
+      ),
+    ),
+    checkStatement,
+  ),
+  hostileEntry(
+    'disagreementStatement',
+    fc.tuple(
+      fc.constantFrom('none' as const, 'three_disagree' as const, 'diverging' as const),
+      fc.constantFrom(
+        'none' as const,
+        'one' as const,
+        'two' as const,
+        'three' as const,
+        'four_or_more' as const,
+      ),
+    ),
+    disagreementStatement,
+  ),
+  hostileEntry('incidentStatement', fc.tuple(), incidentStatement),
+  // --- the words, the geometry, the advice and the map (task 7) ---
+  hostileEntry('lengthText95', fc.tuple(hostileNumber()), lengthText95, ([x], result) => {
+    expect(Reflect.get(result as object, 'ok')).toBe(Number.isFinite(x) && x > 0);
+  }),
+  hostileEntry('lengthTextNearest', fc.tuple(hostileNumber()), lengthTextNearest, ([x], result) => {
+    expect(Reflect.get(result as object, 'ok')).toBe(Number.isFinite(x) && x >= 0);
+  }),
+  hostileEntry('positionDecimals', fc.tuple(hostileNumber()), positionDecimals, (_args, result) => {
+    expect([0, 1, 2, 3, 4]).toContain(result);
+  }),
+  hostileEntry(
+    'positionText',
+    fc.tuple(fc.record({ latRad: hostileNumber(), lonRad: hostileNumber() }), hostileNumber()),
+    positionText,
+    (_args, result) => {
+      if (Reflect.get(result as object, 'ok') === true) {
+        expect((Reflect.get(result as object, 'value') as { text: string }).text).toMatch(
+          /^\d+(\.\d+)?° [NS], \d+(\.\d+)?° [EW]$/,
+        );
+      }
+    },
+  ),
+  hostileEntry('compassWord8', fc.tuple(hostileNumber()), compassWord8),
+  hostileEntry('axisWords', fc.tuple(hostileNumber()), axisWords),
+  hostileEntry(
+    'geometryClass',
+    fc.tuple(fc.oneof(hostileFix(), fc.constant(null)), hostileParameters),
+    geometryClass,
+    ([, p], result) => {
+      const invalidField = firstInvalidField(p);
+      if (invalidField !== null)
+        expect(result).toEqual({ ok: false, reason: 'invalid_number', field: invalidField });
+    },
+  ),
+  hostileEntry(
+    'geometrySentence',
+    fc.tuple(fc.constantFrom('none' as const, 'poor' as const, 'fair' as const, 'good' as const)),
+    geometrySentence,
+  ),
+  hostileEntry(
+    'halfIntervalM',
+    fc.tuple(
+      fc.record({
+        semiMajorM: hostileNumber(),
+        semiMinorM: hostileNumber(),
+        azimuthRad: hostileNumber(),
+      }),
+      hostileNumber(),
+    ),
+    halfIntervalM,
+  ),
+  hostileEntry(
+    'fromYouWords',
+    fc.tuple(
+      hostileFix(),
+      fc.record({ latRad: hostileNumber(), lonRad: hostileNumber() }),
+      hostileParameters,
+    ),
+    fromYouWords,
+    ([, , p], result) => {
+      const invalidField = firstInvalidField(p);
+      if (invalidField !== null)
+        expect(result).toEqual({ ok: false, reason: 'invalid_number', field: invalidField });
+      if (Reflect.get(result as object, 'ok') === true) {
+        expect(Reflect.get(result as object, 'value')).not.toMatch(/NaN|Infinity|undefined|null/);
+      }
+    },
+  ),
+  hostileEntry(
+    'fixWords',
+    fc.tuple(hostileFix(), hostileAssessment(), hostileNumber(), hostileParameters),
+    fixWords,
+    ([, , , p], result) => {
+      const invalidField = firstInvalidField(p);
+      if (invalidField !== null)
+        expect(result).toEqual({ ok: false, reason: 'invalid_number', field: invalidField });
+      if (Reflect.get(result as object, 'ok') === true) {
+        expect(fixWordsText(Reflect.get(result as object, 'value') as FixWords)).not.toMatch(
+          /NaN|Infinity|undefined|null/,
+        );
+      }
+    },
+  ),
+  hostileEntry(
+    'fixWordsText',
+    fc.tuple(
+      fc.record({
+        headline: hostileString(),
+        area: hostileString(),
+        basis: hostileString(),
+        geometry: hostileString(),
+        warnings: fc.array(hostileString(), { maxLength: 3 }),
+        limits: hostileString(),
+      }),
+    ),
+    fixWordsText,
+  ),
+  hostileEntry(
+    'nextSightingAdvice',
+    fc.tuple(hostileAssessment(), hostileParameters),
+    nextSightingAdvice,
+    ([, p], result) => {
+      const invalidField = firstInvalidField(p);
+      if (invalidField !== null)
+        expect(result).toEqual({ ok: false, reason: 'invalid_number', field: invalidField });
+    },
+  ),
+  hostileEntry('adviceWords', fc.tuple(hostileAdvice), adviceWords, (_args, result) => {
+    if (Reflect.get(result as object, 'ok') === true) {
+      expect(String(Reflect.get(result as object, 'value'))).not.toMatch(/NaN|Infinity|undefined/);
+    }
+  }),
+  hostileEntry(
+    'mapModel',
+    fc.tuple(hostileAssessment(), hostileParameters),
+    mapModel,
+    ([, p], result) => {
+      const invalidField = firstInvalidField(p);
+      if (invalidField !== null)
+        expect(result).toEqual({ ok: false, reason: 'invalid_number', field: invalidField });
+    },
+  ),
+  hostileEntry('sightingGuidance', fc.tuple(fc.boolean()), sightingGuidance),
+  // --- the Emergency text (task 8.2) ---
+  hostileEntry(
+    'emergencyText',
+    fc.tuple(
+      fc.record({
+        assessment: hostileAssessment(),
+        nowUtcMs: fc.oneof(hostileNumber(), fc.constant(1_790_000_000_000)),
+        mode: fc.constantFrom('device' as const, 'simulation' as const),
+        ownPosition: fc.oneof(
+          fc.constant(null),
+          fc.record({
+            position: fc.record({ latRad: hostileNumber(), lonRad: hostileNumber() }),
+            accuracyM: hostileNumber(),
+          }),
+        ),
+        includeOwnPosition: fc.boolean(),
+      }),
+      hostileParameters,
+    ),
+    emergencyText,
+    ([, p], result) => {
+      const invalidField = firstInvalidField(p);
+      if (invalidField !== null)
+        expect(result).toEqual({ ok: false, reason: 'invalid_number', field: invalidField });
+      if (Reflect.get(result as object, 'ok') === true) {
+        const text = Reflect.get(result as object, 'value') as string;
+        expect(text).not.toMatch(/NaN|Infinity|undefined|null/);
+        expect(text.length).toBeLessThanOrEqual(p.maxEmergencyTextChars);
+      }
+    },
+  ),
   // --- identifiers (task 3.4) ---
   hostileEntry(
     'idFromBytes',
@@ -407,6 +795,20 @@ export const HOSTILE_LIST: readonly HostileEntry[] = [
       }
     },
   ),
+  hostileEntry(
+    'withSightingId',
+    fc.tuple(
+      anySighting.map((s) => s.bearing),
+      fc.oneof(hostileString(), symbols(9)),
+    ),
+    withSightingId,
+    ([bearing, id], result) => {
+      // Core's own verdict on the Bearing with the new id, unchanged (design §7.3).
+      const verdict = validateBearing({ ...bearing, id });
+      if (verdict.ok) expect(result).toEqual({ ok: true, value: { ...bearing, id } });
+      else expect(result).toEqual(verdict);
+    },
+  ),
   hostileEntry('isSightingId', fc.tuple(hostileString()), isSightingId),
   hostileEntry('isIncidentId', fc.tuple(hostileString()), isIncidentId),
   hostileEntry('incidentMode', fc.tuple(hostileString()), incidentMode, ([text], result) => {
@@ -419,8 +821,8 @@ export const HOSTILE_LIST: readonly HostileEntry[] = [
  * exported function is hostile-tested.
  */
 export const NOT_HOSTILE_TESTED: Readonly<Record<string, string>> = {
-  withSightingId:
-    'a copy of the Bearing it is given with a new id (design §7.3, P-3.9): a Bearing that carries a NaN is returned with it. Callers pass Bearings that Sensors validated; flagged to the lead (Req 2.6 against §7.3).',
+  assessWith:
+    'the test seam of `assess` (design §7.6 step 5): its `solve` argument is trusted, and `assess` is `assessWith` with Core\u2019s `solve`, which is on the list.',
 };
 
 describe('P-2.6: the hostile totality (Req 2.1, 2.6, 19.3)', () => {
@@ -440,7 +842,7 @@ export function exportedFunctionNames(code: string): string[] {
     (m) => m[1] ?? '',
   );
   const arrows = code.matchAll(
-    /\bexport\s+const\s+(\w+)\s*(?::[^=]+)?=\s*(?:async\s*)?(?:<[^>]*>\s*)?(?:\([^)]*\)|\w+)\s*(?::[^=]+)?=>/g,
+    /\bexport\s+const\s+(\w+)\s*(?::[^=]+)?=\s*(?:async\s*)?(?:<[^>]*>\s*)?(?:\([^()]*\)|\w+)\s*(?::[^=()]+)?=>/g,
   );
   return [...names, ...[...arrows].map((m) => m[1] ?? '')];
 }
@@ -492,6 +894,7 @@ describe('the hostile list is complete (tasks 2.5)', () => {
         'export const arrow = (x: number): number => x;',
         'export const single = x => x;',
         'export const constant = 3;',
+        'export const computed: number = (() => {\n  return 1;\n})();',
         'export const table = { f: () => 1 };',
         'export type T = () => void;',
         'export interface I { f(): void }',

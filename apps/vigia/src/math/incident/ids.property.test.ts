@@ -33,7 +33,9 @@ describe('P-3.9: the Sighting id (Req 3.4, 3.9)', () => {
         fc.pre(bytes.length >= 20);
         const sightingId = sightingIdFromBytes(bytes);
         if (!sightingId.ok) throw new Error('sightingIdFromBytes failed on 20 bytes');
-        const relabelled = withSightingId(captured, sightingId.value);
+        const replaced = withSightingId(captured, sightingId.value);
+        if (!replaced.ok) throw new Error(`withSightingId failed: ${replaced.reason}`);
+        const relabelled = replaced.value;
         if (!validateBearing(relabelled).ok) throw new Error('validateBearing failed');
         // Differs in id only: bit for bit in every other field.
         const { id: oldId, observer: oldObserver, ...oldRest } = captured;
