@@ -128,7 +128,9 @@ export function storageActions(): fc.Arbitrary<Step[]> {
     },
     { weight: 2, arbitrary: fc.constant<Step>({ kind: 'reload' }) },
   );
-  return fc.array(step, { minLength: 0, maxLength: 200 });
+  // `size: 'max'`: the lengths reach 200. With fast-check's default size the longest of 2 000
+  // draws was 10 steps (measured after task group 13).
+  return fc.array(step, { minLength: 0, maxLength: 200, size: 'max' });
 }
 
 /** The content of a Sighting of the pool: fixed by its number, its Incident and its variant. */

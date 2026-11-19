@@ -177,6 +177,7 @@ export function SmokeScreen({ onSight, onInbox, onPrivacy, modeControl }: SmokeS
       <div style={LOOK.stack}>
         {confirmingDelete ? (
           <DeleteAllDialog
+            backupExists={snapshot.hasBackup}
             onConfirm={() => {
               store.dispatch({ kind: 'deleteAll' });
               setConfirmingDelete(false);

@@ -111,7 +111,7 @@ describe('emergencyText: what it holds and what it never holds (Req 14.3, 14.7)'
 
   it('holds the own position only when it is switched on and given', () => {
     const a = assessmentOfCase(c);
-    const mine = 'My own position:';
+    const mine = 'I last sighted from ';
     expect(emergencyText(input(a, 'device', false), PARAMETERS)).toMatchObject({ ok: true });
     expect(
       (emergencyText(input(a, 'device', false), PARAMETERS) as { value: string }).value,
@@ -148,7 +148,7 @@ describe('emergencyText: what it holds and what it never holds (Req 14.3, 14.7)'
     };
     const text = emergencyText(exact, PARAMETERS);
     expect(text.ok && text.value).toContain(
-      'My own position: 30.0010° N, 40.0020° W, known to about 10 m.',
+      'I last sighted from 30.0010° N, 40.0020° W, known to about 10 m.',
     );
   });
 });
@@ -284,7 +284,7 @@ describe('the worst case of the Emergency text (design §7.12)', () => {
       `Based on ${used} sightings (30 set aside); newest 10000 days ago, oldest 10000 days ago.`,
       'Geometry: poor. Both of you look along nearly the same line; the smoke could be much nearer or farther than it shows.',
       ...countLines,
-      `My own position: ${pos}, known to about ${L}.`,
+      `I last sighted from ${pos}, known to about ${L}.`,
       'These positions come from phone compass sightings, which are off by several degrees.',
       'Written at 23:59 UTC. The app that wrote this does not call or notify anyone.',
     ].join('\n');
@@ -299,8 +299,8 @@ describe('the worst case of the Emergency text (design §7.12)', () => {
   ]);
   const four = textWith(agreeing, 32, []);
 
-  it('is 896 characters, the figure the module states, and within the 900 of Req 19.1', () => {
-    expect([four.length, two.length, three.length, worst.length]).toEqual([731, 769, 801, 896]);
+  it('is 899 characters, the figure the module states, and within the 900 of Req 19.1', () => {
+    expect([four.length, two.length, three.length, worst.length]).toEqual([734, 772, 804, 899]);
     expect(WORST_EMERGENCY_TEXT_CHARS).toBe(worst.length);
     expect(worst.length).toBeLessThanOrEqual(PARAMETERS.maxEmergencyTextChars);
     expect(PARAMETERS.maxEmergencyTextChars).toBe(900);

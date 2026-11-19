@@ -160,6 +160,42 @@ describe('loading (D4, Req 4.4)', () => {
   });
 });
 
+describe('Delete everything on this phone (Req 4.5; follow-up 1)', () => {
+  const appKeys = (items: Map<string, string>) =>
+    [...items.keys()].filter((k) => k.startsWith('vigia.'));
+
+  it('leaves no key of the app: the state and the backup copy both go', () => {
+    const { store, storage } = storeOf({ storedItems: { [STATE_KEY]: 'not json {' } });
+    store.capture(bearingOf(1, { id: 'b', timeUtcMs: START_UTC_MS - 1000 }), 'new');
+    expect(appKeys(storage.items).sort()).toEqual([STATE_KEY, BACKUP_KEY].sort());
+    expect(store.getSnapshot().hasBackup).toBe(true);
+    store.dispatch({ kind: 'deleteAll' });
+    expect(appKeys(storage.items)).toEqual([]);
+    expect(store.getSnapshot().hasBackup).toBe(false);
+    expect(store.getSnapshot().state).toEqual(emptyState());
+  });
+
+  it('deletes a value of a newer version too, on this act of the user, and writes again afterwards', () => {
+    const newer = JSON.stringify({ format: 'vigia-state', version: 2, incidents: [] });
+    const { store, storage } = storeOf({ storedItems: { [STATE_KEY]: newer } });
+    store.dispatch({ kind: 'deleteAll' });
+    expect(appKeys(storage.items)).toEqual([]);
+    store.dispatch({ kind: 'createIncident', incidentId: INCIDENT_ID, nowUtcMs: START_UTC_MS });
+    expect(storage.items.get(STATE_KEY)).toContain(INCIDENT_ID);
+  });
+
+  it('says storage_unavailable when the storage refuses to delete', () => {
+    const { store, storage } = storeOf({ storedItems: { [STATE_KEY]: storedIncident([60_000]) } });
+    storage.failing = { removeItem: 'SecurityError' };
+    store.dispatch({ kind: 'deleteAll' });
+    expect(reasons(store.getSnapshot())).toEqual(['storage_unavailable']);
+  });
+
+  it('knows no backup when there is none', () => {
+    expect(storeOf().store.getSnapshot().hasBackup).toBe(false);
+  });
+});
+
 describe('expiry (Req 4.5)', () => {
   it('ticks every expiryCheckIntervalMs and deletes an Incident past the retention', () => {
     const retentionMs = PARAMETERS_DEFAULT.incidentRetentionMs;

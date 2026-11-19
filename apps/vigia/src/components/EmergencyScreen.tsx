@@ -96,14 +96,14 @@ export function EmergencyScreen() {
             type="button"
             role="switch"
             aria-checked={includeOwnPosition}
-            aria-label="Include my own position"
+            aria-label="Include where I took my last sighting"
             onClick={() => {
               setIncludeOwnPosition((v) => !v);
               setCopy(null);
             }}
             style={{ ...LOOK.button, display: 'flex', justifyContent: 'space-between' }}
           >
-            <span>Include my own position</span>
+            <span>Include where I took my last sighting</span>
             <span style={{ color: includeOwnPosition ? COLOURS.brass : COLOURS.inkDim }}>
               {includeOwnPosition ? 'On' : 'Off'}
             </span>

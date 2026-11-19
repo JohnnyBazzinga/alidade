@@ -13,9 +13,12 @@ export const FIX_LIMITS_TEXT = `${FIX_ASSUMPTION_TEXT} Phone compasses are off b
 export const SIMULATION_VALUES_TEXT =
   "In the simulator the camera's field of view and the tap's uncertainty are simulation values, not a phone's.";
 
-/** At the top of every screen in Simulation mode (design §9, Req 17.4). */
-export const SIMULATION_BANNER_TEXT =
-  'SIMULATION: invented scene, invented sensors; nothing here is a real place.';
+/**
+ * The one wording of the simulation (Req 14.7, 17.4): the first line of every Emergency text made
+ * in Simulation mode, and the banner at the top of every screen. Req 14.7 fixes this wording, and
+ * the banner's earlier one would have made the longest Emergency text 925 characters, over 900.
+ */
+export const SIMULATION_TEXT = 'SIMULATION: synthetic scene, not a real place.';
 
 /** At the top of the first screen (Req 14.5). */
 export const NOT_CALLING_TEXT =

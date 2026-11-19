@@ -798,6 +798,22 @@ Portrait only, one column, designed for 360 CSS pixels of width. The controls th
 
 **Navigation.** The four tabs are always there except on the Sight screen (full screen) and in a modal. A link that opens the page with a code goes to the Inbox sheet over the Smoke screen and then replaces the address (Req 10.3). The mode control ("This phone" / "Simulator") is at the top of the Smoke screen, shown when the browser has `DeviceOrientationEvent`; without it the app is in Simulation mode with no control (Req 17.1).
 
+**As built (note of 2026-11-20, task group 13; accepted by the lead).** The screens differ from the table above in twelve points, each to keep a screen clear in the hand and inside the requirements:
+1. After a capture the question of Req 4.3 comes *before* UI's capture summary: after it, it would fall below UI's "Take another".
+2. The mode control is at the *bottom* of the Smoke screen, so that the first thing to do is the first thing on the screen.
+3. Only **Delete** asks once; **Hide** and **Show** act at once, since they can be undone.
+4. After a failed solve, the advice to move sideways is given only for `singular_geometry` and `colocated_observers` (Req 7.5); after `diverging_bearings` or `not_converged` it would mislead.
+5. The Incident's note of Req 5.4 is shown in every state that has a smoke, and not with no smoke ("this smoke" would not exist).
+6. The sheets replace the screen in the page's flow instead of covering it, and the tabs end a column of the screen's height whose middle scrolls: nothing fixed covers a control (skeleton-ui Req 13.13, 18.11).
+7. The privacy page shows each row of Req 15.3 as a block naming its four cells: four columns do not fit 320 CSS pixels.
+8. The Smoke screen lists "Other smokes on this phone" with **Open**: the table gives no way back to a smoke after "A different smoke".
+9. A direction is written "Toward 45.5° ± 2.0° (true north)", so that it is not read as a magnetic compass reading.
+10. UI's `FixSummary` is not used: it prints 4 decimals and rounds the semi-axes to the nearest metre, against Req 6.2; `FixWordsView` shows `fixWords`.
+11. The Overlays' legend entries are in the map's own legend; the panel has the switch, what will be sent, the failure, the words, the Sources, the time and **Refresh**.
+12. "The phone's own position" is where this phone took its newest sighting; the words say so: "About D km NE of where you took your last sighting, give or take H", the switch "Include where I took my last sighting", and in the Emergency text "I last sighted from …" (with a Fix and with one sighting) and "from where the sighting was taken". With that line the longest Emergency text of §7.12 is 899 characters (896 before), and `checkParameters` requires `maxEmergencyTextChars` of at least 899.
+
+Also since then: the banner of Simulation mode reads `SIMULATION: synthetic scene, not a real place.`, the wording of Req 14.7 and the first line of the Emergency text, one constant for both (the banner's earlier wording would have made the longest Emergency text 925 characters); and "Delete everything on this phone" also removes the backup copy `vigia.state.backup`, which its confirmation names when it exists.
+
 ## 10. The reviewer's path (D16; Req 17)
 
 **Mode.** `main.tsx` asks Sensors' `browserEnvironment().hasDeviceOrientation`; false starts Simulation mode. The Simulation shell replaces the Sight screen's source and the stores' environment; every other screen is the same code.

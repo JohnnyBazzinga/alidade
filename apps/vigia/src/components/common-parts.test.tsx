@@ -4,7 +4,8 @@
 import { COLOURS, SIZES } from '@alidade/ui';
 import { fireEvent, render, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { FIX_ASSUMPTION_TEXT, SIMULATION_BANNER_TEXT, sightingGuidance } from '../math/texts';
+import { FIX_ASSUMPTION_TEXT, SIMULATION_TEXT, sightingGuidance } from '../math/texts';
+import { WORDS_FIXTURE } from '../test-support/words-fixture';
 import { GuidanceBlock } from './GuidanceBlock';
 import { LimitsBlock } from './LimitsBlock';
 import { SimulationBanner } from './SimulationBanner';
@@ -53,11 +54,18 @@ describe('GuidanceBlock (Req 3.7, 16.2)', () => {
 });
 
 describe('SimulationBanner (Req 17.4)', () => {
-  it('says the scene and the sensors are invented, in the page\u2019s flow', () => {
+  it('says the scene is not a real place, in the page\u2019s flow', () => {
     const { getByTestId } = render(<SimulationBanner />);
     const banner = getByTestId('simulation-banner');
-    expect(banner.textContent).toBe(SIMULATION_BANNER_TEXT);
+    expect(banner.textContent).toBe('SIMULATION: synthetic scene, not a real place.');
     expect(banner.style.position).toBe('');
+  });
+
+  it('uses the one wording of the simulation: the first line of the Emergency text (follow-up 3)', () => {
+    const { getByTestId } = render(<SimulationBanner />);
+    const first = WORDS_FIXTURE.fixes[0]?.emergency.simulation.split('\n')[0];
+    expect(first).toBe(SIMULATION_TEXT);
+    expect(getByTestId('simulation-banner').textContent).toBe(SIMULATION_TEXT);
   });
 });
 

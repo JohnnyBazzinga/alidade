@@ -584,3 +584,18 @@ into the skeleton-sensors requirements.
     `setWorkerUrl` fails one test; the compass control never primary fails two. Report and stop;
     the lead checks Req 13.13 in a real browser.
 
+
+- [ ] 30. Two findings of Vigia's screens (note of 2026-11-20, from Vigia's task group 13 and the trial on a phone; not yet built, waits for the lead's word)
+  - [ ] 30.1 `MapView` ignores the result of its fit. Its effect calls `adapter.fitToFeatures(…)` and drops
+    the `UiResult`, so a map whose extent spans more than 180° of longitude never shows
+    `crosses_antimeridian`, although `mapBounds` returns it and the README says the map shows it
+    (Vigia Req 18.5). Vigia's Map screen works around it by calling `mapBounds` itself over UI's
+    `observerFeatures` and `bearingFeatures` (it cannot include the ellipse: the vertex-count constant
+    is a token its purity scan forbids). Tests first: a `MapView.test.tsx` case with two observers on
+    either side of 180° shows the Message of `crosses_antimeridian`; then `MapView` shows a failed fit
+    like any other failure, and Vigia's workaround is removed in a Vigia task.
+  - [ ] 30.2 On the trial on a phone, the Fix marker is so large that it hides the 95 % ellipse of a
+    small Fix. The marker should be smaller than the ellipse at the fitted zoom, and the map should be
+    fitted to the ellipse as well as to the observers, so that the region of the Fix is always seen.
+    Tests first, against `FakeMapLibre`: the Fix's paint has a smaller radius (a value to be set with
+    the lead), and `fitToFeatures` after `setFix` includes the ellipse's polygon in the bounds.

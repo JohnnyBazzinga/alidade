@@ -484,8 +484,8 @@ three hotspot reasons wait for the lead's word after the wind checkpoint).
   - `test:deep` for P-9.6, P-9.7 and P-11.9 (both halves) at their counts, then the root checks. Report
     cases, discards and the measured cost; the QR versions of 11.6; the hostile list's size.
 
-- [ ] 13. The screens (D3, D7, D15, D17, D20, D21; §9)
-  - [ ] 13.1 Tests first, then code: the store, the environment and the common parts
+- [x] 13. The screens (D3, D7, D15, D17, D20, D21; §9)
+  - [x] 13.1 Tests first, then code: the store, the environment and the common parts
     - `components/store.test.tsx`: `createVigiaStore` with the fakes (storage, clock, timer, random,
       transport): `dispatch` runs `applyAction`, `storage.write` after a change, the expiry tick every
       `expiryCheckIntervalMs` by the `FakeTimer`, the Inbox in memory only, a corrupt value backed up once
@@ -495,7 +495,7 @@ three hotspot reasons wait for the lead's word after the wind checkpoint).
       `LimitsBlock`, `GuidanceBlock`, `SimulationBanner`, `TabBar`. Code: `environment.ts`, `store.ts`,
       `FailureNotice.tsx`, `LimitsBlock.tsx`, `GuidanceBlock.tsx`, `SimulationBanner.tsx`, `TabBar.tsx`.
     - _Requirements: 2.3, 2.5, 4.4, 4.5, 10.3, 16.1, 16.2, 21.4_
-  - [ ] 13.2 The Smoke and Sight screens
+  - [x] 13.2 The Smoke and Sight screens
     - Tests first: `SmokeScreen.test.tsx` in each state (no smoke, one sighting, two, three with and without
       disagreement, four, a failed solve with the advice, a Fix with the phone's position known and unknown),
       with the Incident's note of Req 5.4 in every state, the not-calling statement, the delete-all control
@@ -505,7 +505,7 @@ three hotspot reasons wait for the lead's word after the wind checkpoint).
       `ConfirmSmokeDialog`, `DeleteAllDialog`). Code: `SmokeScreen.tsx`, `SightScreen.tsx`,
       `FixWordsView.tsx`, `AdviceView.tsx`, `ConfirmSmokeDialog.tsx`, `DeleteAllDialog.tsx`.
     - _Requirements: 3.1 to 3.8, 4.2, 4.3, 4.5, 5.4, 6.1 to 6.6, 7.2 to 7.5, 14.5, 16.2_
-  - [ ] 13.3 The Sightings screen and the Share sheet
+  - [x] 13.3 The Sightings screen and the Share sheet
     - Tests first: `SightingsScreen.test.tsx` (the rows of §9; Hide, Show, Delete ask once; the shared
       channels; a conflict with both versions), `ShareSheet.test.tsx` (the statement of Req 15.2 before the
       first Share; **each presentation records its channel only on its own button**; a hidden sighting is
@@ -514,13 +514,13 @@ three hotspot reasons wait for the lead's word after the wind checkpoint).
       matrix, quiet zone, no `<img>`, the link as text beside it). Code: `SightingsScreen.tsx`,
       `SightingRow.tsx`, `ShareSheet.tsx`, `QrImage.tsx`.
     - _Requirements: 5.1, 5.2, 5.6, 9.3, 9.5, 10.1, 10.5 to 10.8, 15.2, 15.5, 15.6, 17.4_
-  - [ ] 13.4 The Inbox sheet
+  - [x] 13.4 The Inbox sheet
     - Tests first: `InboxSheet.test.tsx` (the card has **no observer position**; an unknown Incident asks to
       open it as a new smoke; Add and Ignore; a damaged paste shows its Message; a code of a simulated
       Incident is said to come from a simulation; the sentence that a code has no proof of authorship).
       Code: `InboxSheet.tsx`.
     - _Requirements: 4.2, 9.4, 10.3, 10.4, 15.7, 15.8, 17.4_
-  - [ ] 13.5 The Map screen, the Overlay registry and the shared Overlay parts
+  - [x] 13.5 The Map screen, the Overlay registry and the shared Overlay parts
     - Tests first: `MapScreen.test.tsx` with `FakeMapLibre` (UI's): observers, Wedges, the Fix and its
       ellipse through `MapView`, the set-aside lines, the legend, the attribution, the plain background with
       no Tile source, `crosses_antimeridian` through `messageFor`; the Overlays panel with a **test-only**
@@ -529,20 +529,20 @@ three hotspot reasons wait for the lead's word after the wind checkpoint).
       `overlays/index.ts` (`OVERLAYS = []`), `overlays/shared/math/overlay-types.ts`,
       `overlays/shared/components/OverlayPanel.tsx`, `Legend.tsx`, `SourcesList.tsx`.
     - _Requirements: 1.10, 12.2 as applied to the wind, 13.1, 18.1 to 18.6_
-  - [ ] 13.6 The Emergency screen and the privacy page
+  - [x] 13.6 The Emergency screen and the privacy page
     - Tests first: `EmergencyScreen.test.tsx` (the not-calling statement; Copy success and failure keeps the
       text selected and shows `clipboard_unavailable`; **the own-position switch is off by default**; the
       `SIMULATION:` line; produced again when the Fix changes, with the time it was made, and not left from an
       earlier Fix); `PrivacyPage.test.tsx` (rendered from `PRIVACY_TABLE`, nine rows). Code:
       `EmergencyScreen.tsx`, `PrivacyPage.tsx`.
     - _Requirements: 14.3 to 14.7, 15.3_
-  - [ ] 13.7 `App.tsx`, `system.ts`, `overlays-empty.ts`
+  - [x] 13.7 `App.tsx`, `system.ts`, `overlays-empty.ts`
     - Tests first: `App.test.tsx` (the four tabs always there but on the Sight screen and in a modal; a
       link with a code opens the Inbox sheet; the mode control is shown only with `DeviceOrientationEvent`).
       Code: `App.tsx` (the only importer of `./overlays`), `system.ts` (the one module with `setInterval` and
       `Date.now`), `overlays-empty.ts`.
     - _Requirements: 1.5, 1.10, 10.3, 17.1_
-  - [ ] 13.8 Properties of the store: P-10.10 and P-15.9 (project `components`)
+  - [x] 13.8 Properties of the store: P-10.10 and P-15.9 (project `components`)
     - Tests first. **P-10.10** (Req 10.3, 10.10: generator `pageAddress`, `sightingArb`; the fake `VigiaPage`
       opened at the link and the store's fragment handler with a recording gate: afterwards the address is the
       one without the fragment, the gate was never called, and no argument of any adapter call holds a run of
@@ -554,13 +554,13 @@ three hotspot reasons wait for the lead's word after the wind checkpoint).
       sequence holds, and only the code of the Sighting shared), 200 / 1 000. Mutation check: a code symbol
       logged to `console` (P-15.9 fails). The wind Overlay's switch joins P-15.9's actions in 17.5.
     - _Requirements: 10.3, 10.10, 15.1, 15.4, 15.9_
-  - [ ] 13.9 The cut test (D21, Req 1.10)
+  - [x] 13.9 The cut test (D21, Req 1.10)
     - Add the fourth project `no-overlays` to `vitest.config.ts` (the `math` and `components` tests but
       `src/overlays/**`, with `src/overlays/index.ts` aliased to `src/overlays-empty.ts`), part of `pnpm test`,
       and the purity rule that nothing but `src/App.tsx` and `src/overlays-empty.ts` mentions `overlays/`.
       The project passes now with the registry empty.
     - _Requirements: 1.10_
-  - [ ] 13.10 The files of this group join the purity file list; the screens are checked at 360 CSS pixels in a component test for the touch-target sizes and the colours of UI's `COLOURS` and `SIZES`.
+  - [x] 13.10 The files of this group join the purity file list; the screens are checked at 360 CSS pixels in a component test for the touch-target sizes and the colours of UI's `COLOURS` and `SIZES`.
 
 - [ ] 14. The Simulation shell, the four scenes and the reviewer's path (D16; §10)
   - [ ] 14.1 Tests first: `math/scenes/smoke-scenes.test.ts`

@@ -135,7 +135,7 @@ describe('P-14.8: the Emergency text (Req 14.1, 14.3, 14.6, 14.8)', () => {
         // position is judged by its line; an observer's by its printed forms, after the lines that
         // may print the same digits (the Fix's position and the own position) are taken out, since
         // a Fix near an observer, or an own position at the smoke, can print the same text.
-        const ownLine = /^(My own position: |I stand at )/;
+        const ownLine = /^I last sighted from /;
         const lines = t.split('\n');
         if (!c.includeOwnPosition && lines.some((line) => ownLine.test(line))) {
           throw new Error('the own position without the switch');

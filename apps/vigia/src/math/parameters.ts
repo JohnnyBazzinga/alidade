@@ -107,10 +107,11 @@ const COUNT_FIELDS: readonly (keyof VigiaParameters)[] = [
 export const LEAST_LINK_LENGTH_CHARS = 63;
 /**
  * The worst case of the Emergency text, computed in design §7.12 (its test builds it): 896
- * characters since 2026-11-19, three sightings that disagree (Req 14.11). `maxEmergencyTextChars`
- * must be at least this (Req 19.1).
+ * characters since 2026-11-19, three sightings that disagree (Req 14.11); 899 since 2026-11-20,
+ * the own position written as "I last sighted from …". `maxEmergencyTextChars` must be at least
+ * this (Req 19.1).
  */
-const WORST_EMERGENCY_TEXT_CHARS = 896;
+const WORST_EMERGENCY_TEXT_CHARS = 899;
 
 /**
  * Checks the parameters (Req 19.3). Returns `invalid_number` naming the first field, in the

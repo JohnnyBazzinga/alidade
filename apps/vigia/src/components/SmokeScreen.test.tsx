@@ -21,6 +21,7 @@ import {
 import { offsetFromOrigin, sightingIdOf } from '../test-support/incident-fixtures';
 import { allReceived, renderScreen, storedWith } from '../test-support/render-screen';
 import type { Incident } from '../math/incident/incident-state';
+import { STATE_KEY } from '../adapters/storage';
 import { SmokeScreen } from './SmokeScreen';
 
 const DEG = Math.PI / 180;
@@ -154,7 +155,7 @@ describe('SmokeScreen in every state (design §9)', () => {
   it('a Fix with the phone\u2019s position known: the distance from you with its interval', () => {
     const s = show([postsIncident(['west', 'east'])]);
     expect(s.getByTestId('from-you').textContent).toMatch(
-      /^About .* of you, give or take .* \(at least 95 %\)\.$/,
+      /^About .* of where you took your last sighting, give or take .* \(at least 95 %\)\.$/,
     );
   });
 
@@ -162,7 +163,7 @@ describe('SmokeScreen in every state (design §9)', () => {
     const s = show([allReceived(postsIncident(['west', 'east']))]);
     expect(s.getByTestId('fix-headline')).toBeTruthy();
     expect(s.queryByTestId('from-you')).toBeNull();
-    expect(s.text()).not.toMatch(/About .* of you, give or take/);
+    expect(s.text()).not.toMatch(/About .* of where you took your last sighting/);
   });
 
   it('says when the smoke was started, and how many sightings it holds and uses', () => {
@@ -188,6 +189,28 @@ describe('the first-screen controls (Req 4.5, 14.5)', () => {
     );
     expect(s.store.getSnapshot().state.incidents).toHaveLength(0);
     expect(s.text()).toContain('No smoke yet');
+  });
+
+  it('says in the confirmation that the backup copy goes too, only when there is one', () => {
+    const BACKUP_SENTENCE =
+      'The backup copy of saved sightings that could not be read is deleted too.';
+    const without = show([postsIncident(['west', 'east'])]);
+    fireEvent.click(without.getByRole('button', { name: 'Delete everything on this phone' }));
+    expect(without.getByTestId('delete-all-dialog').textContent).not.toContain(BACKUP_SENTENCE);
+    without.unmount();
+    const withBackup = renderScreen(
+      <SmokeScreen
+        onSight={() => undefined}
+        onInbox={() => undefined}
+        onPrivacy={() => undefined}
+      />,
+      { storedItems: { [STATE_KEY]: 'not json {' } },
+    );
+    fireEvent.click(withBackup.getByRole('button', { name: 'Delete everything on this phone' }));
+    const dialog = withBackup.getByTestId('delete-all-dialog');
+    expect(dialog.textContent).toContain(BACKUP_SENTENCE);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete everything' }));
+    expect([...withBackup.fake.storage.items.keys()]).toEqual([]);
   });
 
   it('opens the Inbox and the privacy page', () => {

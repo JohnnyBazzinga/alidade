@@ -2,7 +2,7 @@
 // flow: it never covers a control.
 
 import { COLOURS, SIZES } from '@alidade/ui';
-import { SIMULATION_BANNER_TEXT } from '../math/texts';
+import { SIMULATION_TEXT } from '../math/texts';
 import { LOOK } from './look';
 
 export function SimulationBanner() {
@@ -18,7 +18,7 @@ export function SimulationBanner() {
         background: COLOURS.brass,
       }}
     >
-      {SIMULATION_BANNER_TEXT}
+      {SIMULATION_TEXT}
     </p>
   );
 }

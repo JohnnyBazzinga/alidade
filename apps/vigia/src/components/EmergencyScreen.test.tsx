@@ -63,12 +63,12 @@ describe('EmergencyScreen (Req 14.3 to 14.6)', () => {
 
   it('keeps the own position out of the text until the switch is turned on', () => {
     const s = show([postsIncident(['west', 'east'])]);
-    const toggle = s.getByRole('switch', { name: 'Include my own position' });
+    const toggle = s.getByRole('switch', { name: 'Include where I took my last sighting' });
     expect(toggle.getAttribute('aria-checked')).toBe('false');
-    expect(s.textArea().value).not.toContain('My own position');
+    expect(s.textArea().value).not.toContain('I last sighted from');
     fireEvent.click(toggle);
     expect(s.textArea().value).toBe(expected(s, true, START_UTC_MS));
-    expect(s.textArea().value).toContain('My own position:');
+    expect(s.textArea().value).toContain('I last sighted from ');
   });
 
   it('Copy copies exactly the text shown', async () => {

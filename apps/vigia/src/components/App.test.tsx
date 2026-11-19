@@ -6,7 +6,7 @@
 import { act, fireEvent, render, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { App } from '../App';
-import { SIMULATION_BANNER_TEXT } from '../math/texts';
+import { SIMULATION_TEXT } from '../math/texts';
 import {
   createFakeEnvironment,
   type FakeEnvironmentOptions,
@@ -134,16 +134,16 @@ describe('Simulation mode (Req 17.4)', () => {
   it('shows the banner on every screen and sheet', async () => {
     const a = mount({ mode: 'simulation' }, false);
     const banner = () => a.getByTestId('simulation-banner').textContent;
-    expect(banner()).toBe(SIMULATION_BANNER_TEXT);
+    expect(banner()).toBe(SIMULATION_TEXT);
     for (const name of ['Sightings', 'Map', 'Emergency', 'Smoke']) {
       await act(async () => a.tab(name));
-      expect(banner()).toBe(SIMULATION_BANNER_TEXT);
+      expect(banner()).toBe(SIMULATION_TEXT);
     }
     a.tap('Sight the smoke');
-    expect(banner()).toBe(SIMULATION_BANNER_TEXT);
+    expect(banner()).toBe(SIMULATION_TEXT);
     a.tap('Back');
     a.tap(/Add a sighting someone sent me/);
-    expect(banner()).toBe(SIMULATION_BANNER_TEXT);
+    expect(banner()).toBe(SIMULATION_TEXT);
   });
 
   it('has no banner on a phone', () => {

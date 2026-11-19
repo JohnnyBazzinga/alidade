@@ -11,6 +11,7 @@ import type { Assessment } from '../assessment/assess';
 import { clockTextUtc } from '../civil-time';
 import { toDeg } from '../degrees';
 import { checkParameters, type VigiaParameters } from '../parameters';
+import { SIMULATION_TEXT } from '../texts';
 import { fixWords } from './fix-words';
 import { compassWord8, lengthText95, positionText } from './format';
 
@@ -19,10 +20,11 @@ import { compassWord8, lengthText95, positionText } from './format';
  * line, an own position of 4 decimals, 30 sightings set aside, lengths written as "over 1000 km",
  * ages of 10 000 days, the longest axis words, the poor geometry sentence, and since 2026-11-19
  * the position line of three sightings that disagree with the line of what three can check):
- * 896 characters, built by a test. `checkParameters` requires `maxEmergencyTextChars` of at
- * least 896, so the text cannot exceed it (Req 14.8, 19.1).
+ * 899 characters, built by a test. `checkParameters` requires `maxEmergencyTextChars` of at
+ * least 899, so the text cannot exceed it (Req 14.8, 19.1). The own position is "I last sighted
+ * from …" since 2026-11-20, so that nobody reads it as a live position (3 characters more).
  */
-export const WORST_EMERGENCY_TEXT_CHARS = 896;
+export const WORST_EMERGENCY_TEXT_CHARS = 899;
 
 export interface EmergencyInput {
   readonly assessment: Assessment;
@@ -33,7 +35,7 @@ export interface EmergencyInput {
   readonly includeOwnPosition: boolean;
 }
 
-const SIMULATION_LINE = 'SIMULATION: synthetic scene, not a real place.';
+const SIMULATION_LINE = SIMULATION_TEXT;
 const FIRST_LINE = 'Smoke seen by phone compass sightings; not confirmed.';
 const POSITIONS_LINE =
   'These positions come from phone compass sightings, which are off by several degrees.';
@@ -99,9 +101,9 @@ export function emergencyText(
     // keeps a sigma of exactly 3° from becoming 4° through the conversion's last bit.
     const sigmaWholeDeg = Math.max(1, Math.ceil(sigmaDeg.value - 1e-9));
     lines.push(
-      `Direction only, not a place: the smoke was seen toward ${formatAzimuthDeg(azimuthRad, 0)} degrees (${word.value}), give or take ${sigmaWholeDeg} degrees (1-sigma), from where I stand.`,
+      `Direction only, not a place: the smoke was seen toward ${formatAzimuthDeg(azimuthRad, 0)} degrees (${word.value}), give or take ${sigmaWholeDeg} degrees (1-sigma), from where the sighting was taken.`,
     );
-    if (own !== null) lines.push(`I stand at ${own.value}.`);
+    if (own !== null) lines.push(`I last sighted from ${own.value}.`);
     lines.push(DIRECTIONS_LINE, written);
     return ok(lines.join('\n'));
   }
@@ -128,7 +130,7 @@ export function emergencyText(
   );
   const countLine = COUNT_LINES[assessment.used.length];
   if (countLine !== undefined) lines.push(countLine);
-  if (own !== null) lines.push(`My own position: ${own.value}.`);
+  if (own !== null) lines.push(`I last sighted from ${own.value}.`);
   lines.push(POSITIONS_LINE, written);
   return ok(lines.join('\n'));
 }

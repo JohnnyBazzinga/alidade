@@ -51,7 +51,8 @@ describe('fromYouWords (Req 6.4)', () => {
     if (!e95.ok) throw new Error('ellipse95');
     expect(words).toEqual({
       ok: true,
-      value: 'About 3.0 km north of you, give or take 770 m (at least 95 %).',
+      value:
+        'About 3.0 km north of where you took your last sighting, give or take 770 m (at least 95 %).',
     });
     expect(Math.ceil(e95.value.semiMajorM / 10) * 10).toBe(770);
   });
@@ -60,14 +61,16 @@ describe('fromYouWords (Req 6.4)', () => {
     // You stand 2 000 m west: the Fix is east of you, across its long axis.
     expect(fromYouWords(fix, at((3 * Math.PI) / 2, 2000), PARAMETERS)).toEqual({
       ok: true,
-      value: 'About 2.0 km east of you, give or take 210 m (at least 95 %).',
+      value:
+        'About 2.0 km east of where you took your last sighting, give or take 210 m (at least 95 %).',
     });
   });
 
   it('says the distance cannot be given when the phone is at the estimated position', () => {
     expect(fromYouWords(fix, ORIGIN, PARAMETERS)).toEqual({
       ok: true,
-      value: 'You are at the estimated position, so the distance cannot be given.',
+      value:
+        'Your last sighting was taken at the estimated position, so the distance cannot be given.',
     });
   });
 
@@ -76,7 +79,7 @@ describe('fromYouWords (Req 6.4)', () => {
       for (const azimuthRad of [0, 1, 2, 3, 4, 5, 6]) {
         const words = fromYouWords(fix, at(azimuthRad, distanceM), PARAMETERS);
         expect(words.ok && words.value).toMatch(
-          /^About .+ of you, give or take .+ \(at least 95 %\)\.$/,
+          /^About .+ of where you took your last sighting, give or take .+ \(at least 95 %\)\.$/,
         );
       }
     }

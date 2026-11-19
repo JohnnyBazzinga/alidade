@@ -71,6 +71,8 @@ export interface VigiaSnapshot {
   readonly transportStatus: TransportStatus;
   /** Shares recorded since the page was opened: the Share sheet states what a code holds in full before the first (Req 15.2). */
   readonly sharesThisSession: number;
+  /** A backup copy of a saved value that could not be read is kept (design D4). */
+  readonly hasBackup: boolean;
 }
 
 export interface VigiaStore {
@@ -170,6 +172,7 @@ export function createVigiaStore(environment: VigiaEnvironment): VigiaStore {
   let linkArrivals = 0;
   let transportStatus: TransportStatus = { kind: 'available' };
   let sharesThisSession = 0;
+  let hasBackup = false;
   let open: OpenView | null = null;
   let openLimitUtcMs = Number.POSITIVE_INFINITY;
   let snapshot: VigiaSnapshot | null = null;
@@ -214,6 +217,20 @@ export function createVigiaStore(environment: VigiaEnvironment): VigiaStore {
     if (!written.ok) addNotice({ reason: 'storage_unavailable' });
   };
 
+  /**
+   * "Delete everything on this phone" (Req 4.5): every key of the app goes, the backup copy too,
+   * whatever was stored (a newer version's value included: this is the user's own act). The
+   * storage is then the app's again.
+   */
+  const eraseAll = (): void => {
+    const removed = storage.remove();
+    const removedBackup = storage.removeBackup();
+    if (!removed.ok || !removedBackup.ok) addNotice({ reason: 'storage_unavailable' });
+    if (removed.ok) writable = true;
+    const backup = storage.readBackup();
+    hasBackup = backup.ok && backup.value !== null;
+  };
+
   /** Applies an action; on a change of the state, writes it and tells the screens. */
   const apply = (action: VigiaAction): VigiaResult<void> => {
     const result = applyAction(state, action, parameters);
@@ -226,7 +243,8 @@ export function createVigiaStore(environment: VigiaEnvironment): VigiaStore {
     }
     const changed = result.value.state !== state;
     state = result.value.state;
-    if (changed) write();
+    if (action.kind === 'deleteAll') eraseAll();
+    else if (changed) write();
     refreshOpen(false);
     notify();
     return ok(undefined);
@@ -234,6 +252,8 @@ export function createVigiaStore(environment: VigiaEnvironment): VigiaStore {
 
   const load = (): void => {
     if (mode === 'device' && !storage.persistent) addNotice({ reason: 'storage_unavailable' });
+    const backup = storage.readBackup();
+    hasBackup = backup.ok && backup.value !== null;
     const read = storage.read();
     if (!read.ok) {
       writable = false;
@@ -257,6 +277,7 @@ export function createVigiaStore(environment: VigiaEnvironment): VigiaStore {
       addNotice({ reason: 'storage_corrupt' });
       const backup = storage.readBackup();
       const saved = backup.ok && backup.value === null && storage.writeBackup(value.raw).ok;
+      hasBackup = backup.ok && backup.value !== null ? true : saved;
       if (!saved) {
         writable = false;
         addNotice({ reason: 'storage_unavailable' });
@@ -332,6 +353,7 @@ export function createVigiaStore(environment: VigiaEnvironment): VigiaStore {
         linkArrivals,
         transportStatus,
         sharesThisSession,
+        hasBackup,
       };
       return snapshot;
     },

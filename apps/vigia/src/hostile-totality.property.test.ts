@@ -346,7 +346,7 @@ function firstInvalidField(p: VigiaParameters): string | null {
     ['fairEllipseRatio', p.fairEllipseRatio <= 1],
     ['longEllipseRatio', p.longEllipseRatio <= p.fairEllipseRatio],
     ['maxLinkLengthChars', p.maxLinkLengthChars < 50 + 13],
-    ['maxEmergencyTextChars', p.maxEmergencyTextChars < 896],
+    ['maxEmergencyTextChars', p.maxEmergencyTextChars < 899],
   ];
   return consistency.find(([, violated]) => violated)?.[0] ?? null;
 }
@@ -1100,12 +1100,15 @@ export const HOSTILE_LIST: readonly HostileEntry[] = [
       const made = createMemoryStorage();
       made.write(text);
       made.writeBackup(text);
-      return [made.read(), made.readBackup()];
+      const held = [made.read(), made.readBackup()];
+      return [...held, made.removeBackup(), made.readBackup()];
     },
     ([text], result) => {
       expect(result).toEqual([
         { ok: true, value: text },
         { ok: true, value: text },
+        { ok: true, value: undefined },
+        { ok: true, value: null },
       ]);
     },
   ),

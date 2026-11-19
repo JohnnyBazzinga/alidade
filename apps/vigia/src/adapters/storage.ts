@@ -26,6 +26,8 @@ export interface VigiaStorage {
   remove(): VigiaResult<void>;
   readBackup(): VigiaResult<string | null>;
   writeBackup(text: string): VigiaResult<void>;
+  /** Deletes the backup copy: "Delete everything on this phone" leaves no key of the app. */
+  removeBackup(): VigiaResult<void>;
   /** False for the memory storage: closing the page loses what it holds. */
   readonly persistent: boolean;
 }
@@ -70,6 +72,7 @@ export function createStorage(storage: StorageLike): VigiaStorage {
     remove: () => remove(STATE_KEY),
     readBackup: () => read(BACKUP_KEY),
     writeBackup: (text) => write(BACKUP_KEY, text),
+    removeBackup: () => remove(BACKUP_KEY),
     persistent: true,
   };
 }
@@ -90,6 +93,10 @@ export function createMemoryStorage(): VigiaStorage {
     readBackup: () => ok(items.get(BACKUP_KEY) ?? null),
     writeBackup: (text) => {
       items.set(BACKUP_KEY, text);
+      return ok(undefined);
+    },
+    removeBackup: () => {
+      items.delete(BACKUP_KEY);
       return ok(undefined);
     },
     persistent: false,

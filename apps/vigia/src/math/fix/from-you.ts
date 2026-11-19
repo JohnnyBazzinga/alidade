@@ -32,7 +32,8 @@ export function halfIntervalM(ellipse95M: Ellipse, directionRad: number): VigiaR
 }
 
 /**
- * `About 3.0 km north of you, give or take 770 m (at least 95 %).` A phone at the estimated
+ * `About 3.0 km north of where you took your last sighting, give or take 770 m (at least 95 %).`
+ * ("you" is where this phone took its newest sighting, not a live position: 2026-11-20). A phone at the estimated
  * position (Core's `coincident_positions`) gets a sentence that gives no distance. Fails with
  * `unsupported_position` for your position, with Core's failure for an Ellipse it refuses, and
  * with `invalid_number` naming a parameter.
@@ -50,7 +51,9 @@ export function fromYouWords(
   const azimuth = initialAzimuthRad(you, fix.position);
   if (!azimuth.ok) {
     if (azimuth.reason === 'coincident_positions') {
-      return ok('You are at the estimated position, so the distance cannot be given.');
+      return ok(
+        'Your last sighting was taken at the estimated position, so the distance cannot be given.',
+      );
     }
     return azimuth;
   }
@@ -65,6 +68,6 @@ export function fromYouWords(
   if (!word.ok) return word;
   if (!interval.ok) return interval;
   return ok(
-    `About ${distanceText.value} ${word.value} of you, give or take ${interval.value} (at least 95 %).`,
+    `About ${distanceText.value} ${word.value} of where you took your last sighting, give or take ${interval.value} (at least 95 %).`,
   );
 }

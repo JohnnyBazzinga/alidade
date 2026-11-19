@@ -43,6 +43,24 @@ describe('createStorage over a Storage object', () => {
     expect([...fake.items.keys()]).toEqual(['vigia.state.backup']);
   });
 
+  it('removeBackup() deletes the backup and leaves the state (follow-up 1)', () => {
+    const fake = createFakeStorage({ 'vigia.state': 'S', 'vigia.state.backup': 'B' });
+    const storage = createStorage(fake);
+    expect(storage.removeBackup()).toEqual({ ok: true, value: undefined });
+    expect([...fake.items.keys()]).toEqual(['vigia.state']);
+    expect(storage.readBackup()).toEqual({ ok: true, value: null });
+  });
+
+  it('a removeItem that throws on the backup is storage_unavailable, not an exception', () => {
+    const fake = createFakeStorage({ 'vigia.state.backup': 'B' });
+    fake.failing = { removeItem: 'SecurityError' };
+    expect(createStorage(fake).removeBackup()).toEqual({
+      ok: false,
+      reason: 'storage_unavailable',
+      errorName: 'SecurityError',
+    });
+  });
+
   it('is persistent', () => {
     expect(createStorage(createFakeStorage()).persistent).toBe(true);
   });
@@ -110,6 +128,8 @@ describe('createMemoryStorage', () => {
     storage.remove();
     expect(storage.read()).toEqual({ ok: true, value: null });
     expect(storage.readBackup()).toEqual({ ok: true, value: 'B' });
+    expect(storage.removeBackup()).toEqual({ ok: true, value: undefined });
+    expect(storage.readBackup()).toEqual({ ok: true, value: null });
   });
 
   it('two memory storages are separate', () => {
@@ -150,6 +170,7 @@ describe('no storage event handler (Req 4.4)', () => {
         'read',
         'readBackup',
         'remove',
+        'removeBackup',
         'write',
         'writeBackup',
       ]);
