@@ -32,7 +32,14 @@ describe('P-7.8: the Geometry class (Req 7.1, 7.8)', () => {
           ...fix,
           position: { latRad: fix.position.latRad * 0.5, lonRad: shift },
           covariance: { varEastM2: 1, varNorthM2: 2, covEastNorthM2: 0 },
-          residuals: [{ id: 'x', residualRad: shift, normalisedResidual: 10 * shift }],
+          residuals: [
+            {
+              id: 'x',
+              residualRad: shift,
+              normalisedResidual: 10 * shift,
+              studentisedResidual: 20 * shift,
+            },
+          ],
           iterations: 40,
           excludedIds: ['y'],
         };

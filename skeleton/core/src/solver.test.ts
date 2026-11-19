@@ -578,11 +578,15 @@ describe('solve: outlier rejection (step 7) and the post-exclusion geometry (ste
     expect(fix.excludedIds).toStrictEqual(['x']);
   });
 
-  it('keeps a normalised residual of 3.44, just below the 3.5 limit', () => {
-    const fix = unwrapOk(solve(createStubModel(), withOffset(43), { outlierRejection: true }));
+  it('keeps a Studentised residual of 3.49 (normalised 3.12), just below the 3.5 limit', () => {
+    // Amended 2026-11-19: the limit applies to the Studentised residual (Req 10.1), here the
+    // normalised residual over √(4/5). At δ = 43 m (normalised 3.44, Studentised 3.85) x is now
+    // excluded; see 'excludes on the Studentised residual' below.
+    const fix = unwrapOk(solve(createStubModel(), withOffset(39), { outlierRejection: true }));
     expect(fix.excludedIds).toStrictEqual([]);
-    const largest = Math.max(...fix.residuals.map((entry) => Math.abs(entry.normalisedResidual)));
-    expect(largest).toBeCloseTo(3.44, 6);
+    const largest = Math.max(...fix.residuals.map((entry) => Math.abs(entry.studentisedResidual)));
+    expect(largest).toBeCloseTo((0.08 * 39) / Math.sqrt(0.8), 6);
+    expect(largest).toBeLessThan(3.5);
   });
 
   it('takes poor_geometry from the post-exclusion run: poor before exclusion, good after', () => {
@@ -908,14 +912,15 @@ describe('solve with BearingModel: outside the property domains', () => {
     expect(solve(bearingModel, observations)).toStrictEqual(failure('unsupported_position'));
   });
 
-  it('known limit: a 79° outlier is not rejected, and good observations are excluded instead', () => {
+  it('a 79° outlier, once a known limit, is excluded on its Studentised residual', () => {
     // Req 10.5 covers outliers of 15° to 45°. Here eight good observers 5 to 7 km around the
     // target, with no gap over 58° between their directions, and one observer 5 km away at 32°
     // whose azimuth is 79° wrong. The least-squares minimum with every observation lies 4.9 km
-    // from the target, where a good observation (g4, -29.0) has the largest normalised residual
-    // rather than the bad one. Rejection then removes good observations one by one and ends
-    // 5 km from the target. This documents current behaviour, not a requirement: outlier
-    // rejection by largest residual cannot recover from an error this large.
+    // from the target, where a good observation (g4, -29.0) has the largest Normalised residual
+    // and the bad one only -3.06: the first form of Req 10.1 removed good observations one by one
+    // and ended 5 km away. The bad observation has pulled the fit onto itself (leverage near 1),
+    // so its Studentised residual is -44.3, the largest; since the amendment of 2026-11-19 it is
+    // excluded and the Fix is the target's.
     const target = position(4, 160);
     const directionsDeg = [149, 218, 261, 335, 91, 33, 292, 193];
     const rangesM = [5300, 6600, 5600, 6700, 5300, 6300, 6100, 5200];
@@ -930,15 +935,18 @@ describe('solve with BearingModel: outside the property domains', () => {
     });
     const plain = unwrapOk(solve(bearingModel, [...good, bad]));
     expect(distanceM(plain.position, target)).toBeGreaterThan(4000);
-    const largest = [...plain.residuals].sort(
+    const byNormalised = [...plain.residuals].sort(
       (left, right) => Math.abs(right.normalisedResidual) - Math.abs(left.normalisedResidual),
-    )[0];
-    expect(largest?.id).not.toBe('bad');
+    );
+    expect(byNormalised[0]?.id).not.toBe('bad');
+    const byStudentised = [...plain.residuals].sort(
+      (left, right) => Math.abs(right.studentisedResidual) - Math.abs(left.studentisedResidual),
+    );
+    expect(byStudentised[0]?.id).toBe('bad');
 
     const rejected = unwrapOk(solve(bearingModel, [...good, bad], { outlierRejection: true }));
-    expect(rejected.excludedIds).not.toContain('bad');
-    expect(rejected.excludedIds.length).toBeGreaterThan(1);
-    expect(distanceM(rejected.position, target)).toBeGreaterThan(4000);
+    expect(rejected.excludedIds).toStrictEqual(['bad']);
+    expect(distanceM(rejected.position, target)).toBeLessThan(0.01);
   });
 });
 
@@ -1017,5 +1025,352 @@ describe('solve: the projection stays on the stub origin', () => {
     const point = unwrapOk(projectToLocalPlane(stubOrigin, at(stubOrigin, truth)));
     expect(point.eastM).toBeCloseTo(truth.eastM, 6);
     expect(point.northM).toBeCloseTo(truth.northM, 6);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
+// The outlier rule of 2026-11-19 (Req 10.1, 10.2, 10.7, 10.8; design D20 to D22, §7.7).
+// With the stub, every observation's weighted Jacobian row is (0.1, 0) or (0, 0.1) per metre for a
+// sigma of 0.01 rad, so the weighted fit separates into East and North and every leverage is a
+// ratio of weights: h = w / Σw over the observations of the same axis.
+// ---------------------------------------------------------------------------------------------
+
+describe('solve: Studentised residuals (Req 10.1, 10.8)', () => {
+  const sixEastOneNorth = (): StubObservation[] => [
+    ...['a', 'b', 'c', 'd', 'e'].map((id) =>
+      stubObservation(id, 1e-3, 0, { eastM: 100, northM: 0 }),
+    ),
+    stubObservation('x', 1e-3, 0, { eastM: 300, northM: 0 }),
+    stubObservation('n', 0, 1e-3, { eastM: 0, northM: 0 }),
+  ];
+
+  it('carries each Studentised residual, Normalised over √(1 − h), with rejection disabled', () => {
+    // East is 133.3 m; each east reading has h = 1/6. 'x' is 16.67 sigma off, the others 3.33.
+    // 'n' alone fixes North, h = 1, so its Studentised residual is 0 (Req 10.1).
+    const fix = unwrapOk(solve(createStubModel(), sixEastOneNorth()));
+    const byId = new Map(fix.residuals.map((entry) => [entry.id, entry]));
+    const expectedX = (0.3 - 0.4 / 3) / 0.01 / Math.sqrt(5 / 6);
+    const expectedA = (0.1 - 0.4 / 3) / 0.01 / Math.sqrt(5 / 6);
+    expect(byId.get('x')?.studentisedResidual).toBeCloseTo(expectedX, 9);
+    for (const id of ['a', 'b', 'c', 'd', 'e']) {
+      expect(byId.get(id)?.studentisedResidual).toBeCloseTo(expectedA, 9);
+    }
+    expect(byId.get('n')?.studentisedResidual).toBe(0);
+    expect(fix.excludedIds).toStrictEqual([]);
+  });
+
+  // Three east readings with sigmas 0.01, 0.01 and 0.02 rad, and one north reading. The weights
+  // are 1e4, 1e4 and 2.5e3, so the weighted leverages are 4/9, 4/9 and 1/9, where the unweighted
+  // hat matrix would give 1/3 each. 'c' reads 70 m east of the others.
+  const unequalSigmas = (): StubObservation[] => [
+    stubObservation('a', 1e-3, 0, { eastM: 100, northM: 0 }, 0.01),
+    stubObservation('b', 1e-3, 0, { eastM: 100, northM: 0 }, 0.01),
+    stubObservation('c', 1e-3, 0, { eastM: 170, northM: 0 }, 0.02),
+    stubObservation('n', 0, 1e-3, { eastM: 0, northM: 0 }, 0.01),
+  ];
+
+  it('weights the leverage: unequal sigmas give the leverages of the weighted fit', () => {
+    // Weighted east: 100 + 70/9. c: e = (70 - 70/9)·1e-3/0.02, t = e/√(8/9) = 3.30;
+    // a and b: e = -(70/9)·1e-3/0.01, t = e/√(5/9) = -1.04.
+    const fix = unwrapOk(solve(createStubModel(), unequalSigmas()));
+    const byId = new Map(fix.residuals.map((entry) => [entry.id, entry]));
+    const eC = ((70 - 70 / 9) * 1e-3) / 0.02;
+    const eA = (-(70 / 9) * 1e-3) / 0.01;
+    expect(byId.get('c')?.normalisedResidual).toBeCloseTo(eC, 9);
+    expect(byId.get('c')?.studentisedResidual).toBeCloseTo(eC / Math.sqrt(8 / 9), 9);
+    expect(byId.get('a')?.studentisedResidual).toBeCloseTo(eA / Math.sqrt(5 / 9), 9);
+    expect(byId.get('n')?.studentisedResidual).toBe(0);
+  });
+
+  it('keeps an observation whose weighted Studentised residual, 3.30, is under 3.5', () => {
+    // With the unweighted hat matrix c's would read 3.81 and c would be excluded.
+    const fix = unwrapOk(solve(createStubModel(), unequalSigmas(), { outlierRejection: true }));
+    expect(fix.excludedIds).toStrictEqual([]);
+  });
+
+  it('gives a Studentised residual of exactly 0 to both of two observations', () => {
+    const fix = unwrapOk(
+      solve(createStubModel(), [
+        stubObservation('east', 1e-3, 1e-3, truth),
+        stubObservation('north', -1e-3, 2e-3, truth),
+      ]),
+    );
+    expect(fix.residuals.map((entry) => entry.studentisedResidual)).toStrictEqual([0, 0]);
+  });
+
+  // Five east readings, one of them 'x' off by δ: x's Normalised residual is 0.1·δ·4/5 and, with
+  // h = 1/5, its Studentised residual is that over √(4/5).
+  const withOffset = (offsetM: number): StubObservation[] => [
+    ...['a', 'b', 'c', 'd'].map((id) => stubObservation(id, 1e-3, 0, { eastM: 100, northM: 0 })),
+    stubObservation('x', 1e-3, 0, { eastM: 100 + offsetM, northM: 0 }),
+    stubObservation('n', 0, 1e-3, { eastM: 0, northM: 0 }),
+  ];
+
+  it('excludes on the Studentised residual: Normalised 3.44 and Studentised 3.85', () => {
+    const plain = unwrapOk(solve(createStubModel(), withOffset(43)));
+    const x = plain.residuals.find((entry) => entry.id === 'x');
+    expect(x?.normalisedResidual).toBeCloseTo(3.44, 9);
+    expect(x?.studentisedResidual).toBeCloseTo(3.44 / Math.sqrt(0.8), 9);
+    const fix = unwrapOk(solve(createStubModel(), withOffset(43), { outlierRejection: true }));
+    expect(fix.excludedIds).toStrictEqual(['x']);
+  });
+});
+
+describe('solve: leaving one out (Req 10.7)', () => {
+  // Three east readings of 100 m, 'k' at 110 m, 'z' at 300 m, and one north reading. The stub's
+  // geometry check rejects any set that holds both k and z, so the full set fails before solving.
+  // Leaving out k or z solves; leaving out z leaves the smaller Cost. In the canonical order
+  // (a, b, c, k, n, z) the first subset that solves is the one without k.
+  const pairRejected = (first: string, second: string) =>
+    createStubModel({
+      geometryCheck: (observations) => {
+        const ids = observations.map((observation) => observation.id);
+        return ids.includes(first) && ids.includes(second)
+          ? err('singular_geometry')
+          : ok({ warnings: [] });
+      },
+    });
+  const withPair = (): StubObservation[] => [
+    ...['a', 'b', 'c'].map((id) => stubObservation(id, 1e-3, 0, { eastM: 100, northM: 0 })),
+    stubObservation('k', 1e-3, 0, { eastM: 110, northM: 0 }),
+    stubObservation('n', 0, 1e-3, { eastM: 0, northM: 0 }),
+    stubObservation('z', 1e-3, 0, { eastM: 300, northM: 0 }),
+  ];
+
+  it('continues from the subset with the smallest Cost, not the first that solves', () => {
+    const fix = unwrapOk(solve(pairRejected('k', 'z'), withPair(), { outlierRejection: true }));
+    expect(fix.excludedIds).toStrictEqual(['z']);
+    expect(fix.warnings).toStrictEqual(['outliers_excluded']);
+    expect(fix.residuals.map((entry) => entry.id)).toStrictEqual(['a', 'b', 'c', 'k', 'n']);
+    expect(distanceM(fix.position, at(stubOrigin, { eastM: 102.5, northM: 0 }))).toBeLessThan(1e-6);
+  });
+
+  it('does not leave one out when outlier rejection is disabled', () => {
+    expect(solve(pairRejected('k', 'z'), withPair())).toStrictEqual(failure('singular_geometry'));
+  });
+
+  it('gives the identical result for every order of the input', () => {
+    const forward = solve(pairRejected('k', 'z'), withPair(), { outlierRejection: true });
+    const reversed = solve(pairRejected('k', 'z'), [...withPair()].reverse(), {
+      outlierRejection: true,
+    });
+    expect(reversed).toStrictEqual(forward);
+  });
+
+  it('breaks a tie between equal Costs by the first in the canonical order', () => {
+    // p and q read 300 m east with partials of opposite sign, so the subsets without p and without
+    // q have the same Cost to the last bit. The tie goes to leaving out p; q is then the largest
+    // Studentised residual (-17.3) and is excluded in turn.
+    const tied = [
+      stubObservation('q', -1e-3, 0, { eastM: 300, northM: 0 }),
+      stubObservation('p', 1e-3, 0, { eastM: 300, northM: 0 }),
+      ...['a', 'b', 'c'].map((id) => stubObservation(id, 1e-3, 0, { eastM: 100, northM: 0 })),
+      stubObservation('n', 0, 1e-3, { eastM: 0, northM: 0 }),
+    ];
+    const fix = unwrapOk(solve(pairRejected('p', 'q'), tied, { outlierRejection: true }));
+    expect(fix.excludedIds).toStrictEqual(['p', 'q']);
+  });
+
+  it('leaves out an observation whose evaluation fails, and solves the rest', () => {
+    const model = createStubModel({
+      failFor: (observation) => (observation.id === 'z' ? err('coincident_positions') : undefined),
+    });
+    expect(solve(model, withPair())).toStrictEqual(failure('coincident_positions'));
+    const fix = unwrapOk(solve(model, withPair(), { outlierRejection: true }));
+    expect(fix.excludedIds).toStrictEqual(['z']);
+  });
+
+  it('returns the failure of the full set, unchanged, when no subset solves', () => {
+    const model = createStubModel({
+      geometryCheck: (observations) =>
+        observations.length === 6
+          ? err('colocated_observers', { field: 'observer', id: 'k' })
+          : err('singular_geometry'),
+    });
+    expect(solve(model, withPair(), { outlierRejection: true })).toStrictEqual({
+      ok: false,
+      reason: 'colocated_observers',
+      field: 'observer',
+      id: 'k',
+    });
+  });
+
+  /** `count` east readings that no geometry check accepts, and the number of checks run. */
+  const checksWhenNothingSolves = (count: number): number => {
+    const model = createStubModel({ geometryCheck: () => err('singular_geometry') });
+    const observations = Array.from({ length: count }, (_unused, index) =>
+      stubObservation(`o${String(index).padStart(3, '0')}`, 1e-3, 0, truth),
+    );
+    expect(solve(model, observations, { outlierRejection: true })).toStrictEqual(
+      failure('singular_geometry'),
+    );
+    return model.calls.geometryCheck;
+  };
+
+  it('leaves one out for 4 and for 64 observations, and not for 3 or 65', () => {
+    expect(checksWhenNothingSolves(3)).toBe(1);
+    expect(checksWhenNothingSolves(4)).toBe(1 + 4);
+    expect(checksWhenNothingSolves(64)).toBe(1 + 64);
+    expect(checksWhenNothingSolves(65)).toBe(1);
+  });
+
+  it('leaves one out when a re-solve after an exclusion fails', () => {
+    // Five readings of 100 m east (one of them 'k'), 'x' at 300 m, one north reading: the full
+    // fit is at 133.33 m, where x is excluded on its Studentised residual (18.3). k cannot be
+    // evaluated west of 133.3 m, so the re-solve from 133.33 m towards 100 m fails even at its
+    // smallest step, and leaving one out runs on the six that remain. Every subset starts at
+    // 133.33 m too; only the one without k (and with the north reading) solves.
+    const observations = [
+      ...['a', 'b', 'c', 'd', 'k'].map((id) =>
+        stubObservation(id, 1e-3, 0, { eastM: 100, northM: 0 }),
+      ),
+      stubObservation('n', 0, 1e-3, { eastM: 0, northM: 0 }),
+      stubObservation('x', 1e-3, 0, { eastM: 300, northM: 0 }),
+    ];
+    const model = createStubModel({
+      start: ok({ eastM: 400 / 3, northM: 0 }),
+      failFor: (observation, point) =>
+        observation.id === 'k' && point.eastM < 133.3 ? err('coincident_positions') : undefined,
+    });
+    const fix = unwrapOk(solve(model, observations, { outlierRejection: true }));
+    expect(fix.excludedIds).toStrictEqual(['x', 'k']);
+    expect(distanceM(fix.position, at(stubOrigin, { eastM: 100, northM: 0 }))).toBeLessThan(1e-6);
+  });
+});
+
+describe('solve: at most three rounds of leaving one out (Req 10.7, amended 2026-11-19)', () => {
+  // Every solve starts at 100 m east, where four readings 'a' to 'd' and the north reading 'n'
+  // agree. 'k' also reads 100 m but cannot be evaluated more than 1e-6 m from that point, so any set
+  // that holds k solves only if its solution is the start itself. 'y' reads 350 m (an offset that no
+  // pair cancels, so that leaving y out is the only way to balance the set) and makes the
+  // full set fail: round 1 leaves y out. Each pair 'p<r>', 'q<r>' reads 100 ± δ_r m (δ = 300, 200,
+  // 100 m) and keeps the solution at the start. The largest pair is excluded one at a time on its
+  // Studentised residual: after the first of a pair is excluded, the re-solve moves away from the
+  // start and fails on k, and the next round leaves out the other of the pair. So y and P pairs need
+  // 1 + P rounds of leaving one out.
+  const START: LocalPoint = { eastM: 100, northM: 0 };
+  const roundsModel = () =>
+    createStubModel({
+      start: ok(START),
+      failFor: (observation, point) =>
+        observation.id === 'k' &&
+        Math.hypot(point.eastM - START.eastM, point.northM - START.northM) > 1e-6
+          ? err('coincident_positions')
+          : undefined,
+    });
+  const withPairs = (offsetsM: readonly number[]): StubObservation[] => [
+    ...['a', 'b', 'c', 'd', 'k'].map((id) =>
+      stubObservation(id, 1e-3, 0, { eastM: 100, northM: 0 }),
+    ),
+    stubObservation('n', 0, 1e-3, { eastM: 0, northM: 0 }),
+    stubObservation('y', 1e-3, 0, { eastM: 350, northM: 0 }),
+    ...offsetsM.flatMap((offsetM, index) => [
+      stubObservation(`p${index + 1}`, 1e-3, 0, { eastM: 100 + offsetM, northM: 0 }),
+      stubObservation(`q${index + 1}`, 1e-3, 0, { eastM: 100 - offsetM, northM: 0 }),
+    ]),
+  ];
+
+  it('solves when three rounds are enough: y and two pairs', () => {
+    const model = roundsModel();
+    const fix = unwrapOk(solve(model, withPairs([300, 200]), { outlierRejection: true }));
+    expect(fix.excludedIds[0]).toBe('y');
+    expect([...fix.excludedIds].sort()).toStrictEqual(['p1', 'p2', 'q1', 'q2', 'y']);
+    expect(fix.residuals.map((entry) => entry.id)).toStrictEqual(['a', 'b', 'c', 'd', 'k', 'n']);
+    // The initial solve, rounds on 11, 9 and 7 observations, and the post-exclusion check.
+    expect(model.calls.geometryCheck).toBe(1 + 11 + 9 + 7 + 1);
+  });
+
+  it('returns the failure when a fourth round would be needed: y and three pairs', () => {
+    const model = roundsModel();
+    expect(solve(model, withPairs([300, 200, 100]), { outlierRejection: true })).toStrictEqual(
+      failure('coincident_positions'),
+    );
+    // The initial solve and three rounds, on 13, 11 and 9 observations; no fourth on 7.
+    expect(model.calls.geometryCheck).toBe(1 + 13 + 11 + 9);
+  });
+});
+
+describe('solve with BearingModel: leaving one out (Req 10.7)', () => {
+  // Five Bearings around a target at 60.5°S, 0.5 to 15 km away, sigmas 0.68° to 1.80° with noise,
+  // and b04 about 70° wrong: set 62 of seed 4242 of the draw of `outlier-rejection.test.ts`. The
+  // solve of all five does not converge, so the first form of Req 10 returned no Fix; without b04
+  // the other four solve.
+  const observations: Bearing[] = [
+    {
+      id: 'b00',
+      observer: { latRad: -1.056751523874074, lonRad: 0.6414045269756204 },
+      positionAccuracyM: 0,
+      timeUtcMs: 0,
+      azimuthRad: 5.426577468476602,
+      azimuthSigmaRad: 0.01672976318305811,
+    },
+    {
+      id: 'b01',
+      observer: { latRad: -1.0586234704180315, lonRad: 0.642260947325018 },
+      positionAccuracyM: 0,
+      timeUtcMs: 0,
+      azimuthRad: 5.973788967399123,
+      azimuthSigmaRad: 0.022352875933227177,
+    },
+    {
+      id: 'b02',
+      observer: { latRad: -1.0560195557628043, lonRad: 0.6385284458823235 },
+      positionAccuracyM: 0,
+      timeUtcMs: 0,
+      azimuthRad: 1.9724263577836882,
+      azimuthSigmaRad: 0.018511287356405087,
+    },
+    {
+      id: 'b03',
+      observer: { latRad: -1.0562047936951335, lonRad: 0.6431401444147751 },
+      positionAccuracyM: 0,
+      timeUtcMs: 0,
+      azimuthRad: 4.49830706264907,
+      azimuthSigmaRad: 0.02139608707798804,
+    },
+    {
+      id: 'b04',
+      observer: { latRad: -1.0557095099322504, lonRad: 0.6405249169477413 },
+      positionAccuracyM: 0,
+      timeUtcMs: 0,
+      azimuthRad: 1.6118162384206316,
+      azimuthSigmaRad: 0.011897628514015315,
+    },
+  ];
+
+  it('returns not_converged without outlier rejection', () => {
+    expect(solve(bearingModel, observations)).toStrictEqual(failure('not_converged'));
+  });
+
+  it('leaves out the wrong Bearing and returns the Fix of the other four', () => {
+    const fix = unwrapOk(solve(bearingModel, observations, { outlierRejection: true }));
+    expect(fix.excludedIds).toStrictEqual(['b04']);
+    const withoutWrong = unwrapOk(solve(bearingModel, observations.slice(0, 4)));
+    expect(distanceM(fix.position, withoutWrong.position)).toBeLessThan(1e-3);
+  });
+});
+
+describe('solve with BearingModel: Studentised residuals (Req 10.1, 10.8, 10.9)', () => {
+  it('shows that three Bearings disagree when one is 15° off, and excludes none', () => {
+    // Three observers 3 km from the target, 120° apart, sigma 2°, one 15° off. No Normalised
+    // residual exceeds 3.5 (the first form of Req 10.1 flagged nothing), but the three
+    // Studentised residuals share one magnitude, √Cost, above 3.5 (§7.7). Three are never
+    // excluded (Req 10.2).
+    const target = position(-12, 35);
+    const observations = [0, 120, 240].map((fromDeg, index) =>
+      sighting(`o${index}`, placed(target, fromDeg, 3000), target, {
+        positionAccuracyM: 0,
+        azimuthSigmaRad: rad(2),
+        errorDeg: index === 0 ? 15 : 0,
+      }),
+    );
+    const fix = unwrapOk(solve(bearingModel, observations, { outlierRejection: true }));
+    expect(fix.excludedIds).toStrictEqual([]);
+    const normalised = fix.residuals.map((entry) => Math.abs(entry.normalisedResidual));
+    const studentised = fix.residuals.map((entry) => Math.abs(entry.studentisedResidual));
+    expect(Math.max(...normalised)).toBeLessThan(3.5);
+    expect(Math.min(...studentised)).toBeGreaterThan(3.5);
+    const cost = fix.residuals.reduce((sum, entry) => sum + entry.normalisedResidual ** 2, 0);
+    for (const magnitude of studentised) expect(magnitude).toBeCloseTo(Math.sqrt(cost), 3);
   });
 });

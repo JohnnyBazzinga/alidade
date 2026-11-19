@@ -19,6 +19,8 @@ import {
   solvableSet,
   solvableSetWithExtra,
   solvableSetWithScale,
+  threeObservationSet,
+  twoObservationSet,
   type SolverScenario,
 } from './test-support/generators';
 import { unwrapOk } from './test-support/result-helpers';
@@ -265,5 +267,93 @@ describe('solver properties', () => {
         expect(distanceM(fix.position, target)).toBeLessThan(1);
       }),
     );
+  });
+
+  /**
+   * Each leverage of a Fix, h = J C Jᵀ / σ², computed here from the Fix's covariance and the
+   * model's evaluation at the Fix on its own plane (Req 10.1 as written), independently of the
+   * solver's Gram-Schmidt.
+   */
+  const leveragesOf = (fix: Fix, observations: readonly Bearing[]): number[] => {
+    const { varEastM2, varNorthM2, covEastNorthM2 } = fix.covariance;
+    return observations.map((observation) => {
+      const at = unwrapOk(model.evaluate(observation, { eastM: 0, northM: 0 }, fix.position));
+      const east = at.partialEastRadPerM;
+      const north = at.partialNorthRadPerM;
+      return (
+        (east * east * varEastM2 + 2 * east * north * covEastNorthM2 + north * north * varNorthM2) /
+        at.effectiveSigmaRad ** 2
+      );
+    });
+  };
+
+  // Property P-10.9, three observations. Validates Requirement 10.9 (amendment of 2026-11-19).
+  // Domain: threeObservationSet (the Req 7.4 conditions with three observers, noise of one sigma,
+  // one azimuth 0° to 90° wrong in half the draws). Discarded and counted, as Req 10.9 itself
+  // leaves them out: a failed solve, or a leverage of 1 − 1e-6 or more. The test fails if more
+  // than half the cases are discarded. With rejection enabled the Fix must be the same (three
+  // are never excluded, Req 10.2).
+  // The tolerance is Req 10.9's as amended on 2026-11-19, 1e-2 · max(1, m) with m the largest
+  // magnitude: what Core's convergence step leaves (design §7.7). The worst difference over the
+  // cases, as a share of the tolerance, is printed.
+  it('P-10.9: the three Studentised residuals of three observations have one magnitude, within 1e-2 · max(1, m)', () => {
+    let discarded = 0;
+    let cases = 0;
+    let worst = { difference: 0, largest: 0 };
+    fc.assert(
+      fc.property(threeObservationSet, ({ observations }) => {
+        cases += 1;
+        const result = solve(model, observations);
+        expect(solve(model, observations, { outlierRejection: true })).toStrictEqual(result);
+        if (!result.ok) {
+          discarded += 1;
+          return;
+        }
+        const canonical = [...observations].sort((a, b) =>
+          a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
+        );
+        if (!leveragesOf(result.value, canonical).every((h) => h < 1 - 1e-6)) {
+          discarded += 1;
+          return;
+        }
+        const magnitudes = result.value.residuals.map((entry) =>
+          Math.abs(entry.studentisedResidual),
+        );
+        expect(magnitudes).toHaveLength(3);
+        const largest = Math.max(...magnitudes);
+        const difference = largest - Math.min(...magnitudes);
+        if (difference / Math.max(1, largest) > worst.difference / Math.max(1, worst.largest)) {
+          worst = { difference, largest };
+        }
+        expect(difference).toBeLessThanOrEqual(1e-2 * Math.max(1, largest));
+      }),
+    );
+    expect(discarded).toBeLessThan(cases / 2);
+    (globalThis as unknown as { console: { log(text: string): void } }).console.log(
+      `P-10.9 (three): ${cases} cases, ${discarded} discarded; worst difference ${worst.difference} ` +
+        `at m = ${worst.largest}, ${(worst.difference / Math.max(1, worst.largest)).toExponential(2)} of max(1, m)`,
+    );
+  });
+
+  // Property P-10.9, two observations. Validates Requirement 10.9 (amendment of 2026-11-19).
+  // Domain: twoObservationSet (the Req 7.4 conditions with two observers, noise of one sigma).
+  // A failed solve is discarded and counted; the test fails if more than half are discarded.
+  it('P-10.9: both Studentised residuals of two observations are exactly 0', () => {
+    let discarded = 0;
+    let cases = 0;
+    fc.assert(
+      fc.property(twoObservationSet, ({ observations }) => {
+        cases += 1;
+        const result = solve(model, observations, { outlierRejection: true });
+        if (!result.ok) {
+          discarded += 1;
+          return;
+        }
+        expect(result.value.residuals.map((entry) => entry.studentisedResidual)).toStrictEqual([
+          0, 0,
+        ]);
+      }),
+    );
+    expect(discarded).toBeLessThan(cases / 2);
   });
 });

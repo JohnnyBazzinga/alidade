@@ -86,9 +86,10 @@ below. Each is recorded here for review; none contradicts a requirement.
   gives each copy a fresh unique `id` (P-7.7, P-8.5).
 
 - **D4 — Outlier selection and all multi-observation reductions are order-independent.**
-  The excluded observation is the one with the largest `|normalised residual|`; ties are
+  The excluded observation is the one with the largest `|normalised residual|` (since the
+  amendment of 2026-11-19, the largest `|Studentised residual|`, D20); ties are
   broken by `id` (not by input index), so reordering cannot change which observation is
-  excluded. The centroid (D2) is a commutative sum; the crossing-angle pair selection ties
+  excluded. The subset chosen by leaving one out is chosen the same way (D21). The centroid (D2) is a commutative sum; the crossing-angle pair selection ties
   break on the `id`-pair; the pre- and post-solve checks iterate over a canonical
   `id`-sorted set. Combined with D3 this makes 7.5 hold for every solvable set, not just
   generic ones.
@@ -266,6 +267,78 @@ below. Each is recorded here for review; none contradicts a requirement.
   relies on Req 5.2's contract that a candidate is a point on the plane of the `origin` it is
   passed with: a model must describe the same position, whatever the origin.
 
+- **D20 — The outlier decision and the reported Studentised residuals are one computation
+  (amendment of 2026-11-19, Req 10.1, 10.2, 10.8).** At the current solution the solver
+  unprojects the candidate to its position and evaluates every remaining observation on that
+  position's own plane at `(0, 0)`, exactly as step 9 does (D19). From that one evaluation it
+  builds JᵀWJ, passes it through the eigenvalue gate, and computes each leverage `h` and each
+  Studentised residual `t = e / √(1 − h)` (`e` the Normalised residual; `t = 0` where
+  `1 − h < 1e-9`). The exclusion removes the largest `|t|` above `3.5`, the first in the
+  canonical order on a tie (D4). Because step 9 runs the same deterministic computation on the
+  same inputs, the Studentised residuals in the Fix are the numbers the last decision saw, bit
+  for bit. The leverage is computed from an orthonormal basis of the weighted Jacobian, not by
+  forming `J C Jᵀ / σ²` (§7.7, which also checks Req 10.1's formula against Core's covariance).
+  The decision before this amendment used the Normalised residual on the solve origin's plane;
+  the Normalised residuals are the same numbers on both planes (D19).
+
+- **D21 — Leaving one out (amendment of 2026-11-19, Req 10.7).**
+  - *The solve of a set* is steps 4 to 6 applied to that set as if it were the input: its
+    geometry check (failures only), its own origin, its own starting estimate and the solve
+    loop from that start. The initial solve of the canonical set is exactly this, so with
+    rejection disabled nothing changes.
+  - *When.* Outlier rejection is enabled, the set whose solve failed has `4` to
+    `MAX_LEAVE_ONE_OUT_OBSERVATIONS` (`64`) observations, and the failure is not
+    `invalid_observation` or `insufficient_observations` (those come from steps 1 to 3, before
+    any solve, so in practice every solve failure qualifies). This covers the initial solve and
+    every re-solve after an exclusion. For a failed re-solve, Req 10.7's "the failure of the
+    full set" is read as the failure of the set whose solve failed; for the initial solve that
+    is the full set.
+  - *What.* For each observation in the canonical order, the subset without it (a canonical
+    sub-array: filtering keeps the order) is solved as above. A subset that solves is scored by
+    its Cost, `Σ (r / σ)²` at its solution with its own sigmas there (a Cost is a property of
+    positions, not of a plane). The smallest Cost wins, compared with a strict `<`, so the first
+    in the canonical order wins a tie. Its left-out id is appended to `excludedIds`, its origin
+    becomes the solve origin (re-solves warm-start on it; `postSolveCheck` measures
+    `out_of_range` from it, D7), and the exclusion of D20 continues on it (Req 10.1, 10.2). If no
+    subset solves, the failure of the set is returned unchanged, with its `field` and `id`.
+  - *Not triggered by* failures after exclusion has finished, which Req 10.3 places outside
+    it: the post-exclusion geometry check (step 8), the gate at the Fix (step 9) and
+    `postSolveCheck` (step 10, including `diverging_bearings`). Nor by a failure of D20's
+    evaluation at the solution, which is returned as step 9 would return it. A subset's solve is
+    a plain solve: no nested leave-one-out, no exclusion inside it.
+  - *Order and determinism.* Every subset is a sub-array of the canonical array, its origin and
+    start are computed from that sub-array, the scores are compared in a fixed order with a
+    strict comparison, and nothing reads the input order, a hash order or the clock. Reordering
+    the input therefore gives the same canonical array and the same computation, bit for bit
+    (Req 7.5, 7.8), as for every other step (D3).
+  - *Rounds (amended 2026-11-19).* At most `MAX_LEAVE_ONE_OUT_ROUNDS` (`3`) rounds in one call.
+    A failed solve that would need a fourth is returned as it is, like a set too small or too
+    large for leaving one out. A round counts when it is started, whether or not a subset solves.
+  - *Cost.* A set of `n` that triggers it costs `n` more solves, each of `n − 1` observations. A
+    single trigger on 64 observations is 1 + 64 solves plus one re-solve per later exclusion.
+    Since a round after the first needs an exclusion and a failed re-solve first, the rounds run
+    on at most `n`, `n − 2` and `n − 4` observations, and the exclusions between them add at most
+    `n − 6` warm re-solves: one call is at most `1 + n + (n − 2) + (n − 4) + (n − 6) = 4n − 11`
+    solves (117 for 32, 245 for 64). Without the bound it was `2 135` for 64. Each solve is at
+    most 50 iterations of one linearisation and up to 9 trial evaluations. Measured times are in
+    §7.7.
+
+- **D22 — `Fix.residuals[i].studentisedResidual` is a required field (amendment of
+  2026-11-19, Req 10.8).** Every Fix carries it, with rejection enabled or not, beside the
+  Normalised residual. Code that reads a Fix is unaffected. Code that builds a Fix by hand (test
+  support and test literals) must add the field: the type says what Req 10.8 guarantees, so an
+  optional field, which every reader would have to treat as possibly missing, is not used. The
+  exported threshold is `OUTLIER_STUDENTISED_RESIDUAL` (Req 11.6 as amended on 2026-11-19; it was
+  `OUTLIER_NORMALISED_RESIDUAL`, renamed in Core, its tests and Vigia, with no alias).
+
+- **D23 — What the amendment leaves unchanged.** With rejection disabled (the default, and every
+  property of Req 7 to 9), steps 4 to 11 run as before: every number of the Fix is the same, and
+  the Fix gains only the new field. With rejection enabled, a set that solves and has no
+  Studentised residual above `3.5` gives the same Fix as with rejection disabled. A consistent
+  (noise-free) set has residuals of rounding size, so nothing is excluded and, since it solves
+  (P-7.4), leaving one out never runs. Req 10.3 to 10.6 are untouched; P-10.5 must hold under the
+  new rule without change to its generator or its assertion.
+
 ## 4. Module layout
 
 One concept per file, kebab-case, tests next to code (`foo.ts` / `foo.test.ts` /
@@ -275,7 +348,7 @@ nothing outside itself (Req 11.1) and exports only from `src/index.ts` (Req 11.3
 ```
 skeleton/core/src/
   index.ts              public API surface only (re-exports); amended 2026-11-18: also the two
-                        thresholds `OUTLIER_NORMALISED_RESIDUAL` and `POOR_GEOMETRY_CROSSING_RAD`
+                        thresholds `OUTLIER_STUDENTISED_RESIDUAL` and `POOR_GEOMETRY_CROSSING_RAD`
   result.ts             Result<T>, Reason (closed union), Warning (closed union), ok/err helpers
   reason.ts             (optional) the closed Reason set, documented, if split from result.ts
   angle.ts              wrapTwoPi, wrapPi, angularDifference, degToRad, radToDeg, circularMean
@@ -294,7 +367,8 @@ Tests: `angle.test.ts`, `angle.property.test.ts`, `position.test.ts`,
 `position.property.test.ts`, `local-plane.property.test.ts`, `observation.test.ts`,
 `observation.property.test.ts`, `bearing-model.property.test.ts`, `solver.property.test.ts`,
 `uncertainty.property.test.ts`, plus `calibration.test.ts` (statistical) and
-`performance.test.ts`. Reference data, if any, lives in `skeleton/core/fixtures/` and is
+`performance.test.ts`, and since 2026-11-19 `outlier-rejection.test.ts` (statistical, Req 10.10,
+10.11). Reference data, if any, lives in `skeleton/core/fixtures/` and is
 read-only.
 
 Test support (not exported, not part of the public API) lives in `src/test-support/`:
@@ -374,6 +448,8 @@ export interface ObservationResidual {
   id: string;
   residualRad: number;              // wrapPi(measured - predicted)
   normalisedResidual: number;       // residualRad / effectiveSigmaRad
+  studentisedResidual: number;      // normalisedResidual / √(1 − h), 0 where 1 − h < 1e-9
+                                    // (amendment of 2026-11-19, Req 10.1, 10.8; D20, D22)
 }
 
 export interface Fix {
@@ -440,7 +516,8 @@ export function solve<O>(model: MeasurementModel<O>,
 ```
 
 *Amendment of 2026-11-18 (Req 11.6).* Two constants the solver already applies are exported
-so that an application that quotes them keeps no copy: `OUTLIER_NORMALISED_RESIDUAL` (`3.5`,
+so that an application that quotes them keeps no copy: `OUTLIER_STUDENTISED_RESIDUAL` (`3.5`,
+named `OUTLIER_NORMALISED_RESIDUAL` before the amendment of 2026-11-19,
 defined in `solver.ts`, Req 10.1) and `POOR_GEOMETRY_CROSSING_RAD` (`20 · π / 180`, defined in
 `bearing-model.ts`, Req 9.4). Nothing in the solver or the model changes. `src/index.test.ts`
 builds, for each limit, a set of Bearings just under and just over it (found by bisection on
@@ -735,16 +812,23 @@ doubles and `degToRad(radToDeg(x))` round-trips to rounding (Req 1.5), far insid
      If `maxIterations` is reached without that, return `not_converged` (Req 7.2).
    - Effective sigmas are recomputed each iteration because `rangeM` moves with the
      candidate (Req 7.1, D9).
-7. **Outlier rejection** (Req 10.1–10.4), only if `outlierRejection` is enabled **and**
-   the current observation count is `≥ 4`:
-   - At the current solution, evaluate every observation at the final candidate (a failure
-     there is returned, D15) and compute `normalisedResidual_i = r_i / σ_i`. Find the
-     observation with the largest `|normalisedResidual_i|` (ties by `id`, D4). If that
-     magnitude exceeds `3.5`, remove that observation and re-solve from the current fix
-     (warm start, bounded by `maxIterations`). Repeat until no magnitude exceeds `3.5` or
-     three observations remain (Req 10.2).
-   - Record every removed `id`; if any were removed, add the `outliers_excluded` warning
-     (Req 10.4). When disabled (Req 10.6) or the count is `< 4`, skip this step entirely.
+7. **Outlier rejection** (Req 10.1–10.4, 10.7; amended 2026-11-19, D20, D21), only if
+   `outlierRejection` is enabled:
+   - *Leaving one out* (D21): if the solve of step 6, or a re-solve below, failed and the set
+     has 4 to 64 observations, solve each subset without one observation, in the canonical
+     order, and continue from the one with the smallest Cost (ties: the first), recording the
+     left-out `id`. If none solves, or the set has fewer than 4 or more than 64, or three rounds
+     have already run in this call (amended 2026-11-19), return the failure unchanged.
+   - *Exclusion*, while at least four observations remain: at the current solution, run D20's
+     evaluation on the Fix's own plane (a failure there is returned, D15; the gate of step 9
+     applies) and compute every Studentised residual. Find the largest `|t|` (ties by `id`,
+     D4). If it exceeds `3.5`, remove that observation and re-solve from the current fix (warm
+     start, on the current solve origin, bounded by `maxIterations`); a failed re-solve goes to
+     leaving one out. Repeat until no `|t|` exceeds `3.5` or three observations remain
+     (Req 10.2).
+   - Record every removed `id` in the order removed; if any were removed, add the
+     `outliers_excluded` warning (Req 10.4). When disabled (Req 10.6), skip this step entirely:
+     a failed step 6 is returned as it is.
 8. **Post-exclusion geometry** (D5, Req 9.11): `gpost = model.geometryCheck(remaining)`.
    On failure (singular/colocated among the remaining) return the reason. Otherwise take
    `gpost`'s `poor_geometry` warning (if any) as the fix's geometry warning. When nothing
@@ -754,7 +838,8 @@ doubles and `degToRad(radToDeg(x))` round-trips to rounding (Req 1.5), far insid
    candidate `(0, 0)`, so that East and North are taken at the Fix (Req 8.1), and build JᵀWJ,
    the covariance and the ellipse from that evaluation, with its weights. Assemble the `Fix`
    with `position`, `covariance`, `ellipse`, `residuals` (one per remaining observation, from
-   the same evaluation, Req 7.9), `iterations` of the final solve (D10), and `excludedIds`.
+   the same evaluation, Req 7.9, each with its Studentised residual from that evaluation, Req
+   10.8, D20), `iterations` of the final solve (D10), and `excludedIds`.
    That JᵀWJ goes through the same eigenvalue gate as step 6: unless
    both eigenvalues are greater than zero, or if the condition number exceeds `1e12`, return
    `singular_geometry`. `ellipseFromCovariance` is a `Result`; if it fails, return its failure.
@@ -814,6 +899,121 @@ new id doubles `JᵀWJ` and `JᵀW r`, leaving the fix unchanged (Req 7.7) and h
 covariance, so the axes divide by `√2` (Req 8.5). Adding an observation adds a
 positive-semidefinite `w·JᵀJ` term to `JᵀWJ`, so `(JᵀWJ)⁻¹` shrinks in Loewner order and
 its determinant does not increase (Req 8.6).
+
+### 7.7 Studentised residuals: the mathematics checked (amendment of 2026-11-19)
+
+Checked before any code, against Core's own weighting and covariance. Every measurement below
+comes from scratch experiments outside the repository, with seeded inputs; none is a fixture.
+
+**Req 10.1's leverage is Core's own.** Step 9 evaluates every remaining observation on the
+Fix's own plane at `(0, 0)` (D19) and forms `N = JᵀWJ = Σ J_iᵀ J_i / σ_i²` from that
+evaluation; the Fix's covariance is `C = N⁻¹`. So the `C` of Req 10.1 is exactly what Core calls
+the covariance of the Fix, provided `J_i` and `σ_i` come from that same evaluation: `J_i` is the
+observation's row of partials, in rad/m, along East and North at the Fix, and `σ_i` its Effective
+sigma there, in rad. The units close: `(rad/m) · m² · (rad/m) / rad²` is dimensionless, as a
+leverage must be. `h_i = J_i C J_iᵀ / σ_i²` is the `i`-th diagonal entry of
+`H = A (AᵀA)⁻¹ Aᵀ`, where `A` has rows `J_i / σ_i`: the hat matrix of the weighted fit,
+linearised at the Fix with the weights held there. Hence `0 ≤ h_i ≤ 1` and `Σ h_i = 2`, the
+number of unknowns.
+
+The frame matters only through consistency. For any invertible change of plane coordinates
+`x' = M x`, `J' = J M⁻¹` and `C' = M C Mᵀ`, so `J' C' J'ᵀ = J C Jᵀ`: the solve origin's plane
+gives the same leverage if its own `J` and its own `C` are used. Mixing the two (the solve
+plane's `J` with the Fix's `C`) would be wrong by the meridian convergence and the scale between
+the planes, up to `2.05°` in the cases of D19. Core takes both from the one evaluation (D20).
+Measured on 20 000 solves (2 to 12 bearings, sigmas `0.01°` to `5°`, ranges `500 m` to
+`100 km`, Gaussian noise, one azimuth up to `90°` wrong in half of them): `|Σ h − 2| ≤ 7.6e-9`.
+
+**How the leverage is computed.** Forming `J C Jᵀ / σ²` loses about `ε · κ(N)` to rounding, and
+Core admits condition numbers up to `1e12` (Req 7.3). With two observations `h = 1` exactly, yet
+on 20 000 two-bearing `solvableSet`s the literal formula left `|1 − h|` above `1e-9` for 2 of
+40 000 observations (worst `1.8e-9`). Those would get `t = e / √(1.8e-9)` instead of Req 10.1's
+`0`, and break the second half of Req 10.9. Core computes the same `H` from an orthonormal basis
+`Q` of the columns of `A` instead: Gram-Schmidt on the East column, then the North column,
+orthogonalised twice, and `h_i = q1_i² + q2_i²`. In exact arithmetic `QQᵀ = A (AᵀA)⁻¹ Aᵀ`, so it
+is Req 10.1's `h`. On the same sets `|1 − h| ≤ 2.7e-15`. The eigenvalue gate runs first, so both
+columns have positive length.
+
+**Req 10.9's claim is right at the stationary point.** Let `e` be the vector of Normalised
+residuals. At the stationary point of the weighted fit the Gauss-Newton step vanishes:
+`Aᵀ e = Jᵀ W r = 0`. With three observations and two unknowns, the vectors orthogonal to the
+columns of `A` form one line, with unit vector `u`. So `I − H = u uᵀ`, `1 − h_i = u_i²` and
+`e = c u` with `c² = Σ e_i²`, the Cost. Then `t_i = c u_i / |u_i| = ±c`: all three Studentised
+residuals have magnitude `√Cost`. Three observations can show that they disagree
+(`√Cost > 3.5`) and cannot show which one is off. This holds for any weights, but only with the
+weighted hat matrix. With two observations `H = I`, both `h = 1` and both `t = 0` by Req 10.1's
+floor.
+
+**Req 10.9's tolerance `1e-6` is not reachable with Core's convergence rule.** Core returns the
+Fix when an accepted step is shorter than `1e-4 m` (Req 7.2), not at the stationary point. Let
+`Δ` be the Gauss-Newton step that remains at the returned Fix. Then `H e = A Δ` exactly, so
+`e = c u + A Δ`, and by Cauchy-Schwarz in the metric of `N`
+
+  `| |t_i| − |c| | ≤ |(A Δ)_i| / √(1 − h_i) ≤ √(h_i / (1 − h_i)) · ‖Δ‖_N`,  `‖Δ‖_N = √(Δᵀ N Δ)`,
+
+the remaining step measured in the Fix's own sigmas. The largest minus the smallest `|t|` is at
+most the sum of the two largest such terms. Two things make it large:
+
+- The remaining step can be far longer than `1e-4 m`. Near the minimum, when the residuals are
+  large, the full Gauss-Newton step can raise the Cost (the Gauss-Newton model leaves out the
+  residuals' curvature), so D14 halves it. The loop then stops as soon as the halved step is
+  shorter than `1e-4 m`, leaving up to `2⁸ × 1e-4 m = 2.56 cm`.
+- Within Req 10.9's own domain the leverage reaches `1 − 1e-6`, where `√(h / (1 − h))` is `1e3`.
+
+Measured on 10 000 sets of exactly three bearings each (seed 11; exact positions; directions
+uniform; three scratch domains). The difference never exceeded the bound by more than `1.1e-6`,
+which is the rounding of `1 − h` near its limit.
+
+| Domain | Sets kept | Diff. over `1e-6` | Median | 99th percentile | Worst | Largest remaining step |
+|---|---|---|---|---|---|---|
+| σ `0.5°`–`2°`, `0.5`–`15 km`, noise only | 9 928 | 14 % | `4.9e-8` | `1.2e-5` | `2.0e-4` | `2.8 mm` |
+| the same, one azimuth `10°`–`90°` wrong | 6 586 | 60 % | `1.8e-6` | `1.5e-4` | `1.7e-3` | `2.4 cm` |
+| σ `0.01°`–`45°`, `0.5`–`100 km`, noise only | 8 960 | 17 % | `6.1e-8` | `4.2e-5` | `3.9e-3` | `1.7 cm` |
+
+In a broader run of 8 434 sets the worst difference was `0.040`, with `|t| = 3 047`, σ `0.013°`,
+leverages `0.067`, `0.99998` and `0.93` and one azimuth `41°` wrong. Relative to
+`max(1, largest |t|)` the worst over all runs was `1.6e-3`. Reaching `1e-6` everywhere would need
+`‖Δ‖_N` below about `5e-10`, a Fix within a nanometre of the stationary point for a metre-sized
+ellipse. Req 7.2 stops the loop long before that. One more Gauss-Newton step taken from the
+returned Fix brought the broader run's worst from `0.040` to `1.4e-5`, which confirms the cause
+and shows that even a polished Fix misses `1e-6`.
+
+Consequence (before the amendment): P-10.9 for three observations, written with the first
+tolerance, was expected to fail, and the cause was the requirement's tolerance, not the code or
+the property (testing.md rule 1). Measured alternatives: a tolerance of `1e-2 · max(1, largest |t|)` (worst
+measured `1.6e-3`); or a change to Req 7.2 that polishes the Fix, which changes every Fix by up to
+`2.56 cm` and still does not reach `1e-6`. The two-observation half of Req 10.9 is reachable and
+holds exactly.
+
+Measured once the code was written: P-10.9 with `1e-6` failed at its first case, and fast-check's
+shrunk counterexample had a difference of `5.4e-4`. Req 10.9 was amended on 2026-11-19 to
+`1e-2 · max(1, m)`, `m` the largest magnitude. P-10.9 passes with it; the worst difference in its
+200 cases is `1.5e-5` of `max(1, m)` (75 cases discarded as Req 10.9 states), and the scratch runs
+above put the worst at `1.6e-3`, six times inside the tolerance.
+
+**The cost of leaving one out, measured** (D21; scratch, 64 Bearings `0.5`–`15 km` around a
+target, σ `0.5°`–`2°` with noise, one `60°` wrong, a wrapper model whose geometry check rejects the
+full set so that all 64 subsets solve). One trigger: median `123 ms` over five runs, 53 729
+evaluations, against `2.0 ms` (693 evaluations) for one solve of 63. At `2.3 µs` per evaluation, a
+solve of 63 that runs all 50 iterations with 9 halvings each would take about `72 ms`. A trigger
+in which every subset does that is about `4.7 s`, and the bound of 2 135 such solves is about
+`150 s`. Req 7.10's `50 ms` is for one solve of 200 observations and does not cover leaving one
+out.
+
+With the bound of three rounds (amended 2026-11-19), measured on the same machine (scratch, seed
+9; a wrapper of the bearing model whose partials are reported 512 times too small, so that every
+solve runs all 50 iterations with all 9 halvings and fails with `not_converged`):
+
+| Observations | One solve of `n − 1` at that cost | One call, one round in which nothing solves | Bound, `4n − 11` such solves | Slowest of 100 real calls (1 to 8 Bearings `40°`–`180°` wrong) |
+|---|---|---|---|---|
+| 32 | `39 ms` (15 500 evaluations) | `1.24 s` (33 solves) | about `4.4 s` (117 solves) | `0.91 s` (`not_converged`) |
+| 64 | `60 ms` (31 500 evaluations) | `5.0 s` (65 solves) | about `19 s` (245 solves) | `2.2 s` (8 excluded) |
+
+The bound column multiplies the per-solve time measured inside the one-round call (`38 ms` and
+`77 ms`) by the bound on the number of solves; it is a computed worst case, not one measured
+call. In the statistical test of Req 10.10 (sets of 4 to 12), the
+band `40°`–`90°`, where most failures and so most triggers occur, takes about `11 s` for 2 000
+sets.
 
 ## 8. Correctness Properties
 
@@ -880,6 +1080,15 @@ Shared generators (domains documented here, reused across properties):
   ranges from even spacing up to the `60°` limit, and every arrangement can be drawn); one bad
   observer in any direction in the same range band, `15°` to `45°` wrong in either direction.
   A guard filter on the `60°` rule discards nothing (0 of 20 000). Used by 10.5.
+- **`threeObservationSet`** *(2026-11-19)* — the conditions of Req 7.4 with exactly three
+  observers (built as `solvableSet`, the same 10° crossing filter), each azimuth with Gaussian
+  noise of its own sigma, and in half of the draws one observation, drawn among the three, wrong
+  by an error drawn uniformly from `0°` to `90°` in either direction. It never calls the solver.
+  P-10.9 discards, and counts, the sets Req 10.9 itself leaves out: a failed solve, or a leverage
+  of `1 − 1e-6` or more (computed in the test as `J C Jᵀ / σ²` from the Fix's covariance and the
+  model's evaluation at the Fix, independently of the solver's Gram-Schmidt). Used by 10.9.
+- **`twoObservationSet`** *(2026-11-19)* — `noisySolvableSet` with exactly two observers. A failed
+  solve is discarded and counted. Used by 10.9.
 - **`hostileInput`** — the generators of `generators.ts` for Req 9.8 (`hostileNumber`,
   `hostilePosition`, `hostileLocalPoint`, `hostileBearing`, `hostileObservationSet`,
   `hostileSolverOptions`, `hostileCovariance`, `hostileEllipse`, `hostileFix`, `hostileWire`).
@@ -923,6 +1132,9 @@ Shared generators (domains documented here, reused across properties):
 | P-9.7 | 9.7 | `meridianSet`; the same configuration shifted `90°` in longitude | the fix from the shifted config, shifted back `90°`, equals the original fix within `0.01 m` |
 | P-9.8 | 9.8 | `hostileInput` to every exported function, including each `BearingModel` method called directly and `ellipseFromCovariance`/`ellipse95` | no call throws; every call returns a failure or a success whose numbers are all finite (D17) |
 | P-10.5 | 10.5 | `outlierSet`: target latitude within `88°`; 8–12 good observers `5–7 km` away with no gap over `60°` between their directions, exact positions, `azimuthSigmaRad = 2°`; one extra bearing wrong by `15°–45°` | `greatCircleDistanceM(fix.position, target) < 1 m` and `excludedIds` is exactly the bad observation's `id` |
+| P-10.9 | 10.9 | `threeObservationSet` and `twoObservationSet`, discards as stated there | three: the largest minus the smallest `|studentisedResidual|` is at most `1e-2 · max(1, m)`, `m` the largest (Req 10.9 as amended on 2026-11-19; the worst difference is printed); two: both are exactly `0`. Run with rejection disabled and enabled, which must give the same Fix (three observations are never excluded, Req 10.2) |
+| P-10.10 | 10.10 | statistical, seeded (§9): 4–12 observers `500 m–15 km` around the target, σ `0.5°–2°` with noise, one azimuth wrong by `10°–20°`, `20°–40°`, `40°–90°`; 2 000 sets a band | a Fix in at least `99 %` of the sets of each band; with 6 or more observers, a good observation excluded while the wrong one is kept in at most `2 %`; the report of Req 10.10 printed |
+| P-10.11 | 10.11 | statistical, seeded (§9): as P-10.10 with no wrong azimuth; 2 000 sets | a Fix in every set; an exclusion in at most `2 %` of the sets |
 
 Notes on the properties:
 
@@ -963,6 +1175,19 @@ deterministic.
   fails or the target lies outside the 95% ellipse. Assert the contained fraction is in
   `[0.90, 0.99]`. The covariance is the linearised `(JᵀWJ)⁻¹` with weights matching the
   noise, so coverage sits near 95%; the window tolerates nonlinear bias and sampling.
+- **Outlier rejection under noise (Req 10.10, 10.11; 2026-11-19)** in
+  `src/outlier-rejection.test.ts`. A seeded RNG, the seed passed as an argument, draws each set:
+  a target with latitude in `[-75°, 75°]` and any longitude; a number of observers drawn
+  uniformly from 4 to 12; each observer in a uniform direction at a range drawn uniformly from
+  `500 m` to `15 km`, exact (position accuracy `0`), with its own azimuth sigma drawn uniformly
+  from `[0.5°, 2°]` and Gaussian noise of that sigma; for Req 10.10 one observer, drawn among
+  them, has an error drawn uniformly from the band, in either direction. No set is filtered. Each
+  set is solved with rejection enabled and classified as: the wrong one alone excluded; the wrong
+  one and others; a good one in place of the wrong one (the wrong one kept, at least one good
+  one excluded); none excluded; or the failure's reason. The table is printed by band and by the
+  number of observers, and the bounds of Req 10.10 and 10.11 are asserted per band. A result
+  outside them stops the work (testing.md rule 1). The run is repeated with the same seed to
+  show that it is deterministic.
 - **Outlier rejection (Req 10.5) as a statistical check** can also be run over many seeds,
   but P-10.5 already covers the FOR-ALL form; the seeded variant confirms stability.
 
@@ -1066,10 +1291,12 @@ deterministic.
   `solve` returns a Fix within `0.01 m` of the target.
 - **Outside the property domains (Req 7.4, 10.5):** a solve at `86°` of latitude succeeds
   within `0.01 m`; two Supported observers at `88.95°` on opposite meridians have their centroid
-  at the pole, so `solve` returns `unsupported_position`; and, as a documented known limit, a
-  `79°` outlier among eight good observers is not rejected: the least-squares minimum lies
-  `4.9 km` away, a good observation has the largest residual, and rejection removes good
-  observations instead.
+  at the pole, so `solve` returns `unsupported_position`; and a `79°` outlier among eight good
+  observers, once a documented known limit: the least-squares minimum lies `4.9 km` away and a
+  good observation has the largest Normalised residual, so the first form of Req 10.1 removed
+  good observations instead. The wrong observation has pulled the fit onto itself (Normalised
+  `-3.06`, leverage near `1`), so its Studentised residual, `-44.3`, is the largest; since
+  2026-11-19 it is excluded and the Fix is within `0.01 m` of the target.
 - **Start estimate (D18):** two observers at `57.6°S`, `49 km` apart, which failed with
   `singular_geometry` when the lines used the raw azimuths, now start within `10 m` and solve
   within `0.01 m`.

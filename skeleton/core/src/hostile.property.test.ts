@@ -89,7 +89,7 @@ describe('P-9.8: every exported function is total', { timeout: 60_000 }, () => {
       [
         'BearingModel',
         'CONFIDENCE_95_SCALE',
-        'OUTLIER_NORMALISED_RESIDUAL',
+        'OUTLIER_STUDENTISED_RESIDUAL',
         'POOR_GEOMETRY_CROSSING_RAD',
         'angularDifference',
         'circularMean',
@@ -112,7 +112,7 @@ describe('P-9.8: every exported function is total', { timeout: 60_000 }, () => {
       ].sort(),
     );
     expect(Number.isFinite(core.CONFIDENCE_95_SCALE)).toBe(true);
-    expect(Number.isFinite(core.OUTLIER_NORMALISED_RESIDUAL)).toBe(true);
+    expect(Number.isFinite(core.OUTLIER_STUDENTISED_RESIDUAL)).toBe(true);
     expect(Number.isFinite(core.POOR_GEOMETRY_CROSSING_RAD)).toBe(true);
   });
 

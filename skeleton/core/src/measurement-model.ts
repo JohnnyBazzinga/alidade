@@ -30,6 +30,14 @@ export interface ObservationResidual {
   readonly residualRad: number;
   /** The residual divided by the observation's Effective sigma. */
   readonly normalisedResidual: number;
+  /**
+   * The Normalised residual divided by `√(1 − h)`, where `h` is the observation's leverage in the
+   * weighted fit at the Fix; `0` where `1 − h` is below 1e-9, since the observation then fixes the
+   * solution by itself and the others cannot check it (Req 10.1, 10.8). Outlier rejection judges
+   * observations by it. With three observations all three have the same magnitude: they can show
+   * that they disagree, not which one is off.
+   */
+  readonly studentisedResidual: number;
 }
 
 /** The solver's estimate of the unknown Position, always with its uncertainty (Req 7.9, 8.1). */

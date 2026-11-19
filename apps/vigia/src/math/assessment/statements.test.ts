@@ -14,7 +14,7 @@ describe('checkStatement (Req 5.4, design §7.7): what can and cannot be checked
       'Three sightings can show that they disagree, but not which one is off; a fourth sighting can.',
     );
     expect(checkStatement('four_or_more')).toBe(
-      'With four or more sightings the app sets aside one that does not agree with the others, by a statistical rule that can keep a wrong sighting and can set aside a good one.',
+      'With four or more sightings the app sets aside one that does not agree with the others, by a statistical rule that can keep a wrong sighting and can set aside a good one; with only four or five sightings this happens more often.',
     );
   });
 
@@ -23,6 +23,9 @@ describe('checkStatement (Req 5.4, design §7.7): what can and cannot be checked
     expect(checkStatement('three')).toContain('not which one is off');
     expect(checkStatement('four_or_more')).toContain('can keep a wrong sighting');
     expect(checkStatement('four_or_more')).toContain('can set aside a good one');
+    expect(checkStatement('four_or_more')).toContain(
+      'with only four or five sightings this happens more often',
+    );
   });
 
   it('is a different sentence for each level', () => {

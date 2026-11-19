@@ -1,7 +1,8 @@
 import {
   BearingModel,
   destinationPosition,
-  OUTLIER_NORMALISED_RESIDUAL,
+  greatCircleDistanceM,
+  OUTLIER_STUDENTISED_RESIDUAL,
   solve,
   type Bearing,
   type Fix,
@@ -360,7 +361,7 @@ describe('assess: the disagreement of three Sightings and diverging lines (Req 5
       post === error.post ? { errorRad: error.errorRad } : {},
     );
 
-  it('three_disagree when exactly three are used and a normalised residual passes the limit of Core', () => {
+  it('three_disagree when exactly three are used and a Studentised residual passes the limit of Core', () => {
     // A search, in the test, for an error of the west post that makes a residual pass 3.5.
     let found: number | null = null;
     for (let errorDeg = 1; errorDeg <= 60 && found === null; errorDeg += 1) {
@@ -375,8 +376,8 @@ describe('assess: the disagreement of three Sightings and diverging lines (Req 5
     expect(a.setAside).toEqual([]);
     expect(a.checkLevel).toBe('three');
     const fix = a.fix?.ok ? a.fix.value : null;
-    const largest = Math.max(...(fix?.residuals ?? []).map((r) => Math.abs(r.normalisedResidual)));
-    expect(largest).toBeGreaterThan(OUTLIER_NORMALISED_RESIDUAL);
+    const largest = Math.max(...(fix?.residuals ?? []).map((r) => Math.abs(r.studentisedResidual)));
+    expect(largest).toBeGreaterThan(OUTLIER_STUDENTISED_RESIDUAL);
     // One degree less, and the limit is not passed.
     expect(assessed(threePosts(sigma('west', errorDeg - 1))).disagreement).toBe('none');
   });
@@ -387,8 +388,52 @@ describe('assess: the disagreement of three Sightings and diverging lines (Req 5
     const residuals = a.fix?.ok
       ? a.fix.value.residuals.map((r) => Math.abs(r.normalisedResidual))
       : [];
-    expect(Math.max(...residuals)).toBeLessThan(OUTLIER_NORMALISED_RESIDUAL);
+    expect(Math.max(...residuals)).toBeLessThan(OUTLIER_STUDENTISED_RESIDUAL);
     expect(a.used).toHaveLength(3);
+  });
+
+  it('three_disagree for the lead\u2019s case: one of three Bearings 15° off, where no normalised residual passes 3.5', () => {
+    // Posts at (-800, 0), (800, 0) and (4000, 3500) m from the origin, the target at (0, 3000) m,
+    // sigmas of 2°, the second Bearing 15° off. Every normalised residual stays under 3.5, so the
+    // rule on the normalised residual said nothing, with the Fix 545 m from the target; the three
+    // Studentised residuals share one magnitude above 3.5 (Core Req 10.9), so the app says that
+    // the sightings disagree (Req 5.5).
+    const twoDeg = (2 * Math.PI) / 180;
+    const posts = [
+      offsetFromOrigin(-800, 0),
+      offsetFromOrigin(800, 0),
+      offsetFromOrigin(4000, 3500),
+    ];
+    const incident = created(
+      posts.map((observer, index) =>
+        entryOfBearing(
+          index + 1,
+          pointingAt(
+            sightingIdOf(index + 1),
+            observer,
+            TARGET,
+            index === 1 ? (15 * Math.PI) / 180 : 0,
+            {
+              azimuthSigmaRad: twoDeg,
+            },
+          ),
+        ),
+      ),
+    );
+    const a = assessed(incident);
+    const fix = a.fix?.ok ? a.fix.value : null;
+    if (fix === null) throw new Error('no Fix');
+    const off = greatCircleDistanceM(fix.position, TARGET);
+    expect(off.ok && off.value).toBeGreaterThan(500);
+    expect(Math.max(...fix.residuals.map((r) => Math.abs(r.normalisedResidual)))).toBeLessThan(
+      OUTLIER_STUDENTISED_RESIDUAL,
+    );
+    expect(Math.min(...fix.residuals.map((r) => Math.abs(r.studentisedResidual)))).toBeGreaterThan(
+      OUTLIER_STUDENTISED_RESIDUAL,
+    );
+    expect(a.disagreement).toBe('three_disagree');
+    expect(a.used).toHaveLength(3);
+    expect(a.setAside).toEqual([]);
   });
 
   it('names no Sighting and shows no second Fix: the set aside is empty and there is one Fix', () => {

@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 import * as core from './index';
 import {
   BearingModel,
-  OUTLIER_NORMALISED_RESIDUAL,
+  OUTLIER_STUDENTISED_RESIDUAL,
   POOR_GEOMETRY_CROSSING_RAD,
   degToRad,
   destinationPosition,
@@ -24,14 +24,14 @@ const target: Position = { latRad: rad(30), lonRad: rad(-40) };
 
 describe('exported thresholds (G5)', () => {
   it('are exported from the package entry as numbers with the published values', () => {
-    expect(typeof core.OUTLIER_NORMALISED_RESIDUAL).toBe('number');
+    expect(typeof core.OUTLIER_STUDENTISED_RESIDUAL).toBe('number');
     expect(typeof core.POOR_GEOMETRY_CROSSING_RAD).toBe('number');
-    expect(OUTLIER_NORMALISED_RESIDUAL).toBe(3.5); // Req 10.1
+    expect(OUTLIER_STUDENTISED_RESIDUAL).toBe(3.5); // Req 10.1
     expect(POOR_GEOMETRY_CROSSING_RAD).toBe(20 * (Math.PI / 180)); // Req 9.4
   });
 });
 
-describe('OUTLIER_NORMALISED_RESIDUAL is the limit the solver applies (Req 10.1)', () => {
+describe('OUTLIER_STUDENTISED_RESIDUAL is the limit the solver applies to the Studentised residual (Req 10.1, 11.6)', () => {
   /** Four observers 3 km from the target, 90° apart, each aimed exactly at it; one is turned by `errorRad`. */
   const bearingsWithError = (errorRad: number): Bearing[] =>
     [0, 90, 180, 270].map((azimuthDeg, index) => {
@@ -46,28 +46,31 @@ describe('OUTLIER_NORMALISED_RESIDUAL is the limit the solver applies (Req 10.1)
       });
     });
 
-  /** The largest |Normalised residual| of the solve over all four, with no rejection. */
-  const worstNormalised = (errorRad: number): number => {
+  /**
+   * The largest |Studentised residual| of the solve over all four, with no rejection. Since the
+   * amendment of 2026-11-19 the solver applies the limit to the Studentised residual (Req 10.1).
+   */
+  const worstStudentised = (errorRad: number): number => {
     const fix = unwrapOk(solve(new BearingModel(), bearingsWithError(errorRad)));
-    return Math.max(...fix.residuals.map((r) => Math.abs(r.normalisedResidual)));
+    return Math.max(...fix.residuals.map((r) => Math.abs(r.studentisedResidual)));
   };
 
-  /** The error at which the worst normalised residual equals `level`, by bisection (it grows with the error). */
+  /** The error at which the worst Studentised residual equals `level`, by bisection (it grows with the error). */
   const errorAtLevel = (level: number): number => {
     let low = 0;
     let high = rad(30);
-    expect(worstNormalised(low)).toBeLessThan(level);
-    expect(worstNormalised(high)).toBeGreaterThan(level);
+    expect(worstStudentised(low)).toBeLessThan(level);
+    expect(worstStudentised(high)).toBeGreaterThan(level);
     for (let i = 0; i < 60; i += 1) {
       const middle = (low + high) / 2;
-      if (worstNormalised(middle) < level) low = middle;
+      if (worstStudentised(middle) < level) low = middle;
       else high = middle;
     }
     return (low + high) / 2;
   };
 
-  it('keeps all four when the worst residual is just under the limit', () => {
-    const errorRad = errorAtLevel(OUTLIER_NORMALISED_RESIDUAL - 0.05);
+  it('keeps all four when the worst Studentised residual is just under the limit', () => {
+    const errorRad = errorAtLevel(OUTLIER_STUDENTISED_RESIDUAL - 0.05);
     const fix = unwrapOk(
       solve(new BearingModel(), bearingsWithError(errorRad), { outlierRejection: true }),
     );
@@ -75,15 +78,18 @@ describe('OUTLIER_NORMALISED_RESIDUAL is the limit the solver applies (Req 10.1)
     expect(fix.warnings).not.toContain('outliers_excluded');
   });
 
-  it('excludes the Bearing with the largest residual when it is just over the limit', () => {
-    const errorRad = errorAtLevel(OUTLIER_NORMALISED_RESIDUAL + 0.05);
+  it('excludes the Bearing with the largest Studentised residual when it is just over the limit', () => {
+    const errorRad = errorAtLevel(OUTLIER_STUDENTISED_RESIDUAL + 0.05);
     const bearings = bearingsWithError(errorRad);
-    // With four Bearings the error of the turned one is shared out: the largest residual need not be
-    // its own (it is the opposite observer's here), and Core excludes the largest (Req 10.1).
     const unrejected = unwrapOk(solve(new BearingModel(), bearings));
     const worst = [...unrejected.residuals].sort(
-      (a, b) => Math.abs(b.normalisedResidual) - Math.abs(a.normalisedResidual),
+      (a, b) => Math.abs(b.studentisedResidual) - Math.abs(a.studentisedResidual),
     )[0];
+    // Every Normalised residual is under the limit here, so the first form of Req 10.1 would
+    // exclude nothing.
+    expect(
+      Math.max(...unrejected.residuals.map((r) => Math.abs(r.normalisedResidual))),
+    ).toBeLessThan(OUTLIER_STUDENTISED_RESIDUAL);
     const fix = unwrapOk(solve(new BearingModel(), bearings, { outlierRejection: true }));
     expect(fix.excludedIds).toStrictEqual([worst?.id]);
     expect(fix.warnings).toContain('outliers_excluded');

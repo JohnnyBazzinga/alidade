@@ -71,6 +71,11 @@ export interface StubModelOptions {
    */
   readonly failAt?: (candidate: LocalPoint) => Failure | undefined;
   /**
+   * A failure to return for `evaluate` of this observation at this point of the reference plane,
+   * or undefined to evaluate normally (for leaving one out, Req 10.7).
+   */
+  readonly failFor?: (observation: StubObservation, point: LocalPoint) => Failure | undefined;
+  /**
    * Replaces the evaluation with arbitrary, possibly hostile, numbers. `point` is where the
    * candidate lies on the reference plane, whatever origin it was given on.
    */
@@ -200,7 +205,7 @@ export function createStubModel(options: StubModelOptions = {}): StubModel {
       calls.evaluatedOrigins.push(origin);
       const point = toReference(candidate, origin);
       if (!point.ok) return point;
-      const failure = options.failAt?.(point.value);
+      const failure = options.failAt?.(point.value) ?? options.failFor?.(observation, point.value);
       if (failure) return failure;
       const jacobian = jacobianToReference(candidate, origin);
       if (!jacobian.ok) return jacobian;

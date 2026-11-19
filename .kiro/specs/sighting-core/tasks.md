@@ -500,3 +500,57 @@ Package: `skeleton/core` (`@alidade/core`). Source of truth: `requirements.md` a
     are untouched. One mutation check: the solver applying `3.0` while the export says `3.5` fails
     the test.
   - _Requirements: 11.6_
+
+- [x] 18. The outlier rule on Studentised residuals, and leaving one out (amendment of
+      2026-11-19, Req 10.1, 10.2, 10.7 to 10.11; design D20 to D23, §7.7)
+  - [x] 18.1 Tests first, seen to fail against the current solver
+    - `src/solver.test.ts`, stub model (linear, known leverages): the Studentised residuals of a
+      set with rejection disabled (`h = 1/6` for six equal east readings, `h = 1` and `t = 0` for
+      the single north reading); unequal sigmas, where the weighted and unweighted leverages
+      differ; two observations give `t = 0` exactly; an observation whose Normalised residual is
+      under `3.5` and Studentised residual over it is excluded, one just under in both is kept.
+    - Leaving one out with the stub: the full set fails (the stub's geometry check rejects a
+      pair), the best subset is not the first that solves, a tie goes to the first in the
+      canonical order, no subset solving returns the full set's failure unchanged (`field` and
+      `id` too), 3 and 65 observations and rejection disabled do not leave one out, 64 do, and a
+      reordered input gives the identical result.
+    - With BearingModel: the lead's three-bearing case (one `15°` off: no Normalised residual over
+      `3.5`, all three Studentised residuals over it, nothing excluded), and a set from the seeded
+      experiment whose full solve fails and which leaving one out fixes.
+    - `src/test-support/stub-model.ts` gains a `failFor(observation, point)` option.
+  - [x] 18.2 Implement in `src/measurement-model.ts` and `src/solver.ts`
+    - `ObservationResidual.studentisedResidual` (D22). The leverage by Gram-Schmidt on the
+      weighted Jacobian at the Fix (§7.7); D20's one evaluation for the decision and the Fix;
+      D21's leave-one-out with `MAX_LEAVE_ONE_OUT_OBSERVATIONS = 64`. No new source file, no new
+      export from `src/index.ts`.
+  - [x] 18.3 Properties and statistical tests
+    - P-10.9 in `src/solver.property.test.ts` with `threeObservationSet` and `twoObservationSet`
+      (200 cases each, discards counted). The three-observation half is expected to fail with Req
+      10.9's tolerance (§7.7): it is written as the requirement states it and reported.
+    - Closed 2026-11-19: P-10.9 for three observations failed with `1e-6` (shrunk difference
+      `5.4e-4`); Req 10.9 now states `1e-2 · max(1, m)` and the property passes (task 19).
+    - P-10.10 and P-10.11 in `src/outlier-rejection.test.ts`: 2 000 sets a band and 2 000 noise-only
+      sets from a seed passed as an argument; the tables printed; run twice for determinism.
+  - [x] 18.4 Regression
+    - Every existing Core test and property passes unedited, except tests that pin the old rule
+      (each listed with its reason), and test support that builds a Fix by hand (the new field).
+    - Mutation checks: the decision on the Normalised residual; leaving one out taking the first
+      subset that solves; the leverage without the weight.
+    - The whole repository: `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm test:perf`. A test
+      of Sensors, UI or Vigia that fails because of this change is stopped on and classified, not
+      adjusted.
+    - Closed 2026-11-19: Vigia's typecheck failed in `src/math/fix/geometry.property.test.ts`,
+      whose hand-built Fix lacked `studentisedResidual` (D22); the lead decided to add the field
+      there, which Vigia's task list records.
+  - _Requirements: 10.1, 10.2, 10.7, 10.8, 10.9, 10.10, 10.11, 11.6_
+
+- [x] 19. The amendments of 2026-11-19, second part (Req 10.7, 10.9, 11.6; design D21, D22, §7.7)
+  - [x] 19.1 Tests first: the rename in `index.test.ts` and `hostile.property.test.ts`; in
+    `solver.test.ts` a stub chain that needs one round per balanced pair, solving with three rounds
+    and returning the failure where a fourth would be needed (the count of geometry checks shows
+    that no fourth runs); P-10.9 at `1e-2 · max(1, m)`, printing its worst difference.
+  - [x] 19.2 Code: `MAX_LEAVE_ONE_OUT_ROUNDS = 3` in `solver.ts`; `OUTLIER_STUDENTISED_RESIDUAL`
+    replaces `OUTLIER_NORMALISED_RESIDUAL` in `solver.ts` and `index.ts`, with no alias.
+  - [x] 19.3 Mutation check: a limit of 4 rounds fails the fourth-round test. The worst time of one
+    call for 32 and 64 observations is measured (design §7.7).
+  - _Requirements: 10.7, 10.9, 11.6_

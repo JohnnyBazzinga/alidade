@@ -29,7 +29,7 @@ three hotspot reasons wait for the lead's word after the wind checkpoint).
   test before fixing the code. **A property that fails and then passes on a re-run is not a flake:** keep
   the seed and the counterexample from the failing output and report them before doing anything else.
 - **Limits.** A limit the skeleton owns is imported and never copied: Core's
-  `OUTLIER_NORMALISED_RESIDUAL` and `POOR_GEOMETRY_CROSSING_RAD`, Sensors' `HEADING_SIGMA_RAD`, the 95 %
+  `OUTLIER_STUDENTISED_RESIDUAL` and `POOR_GEOMETRY_CROSSING_RAD`, Sensors' `HEADING_SIGMA_RAD`, the 95 %
   scale (Core's `ellipse95`), UI's `MAX_APP_LAYERS`. A limit of Vigia's is a named field of
   `VigiaParameters` with its unit and its reason (Req 19), never a literal in a function. A bound a
   requirement states (the 90 % to 99 % of Req 17.9 with its 100-run rule, the 3 000 ms and the like) is
@@ -114,7 +114,7 @@ three hotspot reasons wait for the lead's word after the wind checkpoint).
       renders under jsdom with Testing Library, and `tsc` accepts `jsx: react-jsx`. (c) `import.meta.glob`
       with `?raw` works in the `math` project (the purity test needs it), with the type declaration copied
       from UI's `import-meta-glob.d.ts`. (d) `@alidade/ui`'s `index.ts` loads in Node with no DOM (the Math
-      layer imports pure names from it, D1), and `import { DeviceSighting, OUTLIER_NORMALISED_RESIDUAL, … }`
+      layer imports pure names from it, D1), and `import { DeviceSighting, OUTLIER_STUDENTISED_RESIDUAL, … }`
       resolves from the three packages. Report each result, delete the throwaway files, **stop on any
       mismatch**.
     - _Requirements: 1.1, 1.2, 21.7_
@@ -309,11 +309,11 @@ three hotspot reasons wait for the lead's word after the wind checkpoint).
     - Examples: one per set-aside cause and per case of the fixed order (a hidden Sighting that is also too
       old is `hidden_by_user`); the "only one candidate" reference to `nowUtcMs`; two old Sightings both
       used; the `invalid_observation` loop through an internal function with a fake solve result (the model
-      is Core's); three Bearings with a residual above `OUTLIER_NORMALISED_RESIDUAL` give `three_disagree`
+      is Core's); three Bearings with a residual above `OUTLIER_STUDENTISED_RESIDUAL` give `three_disagree`
       (a fixed set found by a search in the test) and a 12° error on the `side` post of the scene
       `three-posts` does not; `diverging` with a fixed pair pointing away from each other; the statements by
       count and `incidentStatement` of §7.7; **the thresholds are Core's exports** (the purity rule of 1.6
-      bites: no `3.5` in `assessment/`, no `CORE_OUTLIER_NORMALISED_RESIDUAL`).
+      bites: no `3.5` in `assessment/`, no `CORE_OUTLIER_STUDENTISED_RESIDUAL`).
     - Properties: **P-5.10** (Req 5.10: generator `sightingSet`; partition, one cause each, equal to a simple
       reference of the order of §7.6; the Bearings given to `solve` are the used plus the `outlier`s), 200 /
       5 000; **P-5.11** (Req 5.11: any permutation gives the same used ids, causes and a deeply equal Fix),
@@ -328,7 +328,7 @@ three hotspot reasons wait for the lead's word after the wind checkpoint).
     - _Requirements: 5.1 to 5.13_
   - [ ] 6.2 Code: `math/assessment/assess.ts`, `statements.ts`
     - `assess` (order, hidden, implausible, too old, solve with `outlierRejection: true`, causes,
-      `checkLevel`, `disagreement` with Core's exported `OUTLIER_NORMALISED_RESIDUAL`), `orderEntries`, the
+      `checkLevel`, `disagreement` with Core's exported `OUTLIER_STUDENTISED_RESIDUAL`), `orderEntries`, the
       statements of §7.7.
     - _Requirements: 5.1 to 5.9_
   - [ ] 6.3 The files of this group join the hostile list and the purity file list. Mutation check: the third Bearing marked as the culprit of a disagreement (P-5.13 and the examples fail).

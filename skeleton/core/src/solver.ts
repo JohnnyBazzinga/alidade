@@ -5,6 +5,9 @@
 // estimates the unknown position on the Local plane of the model's origin by iterative weighted
 // least squares (Gauss-Newton with step halving), re-evaluating every Effective sigma at every
 // iteration.
+//
+// Outlier rejection (amendment of 2026-11-19, design D20, D21, §7.7) judges each observation by its
+// Studentised residual, and when a solve fails it leaves each observation out in turn.
 
 import { _symmetricEigenvalues, ellipseFromCovariance } from './ellipse';
 import { unprojectToLocalPlane, type LocalPoint } from './local-plane';
@@ -27,10 +30,24 @@ export const CONVERGENCE_STEP_M = 1e-4;
 export const MAX_STEP_HALVINGS = 8;
 /** Above this condition number the normal matrix is singular (Req 7.3). */
 export const MAX_CONDITION_NUMBER = 1e12;
-/** An observation whose |Normalised residual| exceeds this is an outlier (Req 10.1). */
-export const OUTLIER_NORMALISED_RESIDUAL = 3.5;
+/**
+ * An observation whose |Studentised residual| exceeds this is an outlier (Req 10.1, 11.6; named
+ * `OUTLIER_NORMALISED_RESIDUAL` before the amendment of 2026-11-19).
+ */
+export const OUTLIER_STUDENTISED_RESIDUAL = 3.5;
 /** Outlier exclusion runs only while at least this many observations remain (Req 10.1, 10.2). */
 const MIN_OBSERVATIONS_FOR_EXCLUSION = 4;
+/** Leaving one out runs on a failed set of at most this many observations (Req 10.7). */
+export const MAX_LEAVE_ONE_OUT_OBSERVATIONS = 64;
+/** Leaving one out runs at most this many times in one call (Req 10.7, amended 2026-11-19). */
+export const MAX_LEAVE_ONE_OUT_ROUNDS = 3;
+/** Where 1 − h is below this, the Studentised residual is 0 (Req 10.1). */
+export const MIN_LEVERAGE_COMPLEMENT = 1e-9;
+/** Failures that come before any solve, which leaving one out does not act on (Req 10.7). */
+const FAILURES_BEFORE_SOLVING: readonly string[] = [
+  'invalid_observation',
+  'insufficient_observations',
+];
 
 /** The centre of the Local plane whose origin is the Fix (design D19). */
 const FIX_CENTRE: LocalPoint = { eastM: 0, northM: 0 };
@@ -214,6 +231,147 @@ function solveLoop<O>(
   return err('not_converged');
 }
 
+/** An observation and its id, in the canonical order (design D3). */
+interface Entry<O> {
+  readonly observation: O;
+  readonly id: string;
+}
+
+const observationsOf = <O>(entries: readonly Entry<O>[]): O[] =>
+  entries.map((entry) => entry.observation);
+
+/** A set that has been solved: what remains, the origin of its plane and its solution. */
+interface Stage<O> {
+  readonly remaining: readonly Entry<O>[];
+  readonly origin: Position;
+  readonly solution: Solution;
+}
+
+/**
+ * The solve of a set (design D21): §7.5 steps 4 to 6 applied to `observations` as if they were
+ * the input. The geometry check (only its failures are acted on, design D5), the set's own origin,
+ * its own starting estimate, and the solve loop from that start.
+ */
+function solveSet<O>(
+  model: MeasurementModel<O>,
+  observations: readonly O[],
+  maxIterations: number,
+): Result<{ readonly origin: Position; readonly solution: Solution }> {
+  const geometry = model.geometryCheck(observations);
+  if (!geometry.ok) return geometry;
+  const origin = model.origin(observations);
+  if (!origin.ok) return origin;
+  const start = model.startEstimate(observations, origin.value);
+  if (!start.ok) return start;
+  const solution = solveLoop(model, observations, start.value, origin.value, maxIterations);
+  if (!solution.ok) return solution;
+  return ok({ origin: origin.value, solution: solution.value });
+}
+
+/**
+ * Leaving one out (Req 10.7, design D21). When `failure` is the failure of the solve of
+ * `entries`, and the set has 4 to 64 observations, each subset without one observation is solved
+ * in the canonical order. The subset with the smallest Cost at its solution is returned with the
+ * id it left out; a strict `<` keeps the first on a tie. Undefined when it does not apply or no
+ * subset solves: the caller then returns `failure` unchanged.
+ */
+function leaveOneOut<O>(
+  model: MeasurementModel<O>,
+  entries: readonly Entry<O>[],
+  failure: Failure,
+  maxIterations: number,
+): { readonly stage: Stage<O>; readonly leftOutId: string } | undefined {
+  if (FAILURES_BEFORE_SOLVING.includes(failure.reason)) return undefined;
+  if (entries.length < MIN_OBSERVATIONS_FOR_EXCLUSION) return undefined;
+  if (entries.length > MAX_LEAVE_ONE_OUT_OBSERVATIONS) return undefined;
+
+  let best: { stage: Stage<O>; leftOutId: string; cost: number } | undefined;
+  entries.forEach((leftOut, leftOutIndex) => {
+    const subset = entries.filter((_entry, index) => index !== leftOutIndex);
+    const observations = observationsOf(subset);
+    const solved = solveSet(model, observations, maxIterations);
+    if (!solved.ok) return;
+    const atSolution = linearise(
+      model,
+      observations,
+      solved.value.solution.candidate,
+      solved.value.origin,
+    );
+    if (!atSolution.ok) return;
+    if (best === undefined || atSolution.value.cost < best.cost) {
+      best = {
+        stage: { remaining: subset, ...solved.value },
+        leftOutId: leftOut.id,
+        cost: atSolution.value.cost,
+      };
+    }
+  });
+  return best === undefined ? undefined : { stage: best.stage, leftOutId: best.leftOutId };
+}
+
+/**
+ * The leverage of each observation, the diagonal of the hat matrix H = A (AᵀA)⁻¹ Aᵀ of the
+ * weighted fit, where A has rows (∂/∂east, ∂/∂north) / σ (Req 10.1: h = J C Jᵀ / σ² with C the
+ * covariance (JᵀWJ)⁻¹ = (AᵀA)⁻¹). It is computed from an orthonormal basis Q of A's two columns,
+ * H = QQᵀ, by Gram-Schmidt with the second column orthogonalised twice: forming J C Jᵀ / σ² loses
+ * about ε·κ(JᵀWJ) to rounding, enough to leave 1 − h above 1e-9 where it is exactly 0 (design
+ * §7.7). The caller has passed the eigenvalue gate, so both columns have positive length.
+ */
+function leverages(evaluations: readonly Evaluation[]): number[] {
+  const eastColumn = evaluations.map((e) => e.partialEastRadPerM / e.effectiveSigmaRad);
+  let northColumn = evaluations.map((e) => e.partialNorthRadPerM / e.effectiveSigmaRad);
+  const eastLength = Math.hypot(...eastColumn);
+  const first = eastColumn.map((value) => value / eastLength);
+  for (let pass = 0; pass < 2; pass += 1) {
+    const projection = first.reduce(
+      (sum, value, index) => sum + value * (northColumn[index] as number),
+      0,
+    );
+    northColumn = northColumn.map((value, index) => value - projection * (first[index] as number));
+  }
+  const northLength = Math.hypot(...northColumn);
+  return first.map(
+    (value, index) => value * value + ((northColumn[index] as number) / northLength) ** 2,
+  );
+}
+
+/** At a solution, everything the outlier rule and the Fix need (design D20). */
+interface Assessment {
+  readonly position: Position;
+  /** The evaluation on the Fix's own plane at its centre (design D19). */
+  readonly atFix: Linearisation;
+  /** One per observation, in the canonical order. */
+  readonly studentisedResiduals: readonly number[];
+}
+
+/**
+ * The assessment of `candidate` on the plane of `origin` (design D19, D20): its position, the
+ * evaluation of every observation on the Fix's own plane at (0, 0), the eigenvalue gate on that
+ * evaluation's JᵀWJ, and each Studentised residual (Req 10.1). The exclusion and the Fix both use
+ * it, so the Fix reports the numbers the last decision saw.
+ */
+function assess<O>(
+  model: MeasurementModel<O>,
+  observations: readonly O[],
+  candidate: LocalPoint,
+  origin: Position,
+): Result<Assessment> {
+  const position = unprojectToLocalPlane(origin, candidate);
+  if (!position.ok) return position;
+  const atFix = linearise(model, observations, FIX_CENTRE, position.value);
+  if (!atFix.ok) return atFix;
+  const gate = eigenvalueGate(atFix.value);
+  if (!gate.ok) return gate;
+  const leverage = leverages(atFix.value.evaluations);
+  const studentisedResiduals = atFix.value.evaluations.map((evaluation, index) => {
+    const complement = 1 - (leverage[index] as number);
+    const normalised = evaluation.residualRad / evaluation.effectiveSigmaRad;
+    // A NaN complement fails `<` and gives a NaN, which the Fix's finiteness check returns.
+    return complement < MIN_LEVERAGE_COMPLEMENT ? 0 : normalised / Math.sqrt(complement);
+  });
+  return ok({ position: position.value, atFix: atFix.value, studentisedResiduals });
+}
+
 /** Lexicographic comparison of two ids, by UTF-16 code unit. */
 function compareIds(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
@@ -266,58 +424,77 @@ export function solve<O>(
   // Step 3: count (Req 9.1).
   if (canonicalObservations.length < 2) return err('insufficient_observations');
 
-  // Step 4: the pre-solve geometry check; only its failures are acted on (design D5).
-  const preSolveGeometry = model.geometryCheck(canonicalObservations);
-  if (!preSolveGeometry.ok) return preSolveGeometry;
-
-  // Step 5: the solve origin and the starting estimate.
-  const origin = model.origin(canonicalObservations);
-  if (!origin.ok) return origin;
-  const start = model.startEstimate(canonicalObservations, origin.value);
-  if (!start.ok) return start;
-
-  // Step 6: the solve loop.
-  let solution = solveLoop(model, canonicalObservations, start.value, origin.value, maxIterations);
-  if (!solution.ok) return solution;
-
-  // Step 7: outlier rejection (Req 10.1 to 10.4).
-  let remaining = canonical;
+  // Steps 4 to 6: the solve of the canonical set (design D21's definition, which is the original
+  // order: the geometry check, the origin, the start, the solve loop).
   const excludedIds: string[] = [];
+  // Rounds of leaving one out so far; a further one beyond the limit returns the failure (Req 10.7).
+  let rounds = 0;
+  const roundAllowed = (): boolean => {
+    if (rounds >= MAX_LEAVE_ONE_OUT_ROUNDS) return false;
+    rounds += 1;
+    return true;
+  };
+  let stage: Stage<O>;
+  const initial = solveSet(model, canonicalObservations, maxIterations);
+  if (initial.ok) {
+    stage = { remaining: canonical, ...initial.value };
+  } else {
+    // Step 7, leaving one out (Req 10.7, design D21), only with outlier rejection.
+    const recovered =
+      outlierRejection && roundAllowed()
+        ? leaveOneOut(model, canonical, initial, maxIterations)
+        : undefined;
+    if (recovered === undefined) return initial;
+    stage = recovered.stage;
+    excludedIds.push(recovered.leftOutId);
+  }
+
+  // Step 7: outlier rejection on the Studentised residual (Req 10.1 to 10.4; design D20).
   if (outlierRejection) {
-    while (remaining.length >= MIN_OBSERVATIONS_FOR_EXCLUSION) {
-      const atSolution = linearise(
+    while (stage.remaining.length >= MIN_OBSERVATIONS_FOR_EXCLUSION) {
+      const assessed = assess(
         model,
-        remaining.map((entry) => entry.observation),
-        solution.value.candidate,
-        origin.value,
+        observationsOf(stage.remaining),
+        stage.solution.candidate,
+        stage.origin,
       );
-      if (!atSolution.ok) return atSolution;
-      // The largest |normalised residual|; `>` keeps the first, so a tie goes to the smallest
-      // id in the canonical order (design D4).
+      if (!assessed.ok) return assessed;
+      // The largest |Studentised residual|; `>` keeps the first, so a tie goes to the smallest id
+      // in the canonical order (design D4).
       let worstIndex = 0;
       let worstMagnitude = -1;
-      atSolution.value.evaluations.forEach((evaluation, index) => {
-        const magnitude = Math.abs(evaluation.residualRad / evaluation.effectiveSigmaRad);
+      assessed.value.studentisedResiduals.forEach((studentised, index) => {
+        const magnitude = Math.abs(studentised);
         if (magnitude > worstMagnitude) {
           worstMagnitude = magnitude;
           worstIndex = index;
         }
       });
-      if (!(worstMagnitude > OUTLIER_NORMALISED_RESIDUAL)) break;
+      if (!(worstMagnitude > OUTLIER_STUDENTISED_RESIDUAL)) break;
 
-      excludedIds.push((remaining[worstIndex] as { id: string }).id);
-      remaining = remaining.filter((_entry, index) => index !== worstIndex);
-      solution = solveLoop(
+      excludedIds.push((stage.remaining[worstIndex] as Entry<O>).id);
+      const remaining = stage.remaining.filter((_entry, index) => index !== worstIndex);
+      const resolved = solveLoop(
         model,
-        remaining.map((entry) => entry.observation),
-        solution.value.candidate,
-        origin.value,
+        observationsOf(remaining),
+        stage.solution.candidate,
+        stage.origin,
         maxIterations,
       );
-      if (!solution.ok) return solution;
+      if (resolved.ok) {
+        stage = { remaining, origin: stage.origin, solution: resolved.value };
+        continue;
+      }
+      const recovered = roundAllowed()
+        ? leaveOneOut(model, remaining, resolved, maxIterations)
+        : undefined;
+      if (recovered === undefined) return resolved;
+      stage = recovered.stage;
+      excludedIds.push(recovered.leftOutId);
     }
   }
-  const remainingObservations = remaining.map((entry) => entry.observation);
+  const remaining = stage.remaining;
+  const remainingObservations = observationsOf(remaining);
 
   // Step 8: the geometry check again, on the observations that remain (design D5, Req 9.11).
   const postExclusionGeometry = model.geometryCheck(remainingObservations);
@@ -327,14 +504,12 @@ export function solve<O>(
   // and North at the Fix itself (Req 8.1, design D19): the observations are evaluated on the
   // Local plane whose origin is the Fix, at its centre (0, 0), where that plane's axes are true
   // east and true north. The solve origin's plane is turned and stretched at the Fix by meridian
-  // convergence and by the projection's scale, so its JᵀWJ would not be in those axes.
-  const position = unprojectToLocalPlane(origin.value, solution.value.candidate);
-  if (!position.ok) return position;
-  const atFix = linearise(model, remainingObservations, FIX_CENTRE, position.value);
-  if (!atFix.ok) return atFix;
-  const gateAtFix = eigenvalueGate(atFix.value);
-  if (!gateAtFix.ok) return gateAtFix;
-  const { eastEast, eastNorth, northNorth, evaluations } = atFix.value;
+  // convergence and by the projection's scale, so its JᵀWJ would not be in those axes. The same
+  // assessment gives the Studentised residuals (Req 10.8, design D20).
+  const assessed = assess(model, remainingObservations, stage.solution.candidate, stage.origin);
+  if (!assessed.ok) return assessed;
+  const { position, atFix, studentisedResiduals } = assessed.value;
+  const { eastEast, eastNorth, northNorth, evaluations } = atFix;
   const determinant = eastEast * northNorth - eastNorth * eastNorth;
   const covariance: CovarianceEnM2 = {
     varEastM2: northNorth / determinant,
@@ -344,9 +519,10 @@ export function solve<O>(
   const ellipse = ellipseFromCovariance(covariance);
   if (!ellipse.ok) return ellipse;
   const residuals: ObservationResidual[] = evaluations.map((evaluation, index) => ({
-    id: (remaining[index] as { id: string }).id,
+    id: (remaining[index] as Entry<O>).id,
     residualRad: evaluation.residualRad,
     normalisedResidual: evaluation.residualRad / evaluation.effectiveSigmaRad,
+    studentisedResidual: studentisedResiduals[index] as number,
   }));
 
   const warnings: Warning[] = [];
@@ -356,30 +532,34 @@ export function solve<O>(
   if (excludedIds.length > 0) warnings.push('outliers_excluded');
 
   const fixNumbers = [
-    position.value.latRad,
-    position.value.lonRad,
+    position.latRad,
+    position.lonRad,
     covariance.varEastM2,
     covariance.varNorthM2,
     covariance.covEastNorthM2,
     ellipse.value.semiMajorM,
     ellipse.value.semiMinorM,
     ellipse.value.azimuthRad,
-    ...residuals.flatMap((entry) => [entry.residualRad, entry.normalisedResidual]),
+    ...residuals.flatMap((entry) => [
+      entry.residualRad,
+      entry.normalisedResidual,
+      entry.studentisedResidual,
+    ]),
   ];
   if (!allFinite(fixNumbers)) return err('invalid_number');
 
   const fix: Fix = {
-    position: position.value,
+    position,
     covariance,
     ellipse: ellipse.value,
     residuals,
-    iterations: solution.value.iterations,
+    iterations: stage.solution.iterations,
     warnings,
     excludedIds,
   };
 
   // Step 10: the post-solve check, on the observations that remain, with the solve origin.
-  const postSolve = model.postSolveCheck(fix, origin.value, remainingObservations);
+  const postSolve = model.postSolveCheck(fix, stage.origin, remainingObservations);
   if (!postSolve.ok) return postSolve;
 
   // Step 11.

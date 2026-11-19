@@ -11,7 +11,7 @@ const CHECK_STATEMENTS: Readonly<Record<CheckLevel, string>> = {
   three:
     'Three sightings can show that they disagree, but not which one is off; a fourth sighting can.',
   four_or_more:
-    'With four or more sightings the app sets aside one that does not agree with the others, by a statistical rule that can keep a wrong sighting and can set aside a good one.',
+    'With four or more sightings the app sets aside one that does not agree with the others, by a statistical rule that can keep a wrong sighting and can set aside a good one; with only four or five sightings this happens more often.',
 };
 
 /** What the app can check with this many used Sightings (Req 5.4). */

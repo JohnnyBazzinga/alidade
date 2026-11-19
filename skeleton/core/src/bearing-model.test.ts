@@ -600,6 +600,7 @@ describe('BearingModel.postSolveCheck', () => {
       id: observation.id,
       residualRad: residualsRad[index] ?? 0,
       normalisedResidual: 0,
+      studentisedResidual: 0,
     })),
     iterations: 3,
     warnings: [],

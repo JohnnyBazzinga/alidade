@@ -563,6 +563,72 @@ export const noisySolvableSet: fc.Arbitrary<SolverScenario> = solvableSet.chain(
     })),
 );
 
+/** Noise of one `azimuthSigmaRad` on each azimuth of `scenario`, from standard normal draws. */
+function withNoise(scenario: SolverScenario, noise: readonly number[]): SolverScenario {
+  return {
+    target: scenario.target,
+    observations: scenario.observations.map((observation, index) => ({
+      ...observation,
+      azimuthRad: _wrapTwoPi(
+        observation.azimuthRad + observation.azimuthSigmaRad * (noise[index] as number),
+      ),
+    })),
+  };
+}
+
+/**
+ * Three observations for Req 10.9 (amendment of 2026-11-19).
+ *
+ * Built as `solvableSet` with exactly three observers (the Req 7.4 conditions: target within 75°,
+ * observers 500 m to 100 km away, a pair crossing at 10° or more, cross-track 1-sigmas within a
+ * factor of 1e3), each azimuth with Gaussian noise of its own sigma, and in half of the draws one
+ * of the three, drawn by index, wrong by an error drawn uniformly from 0° to 90° in either
+ * direction. Filtered only as `solvableSet` is (crossing angle). It never calls the solver; the
+ * property discards and counts the sets Req 10.9 leaves out (a failed solve, a leverage of
+ * 1 − 1e-6 or more).
+ */
+export const threeObservationSet: fc.Arbitrary<SolverScenario> = noiseFreeScenarios(
+  solvableTarget,
+  3,
+  3,
+).chain((scenario) =>
+  fc
+    .tuple(
+      fc.array(standardNormal, { minLength: 3, maxLength: 3 }),
+      fc.option(fc.tuple(fc.integer({ min: 0, max: 2 }), uniformBetween(-90 * DEG, 90 * DEG)), {
+        freq: 2,
+      }),
+    )
+    .map(([noise, wrong]) => {
+      const noisy = withNoise(scenario, noise);
+      if (wrong === null) return noisy;
+      const [wrongIndex, errorRad] = wrong;
+      return {
+        target: noisy.target,
+        observations: noisy.observations.map((observation, index) =>
+          index === wrongIndex
+            ? { ...observation, azimuthRad: _wrapTwoPi(observation.azimuthRad + errorRad) }
+            : observation,
+        ),
+      };
+    }),
+);
+
+/**
+ * Two observations for Req 10.9: `solvableSet` with exactly two observers, each azimuth with
+ * Gaussian noise of its own sigma. Filtered only as `solvableSet` is. A property that uses it
+ * discards and counts failed solves.
+ */
+export const twoObservationSet: fc.Arbitrary<SolverScenario> = noiseFreeScenarios(
+  solvableTarget,
+  2,
+  2,
+).chain((scenario) =>
+  fc
+    .array(standardNormal, { minLength: 2, maxLength: 2 })
+    .map((noise) => withNoise(scenario, noise)),
+);
+
 /**
  * A `solvableSet` around a target within 1° of longitude of the ±180° meridian, kept only if it
  * has observers on both sides of the meridian (Req 9.7).
@@ -1012,7 +1078,12 @@ export const hostileFix: fc.Arbitrary<Fix> = fc.record({
   covariance: hostileCovariance,
   ellipse: hostileEllipse,
   residuals: fc.array(
-    fc.record({ id: hostileId, residualRad: hostileNumber, normalisedResidual: hostileNumber }),
+    fc.record({
+      id: hostileId,
+      residualRad: hostileNumber,
+      normalisedResidual: hostileNumber,
+      studentisedResidual: hostileNumber,
+    }),
     { maxLength: 6 },
   ),
   iterations: hostileNumber,
@@ -1036,6 +1107,7 @@ export const hostileFixForObservations: fc.Arbitrary<{ fix: Fix; observations: B
             id: observation.id,
             residualRad: residualsRad[index] as number,
             normalisedResidual: 0,
+            studentisedResidual: 0,
           })),
         },
         observations,

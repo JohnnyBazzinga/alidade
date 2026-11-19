@@ -386,16 +386,16 @@ const RULES: readonly Rule[] = [
     probe: { path: 'src/math/probe.ts', token: '\nconst probe = 2.4477;\n' },
   },
   {
-    name: 'no copy of Core\u2019s outlier threshold in assessment/: no 3.5, no CORE_OUTLIER_NORMALISED_RESIDUAL (Req 1.6)',
+    name: 'no copy of Core\u2019s outlier threshold in assessment/: no 3.5, no CORE_OUTLIER_STUDENTISED_RESIDUAL (Req 1.6)',
     applies: (p) => p.startsWith('src/math/assessment/'),
-    violates: scan('bare', /(?<![\w.])3\.5(?!\w)|CORE_OUTLIER_NORMALISED_RESIDUAL/),
+    violates: scan('bare', /(?<![\w.])3\.5(?!\w)|CORE_OUTLIER_STUDENTISED_RESIDUAL/),
     probe: { path: 'src/math/assessment/probe.ts', token: '\nconst probe = 3.5;\n' },
   },
   {
-    name: 'no copy of Core\u2019s outlier threshold anywhere: CORE_OUTLIER_NORMALISED_RESIDUAL is read nowhere (Req 1.6)',
+    name: 'no copy of Core\u2019s outlier threshold anywhere: CORE_OUTLIER_STUDENTISED_RESIDUAL is read nowhere (Req 1.6)',
     applies: anywhere,
-    violates: scan('code', /CORE_OUTLIER_NORMALISED_RESIDUAL/),
-    probe: { path: 'src/App.tsx', token: '\nconst probe = CORE_OUTLIER_NORMALISED_RESIDUAL;\n' },
+    violates: scan('code', /CORE_OUTLIER_STUDENTISED_RESIDUAL/),
+    probe: { path: 'src/App.tsx', token: '\nconst probe = CORE_OUTLIER_STUDENTISED_RESIDUAL;\n' },
   },
   {
     name: 'no copy of Core\u2019s 20 degree poor-geometry limit in fix/ (Req 1.6)',

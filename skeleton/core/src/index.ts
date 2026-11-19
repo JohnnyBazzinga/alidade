@@ -7,7 +7,7 @@
 // back to the caller, which Req 9.8 forbids.
 //
 // The two thresholds of the solver that an app's words quote are exported, so that no app keeps a
-// copy: `OUTLIER_NORMALISED_RESIDUAL` (Req 10.1) and `POOR_GEOMETRY_CROSSING_RAD` (Req 9.4).
+// copy: `OUTLIER_STUDENTISED_RESIDUAL` (Req 10.1) and `POOR_GEOMETRY_CROSSING_RAD` (Req 9.4).
 export type { Failure, Reason, Result, Success, Warning } from './result';
 export { angularDifference, circularMean, degToRad, radToDeg, wrapPi, wrapTwoPi } from './angle';
 export {
@@ -32,4 +32,4 @@ export type {
   SolverOptions,
 } from './measurement-model';
 export { BearingModel, POOR_GEOMETRY_CROSSING_RAD } from './bearing-model';
-export { OUTLIER_NORMALISED_RESIDUAL, solve } from './solver';
+export { OUTLIER_STUDENTISED_RESIDUAL, solve } from './solver';

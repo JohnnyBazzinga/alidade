@@ -4,12 +4,13 @@
 // A Sighting has exactly one cause, by the fixed order: hidden, implausible time, too old, then
 // Core's outlier rule. The app sets a Sighting aside as `outlier` only from `Fix.excludedIds` and
 // implements no rejection rule of its own (Req 5.3). With three used Sightings it names no
-// Sighting as the one that is off and computes no second Fix (Req 5.5): `disagreement` is a flag.
-// The threshold of the flag is Core's `OUTLIER_NORMALISED_RESIDUAL`, not a copy.
+// Sighting as the one that is off and computes no second Fix (Req 5.5): `disagreement` is a flag,
+// raised on Core's Studentised residual (with three, all three have the same size, Core Req 10.9).
+// The threshold of the flag is Core's `OUTLIER_STUDENTISED_RESIDUAL`, not a copy.
 
 import {
   BearingModel,
-  OUTLIER_NORMALISED_RESIDUAL,
+  OUTLIER_STUDENTISED_RESIDUAL,
   solve,
   type Bearing,
   type Fix,
@@ -152,9 +153,9 @@ export function assessWith(
     const largest = Math.max(
       ...fix.value.residuals
         .filter((r) => usedIds.has(r.id))
-        .map((r) => Math.abs(r.normalisedResidual)),
+        .map((r) => Math.abs(r.studentisedResidual)),
     );
-    if (largest > OUTLIER_NORMALISED_RESIDUAL) disagreement = 'three_disagree';
+    if (largest > OUTLIER_STUDENTISED_RESIDUAL) disagreement = 'three_disagree';
   } else if (used.length >= 3 && fix !== null && !fix.ok && fix.reason === 'diverging_bearings') {
     disagreement = 'diverging';
   }
