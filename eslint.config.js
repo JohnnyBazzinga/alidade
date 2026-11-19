@@ -37,4 +37,21 @@ export default defineConfig(
       'react-hooks/exhaustive-deps': 'error',
     },
   },
+  {
+    // apps/vigia (Req 1.8, design §13): no `any` and the two named hook rules as errors, as in
+    // skeleton/ui; no non-null assertion in the Math layer, the Overlays' included.
+    files: ['apps/vigia/**/*.{ts,tsx}'],
+    plugins: { 'react-hooks': reactHooks },
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'error',
+      'react-hooks/rules-of-hooks': 'error',
+      'react-hooks/exhaustive-deps': 'error',
+    },
+  },
+  {
+    files: ['apps/vigia/src/**/math/**/*.ts', 'apps/vigia/src/overlays/**/math/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-non-null-assertion': 'error',
+    },
+  },
 );

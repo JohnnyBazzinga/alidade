@@ -1,0 +1,86 @@
+{
+  "description": "The three worked examples of design section 8.7: synthetic Sightings, each with its code and the values it decodes to. Read-only: a test is fixed to match this file, never the reverse. Degrees are the wire's; the tests convert them with Core.",
+  "examples": [
+    {
+      "name": "A",
+      "about": "a real Incident, the west post of a scene",
+      "input": {
+        "incidentId": "K7PQ3MWXA2",
+        "sightingId": "H4TN9RV6C",
+        "latDeg": 30.1234,
+        "lonDeg": -40.0567,
+        "timeUtcMs": 1790000000000,
+        "timeUtcIso": "2026-09-21T14:13:20.000Z",
+        "azimuthDeg": 45.5,
+        "azimuthSigmaDeg": 2.0,
+        "positionAccuracyM": 8
+      },
+      "code": "327VGW67HFXYW4EP3NHT3AFXPGBQKU927W36FR8FF326RWB8GH",
+      "codeGrouped": "327VG-W67HF-XYW4E-P3NHT-3AFXP-GBQKU-927W3-6FR8F-F326R-WB8GH",
+      "payload": "7VGW67HFXYW4EP3NHT3AFXPGBQKU927W36FR8FF326RW",
+      "check": "B8GH",
+      "decoded": {
+        "latDeg": 30.123405,
+        "lonDeg": -40.056705,
+        "timeUtcMs": 1790000000500,
+        "azimuthDeg": 45.5005,
+        "azimuthSigmaDeg": 2.0,
+        "positionAccuracyM": 8
+      }
+    },
+    {
+      "name": "B",
+      "about": "a Simulation Incident (first symbol Z), minimum sigma, accuracy 0",
+      "input": {
+        "incidentId": "ZB4N8RTY5C",
+        "sightingId": "2222222XY",
+        "latDeg": 30.0,
+        "lonDeg": -40.0,
+        "timeUtcMs": 1790000123456,
+        "timeUtcIso": "2026-09-21T14:15:23.456Z",
+        "azimuthDeg": 359.9996,
+        "azimuthSigmaDeg": 0.01,
+        "positionAccuracyM": 0
+      },
+      "code": "32CBYCHGRHRYG4PX7AH8SYYD5C7GZCVXJ4BQEE3U3TVT8PFSJE",
+      "codeGrouped": "32CBY-CHGRH-RYG4P-X7AH8-SYYD5-C7GZC-VXJ4B-QEE3U-3TVT8-PFSJE",
+      "payload": "CBYCHGRHRYG4PX7AH8SYYD5C7GZCVXJ4BQEE3U3TVT8P",
+      "check": "FSJE",
+      "decoded": {
+        "latDeg": 29.999995,
+        "lonDeg": -40.000005,
+        "timeUtcMs": 1790000123500,
+        "azimuthDeg": 359.9995,
+        "azimuthSigmaDeg": 0.01,
+        "positionAccuracyM": 0
+      }
+    },
+    {
+      "name": "C",
+      "about": "the extremes of the ranges",
+      "input": {
+        "incidentId": "C222222222",
+        "sightingId": "ZZZZZZZZZ",
+        "latDeg": 89.0,
+        "lonDeg": 180.0,
+        "timeUtcMs": 2398377599999,
+        "timeUtcIso": "2045-12-31T23:59:59.999Z",
+        "azimuthDeg": 0.0,
+        "azimuthSigmaDeg": 45.0,
+        "positionAccuracyM": 10000
+      },
+      "code": "325EN636NMPH56SW8ZWJ3XDMCSARJWYA5AH9TE25T7JDE98FQS",
+      "codeGrouped": "325EN-636NM-PH56S-W8ZWJ-3XDMC-SARJW-YA5AH-9TE25-T7JDE-98FQS",
+      "payload": "5EN636NMPH56SW8ZWJ3XDMCSARJWYA5AH9TE25T7JDE9",
+      "check": "8FQS",
+      "decoded": {
+        "latDeg": 88.999995,
+        "lonDeg": 179.999995,
+        "timeUtcMs": 2398377599500,
+        "azimuthDeg": 0.0005,
+        "azimuthSigmaDeg": 45.0,
+        "positionAccuracyM": 10000
+      }
+    }
+  ]
+}
