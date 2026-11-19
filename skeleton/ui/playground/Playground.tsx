@@ -71,6 +71,15 @@ const modeButton = (active: boolean) =>
     color: active ? COLOURS.brassInk : COLOURS.ink,
   }) as const;
 
+const summaryStyle = {
+  boxSizing: 'border-box',
+  minHeight: 48,
+  display: 'flex',
+  alignItems: 'center',
+  fontSize: 20,
+  cursor: 'pointer',
+} as const;
+
 export function Playground({ deps }: { readonly deps: PlaygroundDeps }) {
   const [mode, setMode] = useState<PlaygroundMode>(
     deps.hasDeviceOrientation ? 'device' : 'simulator',
@@ -86,6 +95,8 @@ export function Playground({ deps }: { readonly deps: PlaygroundDeps }) {
   const [lib, setLib] = useState<MapLibreLike | null>(null);
   const [mapFailure, setMapFailure] = useState<UiFailure | null>(null);
   const lastCaptured = useRef<unknown>(null);
+  // Req 18.11: closed until the user opens it; the crosshair needs none of it.
+  const [calibrationOpen, setCalibrationOpen] = useState(false);
   const { loadMapLibre } = deps;
 
   useEffect(() => {
@@ -137,12 +148,38 @@ export function Playground({ deps }: { readonly deps: PlaygroundDeps }) {
   );
   const latest = captures[captures.length - 1] ?? null;
 
+  const form = (
+    <CalibrationForm
+      key={mode}
+      mode={mode}
+      streamSize={streamSize}
+      onApply={setChoice}
+      onRequestSize={setCameraRequest}
+    />
+  );
+  const device = (
+    <DeviceSighting
+      createSource={deps.createDeviceSource}
+      cameraSurface={deps.cameraSurface}
+      timer={deps.timer}
+      parameters={PARAMETERS}
+      calibration={choice.calibration}
+      tapSigmaPx={choice.tapSigmaPx}
+      cameraRequest={cameraRequest}
+      onSession={onDeviceSession}
+      onStreamSize={setStreamSize}
+      observe={deps.observe}
+    />
+  );
+
   return (
     <main
       data-testid="playground"
       data-mode={mode}
       style={{ background: COLOURS.bg, color: COLOURS.ink }}
     >
+      {/* Req 18.11: on a phone the sighting screen, with Start, is the first thing on the page. */}
+      {mode === 'device' && <section data-part="sighting">{device}</section>}
       <nav style={{ display: 'flex', gap: 8, padding: 8 }} aria-label="Mode">
         <button
           type="button"
@@ -161,39 +198,33 @@ export function Playground({ deps }: { readonly deps: PlaygroundDeps }) {
           Simulator
         </button>
       </nav>
-      <CalibrationForm
-        key={mode}
-        mode={mode}
-        streamSize={streamSize}
-        onApply={setChoice}
-        onRequestSize={setCameraRequest}
-      />
       {mode === 'device' ? (
-        <DeviceSighting
-          createSource={deps.createDeviceSource}
-          cameraSurface={deps.cameraSurface}
-          timer={deps.timer}
-          parameters={PARAMETERS}
-          calibration={choice.calibration}
-          tapSigmaPx={choice.tapSigmaPx}
-          cameraRequest={cameraRequest}
-          onSession={onDeviceSession}
-          onStreamSize={setStreamSize}
-          observe={deps.observe}
-        />
-      ) : deps.catalogue.ok ? (
-        <SimulatorMode
-          catalogue={deps.catalogue.value}
-          timer={deps.timer}
-          parameters={PARAMETERS}
-          sensorOptions={deps.sensorOptions}
-          tapSigmaPx={choice.tapSigmaPx}
-          onSession={onSession}
-          observe={deps.observe}
-        />
+        <details
+          data-part="calibration"
+          open={calibrationOpen}
+          onToggle={(e) => setCalibrationOpen(e.currentTarget.open)}
+          style={{ padding: 8 }}
+        >
+          <summary style={summaryStyle}>Camera calibration</summary>
+          {form}
+        </details>
       ) : (
-        <FailureNotice failure={deps.catalogue} />
+        form
       )}
+      {mode === 'simulator' &&
+        (deps.catalogue.ok ? (
+          <SimulatorMode
+            catalogue={deps.catalogue.value}
+            timer={deps.timer}
+            parameters={PARAMETERS}
+            sensorOptions={deps.sensorOptions}
+            tapSigmaPx={choice.tapSigmaPx}
+            onSession={onSession}
+            observe={deps.observe}
+          />
+        ) : (
+          <FailureNotice failure={deps.catalogue} />
+        ))}
       {/* Once: the sighting screen shows the summary itself while it is in `captured` (Req 18.4). */}
       {latest !== null && session?.state !== 'captured' && (
         <CaptureSummary result={latest.result} />

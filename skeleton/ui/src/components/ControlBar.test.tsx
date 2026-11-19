@@ -36,8 +36,8 @@ describe('ControlBar (Req 13.7, 13.12)', () => {
     const bar = getByTestId('control-bar');
     expect(Number.parseFloat(bar.style.gap)).toBeGreaterThanOrEqual(8);
     expect(bar.dataset.placement).toBe('lower');
-    expect(bar.style.position).toBe('sticky');
-    expect(bar.style.bottom).toBe('0px');
+    // Req 13.13 (amendment of 2026-11-19): in the normal flow, not held over the content.
+    expect(['', 'static', 'relative']).toContain(bar.style.position);
   });
 
   it('calls the handler of the control pressed and renders nothing for no controls', () => {

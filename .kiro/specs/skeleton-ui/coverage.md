@@ -1,6 +1,6 @@
 # Requirement coverage — skeleton-ui
 
-Generated at checkpoint 26, again after the corrections of D29 and D30, and extended by hand for task group 27 (criteria 15.14 to 15.17 and 17.13 to 17.15, checked against the test files with the same rule), from the test files: a criterion is listed against every test file that
+Generated at checkpoint 26, again after the corrections of D29 and D30, and extended by hand for task group 27 (criteria 15.14 to 15.17 and 17.13 to 17.15) and task group 29 (13.13, 13.14, 15.18, 18.11), checked against the test files with the same rule, from the test files: a criterion is listed against every test file that
 cites it (`Req N.M`, lists, ranges and a whole requirement `Req N`) or names its property
 (`P-N.M`). File names are relative to `skeleton/ui/src` (or `playground/`), without `.test`.
 Criteria no test cites by number are listed with what covers them.
@@ -143,6 +143,8 @@ Criteria no test cites by number are listed with what covers them.
 | 13.10 | math/contrast, math/contrast.property |
 | 13.11 | components/theme |
 | 13.12 | components/ControlBar, components/MarkRing, components/Reticle |
+| 13.13 | components/SightingScreen.layout (the flow, the screen's height, the image's own height, the order around the control bar, the Simulator panel's wrapper), components/ControlBar (the bar is not sticky); overlap at 360, 390 and 430 px is checked by the lead in a real browser |
+| 13.14 | components/SightingScreen.layout (a refused Freeze and a refused Capture after a lost north, shown directly above the bar; the Message cleared by the next action; the compass control primary on the Relative frame without a valid north) |
 | 14.1 | math/map/map-geometry |
 | 14.2 | math/map/map-geometry |
 | 14.3 | math/map/map-geometry |
@@ -174,6 +176,7 @@ Criteria no test cites by number are listed with what covers them.
 | 15.15 | adapters/map/map-adapter.layers, adapters/map/map-adapter.property (P-15.17), math/map/app-layer, math/map/app-layer.property (P-15.15) |
 | 15.16 | adapters/map/map-adapter.layers, adapters/map/map-adapter.property (P-15.17), math/map/map-style |
 | 15.17 | adapters/map/map-adapter.property (P-15.17, with P-15.11 and P-15.12 on the same sequences), components/MapView |
+| 15.18 | adapters/map/maplibre-loader-adapt (the worker's address given before any map; worker failure to `unavailable`), adapters/map/maplibre-loader-worker (no `setWorkerUrl`: `map_unavailable`), adapters/map/map-adapter (`map_unavailable` once, never `tiles_unavailable`), components/MapView (the Message kept), math/messages (its wording), playground/build-output (the worker emitted unchanged, referred to by a relative address) |
 | 16.1 | math/scene/scene |
 | 16.2 | math/scene/scene |
 | 16.3 | math/scene/end-to-end.property, math/scene/scene, math/scene/scene.property |
@@ -210,6 +213,7 @@ Criteria no test cites by number are listed with what covers them.
 | 18.8 | *not cited:* playground/Playground.integration (every alert equals a `messageFor` text) |
 | 18.9 | playground/Playground.integration |
 | 18.10 | components/DeviceSighting, playground/Playground.integration (the Playground's device-mode tests, unchanged) |
+| 18.11 | playground/Playground.integration (device mode: the sighting screen first, the calibration form after it in a closed `details`; simulator mode unchanged) |
 | 19.1 | defaults, math/session/parameters |
 | 19.2 | math/session/parameters |
 | 19.3 | math/session/parameters |

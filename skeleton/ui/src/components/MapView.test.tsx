@@ -12,6 +12,7 @@ import type { ComponentProps } from 'react';
 import { describe, expect, it } from 'vitest';
 import { ellipse95 } from '@alidade/core';
 import type { AppFeatureCollection, LayerPaint } from '../math/map/app-layer';
+import { messageFor } from '../math/messages';
 import { FakeMapLibre } from '../test-support/fake-maplibre';
 import { FakeTimer } from '../test-support/fake-timer';
 import { MapView } from './MapView';
@@ -144,6 +145,26 @@ describe('MapView (Req 15, 13.6)', () => {
     expect(queryByRole('alert')).toBeNull();
     act(() => lib.last().fire('error'));
     expect(getByRole('alert').textContent).toMatch(/tile|map/i);
+  });
+
+  // Req 15.18: the worker did not start. The screen says the map cannot be drawn here, never that
+  // the tiles failed, and it keeps saying so when new Bearings or a Fix arrive.
+  it('shows the Message of map_unavailable when the worker does not start, and keeps it', () => {
+    const lib = new FakeMapLibre();
+    const props = {
+      lib,
+      tiles: null,
+      timer,
+      bearings: [],
+      lineLengthM: 5000,
+    } as const;
+    const { getByRole, rerender } = render(<MapView {...props} observers={[]} fix={null} />);
+    act(() => lib.last().fire('unavailable', { error: new Error('Worker failed to load.') }));
+    const m = messageFor({ ok: false, reason: 'map_unavailable' });
+    expect(getByRole('alert').textContent).toBe(m.whatHappened + m.whatToDo);
+    act(() => lib.last().fire('load'));
+    rerender(<MapView {...props} observers={OBSERVERS} fix={FIX} />);
+    expect(getByRole('alert').textContent).toBe(m.whatHappened + m.whatToDo);
   });
 
   it('draws nothing while the library is still loading', () => {

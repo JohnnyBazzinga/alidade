@@ -58,7 +58,11 @@ export interface MapAdapter {
   setLayer(id: string, collection: AppFeatureCollection, paint: LayerPaint): UiResult<void>;
   /** Removes an application layer; `ok` for an id that is not held. */
   clearLayer(id: string): UiResult<void>;
-  /** `tiles_unavailable` when a tile or a source fails, at most once per report interval. */
+  /**
+   * `tiles_unavailable` when a tile or a source fails, at most once per report interval;
+   * `map_unavailable`, once, when the library's worker does not start (Req 15.18), after which
+   * nothing more is reported, because the map draws nothing.
+   */
   onError(listener: (failure: UiFailure) => void): Unsubscribe;
   destroy(): void;
 }
@@ -143,13 +147,11 @@ export function createMapAdapter(
   const mappedData = new Map<string, AppFeatureCollection>();
   const listeners = new Set<(failure: UiFailure) => void>();
   let throttle: TimerHandle | null = null;
+  /** Set when the library's worker did not start (Req 15.18): the map can draw nothing. */
+  let unavailable = false;
   const subscriptions: SubscriptionLike[] = [];
 
-  /** Delivers `tiles_unavailable` to the listeners, at most once per interval (Req 15.8). */
-  const report = (error: unknown): void => {
-    if (destroyed || throttle !== null) return;
-    const name = nameOf(error);
-    const failure = err('tiles_unavailable', name === undefined ? {} : { errorName: name });
+  const deliver = (failure: UiFailure): void => {
     for (const listener of [...listeners]) {
       try {
         listener(failure);
@@ -157,6 +159,21 @@ export function createMapAdapter(
         // A throwing listener does not stop the others or the map.
       }
     }
+  };
+
+  /** Delivers `map_unavailable` once, and silences the tiles' reports from then on. */
+  const reportUnavailable = (error: unknown): void => {
+    if (destroyed || unavailable) return;
+    unavailable = true;
+    const name = nameOf(error);
+    deliver(err('map_unavailable', name === undefined ? {} : { errorName: name }));
+  };
+
+  /** Delivers `tiles_unavailable` to the listeners, at most once per interval (Req 15.8). */
+  const report = (error: unknown): void => {
+    if (destroyed || unavailable || throttle !== null) return;
+    const name = nameOf(error);
+    deliver(err('tiles_unavailable', name === undefined ? {} : { errorName: name }));
     throttle = timer.start(() => {
       if (throttle !== null) timer.stop(throttle);
       throttle = null;
@@ -275,6 +292,7 @@ export function createMapAdapter(
         }
       }),
       map.on('error', (event) => report(event)),
+      map.on('unavailable', (event) => reportUnavailable(event)),
     );
   } catch (error) {
     try {

@@ -557,3 +557,30 @@ into the skeleton-sensors requirements.
   - [x] 28.3 Checkpoint: `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm format:check` from the root
     and `pnpm --filter @alidade/ui build:playground` once. One mutation check: the camera adapter not
     stopped on unmount fails two tests. Report and stop.
+
+- [x] 29. Four faults of the first trial on a phone (amendments of 2026-11-19: Req 13.13, 13.14, 15.18, 18.11; design D33)
+  - Added after the skeleton was finished. Tests before code; no new dependency; `timeout` in front
+    of every test run, no `pkill`, no commit; every full run keeps its output under `/tmp/g29/`.
+  - [x] 29.1 Tests first. `components/SightingScreen.layout.test.tsx` (Req 13.13: nothing out of the
+    flow but the Reticle and the Mark inside the image, in every state and kind; no height on the
+    screen; the image's own height; the order around the control bar; no box of fixed height in the
+    Simulator panel. Req 13.14: a refused Freeze, and a Capture refused with `frame_reset` after a
+    lost north, shown directly above the bar; the compass control primary on the Relative frame
+    without a valid north). `ControlBar.test.tsx` (the bar is not sticky: the earlier assertion
+    that it was is replaced, by the amendment). `maplibre-loader-adapt.test.ts` and
+    `maplibre-loader-worker.test.ts`, `map-adapter.test.ts`, `MapView.test.tsx`, `messages.test.ts`
+    (Req 15.18). `playground/build-output.test.ts` in a new Vitest project `build` (Req 15.18).
+    `Playground.integration.test.tsx` (Req 18.11). All failed for the reason they name.
+    - _Requirements: 13.13, 13.14, 15.18, 18.11_
+  - [x] 29.2 Code: `ControlBar` (in the flow), `SightingScreen` (`IMAGE_HEIGHT`, the order, the
+    primary control), `SimulatorPanel` (no `height: 520`), `maplibre-types.ts` (`unavailable`),
+    `maplibre-loader.ts` (`setWorkerUrl` with the `?url` address; worker failures to
+    `unavailable`), `maplibre-worker-url.d.ts` (listed in `purity.test.ts` and in Vigia's
+    `tsconfig.json`), `map-adapter.ts`, `MapView.tsx`, the Message of `map_unavailable`, and the
+    Playground's device-mode order with a closed `details`. `coverage.md` rows.
+    - _Requirements: 13.13, 13.14, 15.18, 18.11_
+  - [x] 29.3 Checkpoint: `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm format:check` from the root
+    and `pnpm --filter @alidade/ui build:playground` once. Mutation checks: the loader without
+    `setWorkerUrl` fails one test; the compass control never primary fails two. Report and stop;
+    the lead checks Req 13.13 in a real browser.
+

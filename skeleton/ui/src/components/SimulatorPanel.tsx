@@ -348,8 +348,9 @@ export function SimulatorPanel(props: SimulatorPanelProps) {
           );
         })}
       </div>
+      {/* No box of fixed height around the screen: it is as tall as its content (Req 13.13). */}
       {session !== null && (
-        <div style={{ height: 520 }}>
+        <div>
           <SightingScreen
             session={session}
             parameters={parameters}

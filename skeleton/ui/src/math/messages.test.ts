@@ -180,3 +180,16 @@ describe('messageFor (Req 3.5)', () => {
     );
   });
 });
+
+describe('map_unavailable (Req 15.18)', () => {
+  it('says the map cannot be drawn on this device, that the list and the words still work, and does not blame the connection', () => {
+    const m = messageFor({ ok: false, reason: 'map_unavailable' });
+    const text = `${m.whatHappened} ${m.whatToDo}`;
+    expect(m.whatHappened).toMatch(/map/i);
+    expect(m.whatHappened).toMatch(/drawn/i);
+    expect(m.whatHappened).toMatch(/this device/i);
+    expect(m.whatToDo).toMatch(/list/i);
+    expect(m.whatToDo).toMatch(/words/i);
+    expect(text).not.toMatch(/internet|connection|tiles?\b/i);
+  });
+});

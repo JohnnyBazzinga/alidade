@@ -45,6 +45,8 @@ export function MapView(props: MapViewProps) {
   const container = useRef<HTMLDivElement | null>(null);
   const [adapter, setAdapter] = useState<MapAdapter | null>(null);
   const [failure, setFailure] = useState<UiFailure | null>(null);
+  // Req 15.18: a map that cannot draw on this device stays said, whatever data arrives afterwards.
+  const [unavailable, setUnavailable] = useState<UiFailure | null>(null);
 
   useEffect(() => {
     const element = container.current;
@@ -54,13 +56,16 @@ export function MapView(props: MapViewProps) {
       setFailure(created);
       return undefined;
     }
-    const stopErrors = created.value.onError(setFailure);
+    const stopErrors = created.value.onError((f) =>
+      f.reason === 'map_unavailable' ? setUnavailable(f) : setFailure(f),
+    );
     setAdapter(created.value);
     return () => {
       stopErrors();
       created.value.destroy();
       heldLayers.current = new Set();
       setAdapter(null);
+      setUnavailable(null);
     };
   }, [lib, tiles, timer]);
 
@@ -88,6 +93,7 @@ export function MapView(props: MapViewProps) {
     if (observers.length > 0 || fitted.length > 0) adapter.fitToFeatures(FIT_PADDING_PX, fitted);
   }, [adapter, observers, bearings, lineLengthM, fix, layers]);
 
+  const shown = unavailable ?? failure;
   return (
     <div data-testid="map-view">
       <div
@@ -100,7 +106,7 @@ export function MapView(props: MapViewProps) {
           marginBottom: SIZES.gapPx,
         }}
       />
-      {failure !== null && <FailureNotice failure={failure} />}
+      {shown !== null && <FailureNotice failure={shown} />}
     </div>
   );
 }

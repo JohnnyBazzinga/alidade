@@ -67,6 +67,7 @@ const SOURCES = [
   'src/adapters/map/map-adapter.ts',
   'src/adapters/map/maplibre-loader.ts',
   'src/adapters/map/maplibre-types.ts',
+  'src/adapters/map/maplibre-worker-url.d.ts',
   'src/components/CameraImage.tsx',
   'src/components/CaptureSummary.tsx',
   'src/components/DeviceSighting.tsx',

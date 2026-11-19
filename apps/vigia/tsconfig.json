@@ -5,13 +5,15 @@
     "jsx": "react-jsx"
   },
   // Sensors' source is type-checked with this package (it is imported as source), and it imports
-  // `magvar`, whose declaration is a file of Sensors' own (no `@types/magvar` exists).
+  // `magvar`, whose declaration is a file of Sensors' own (no `@types/magvar` exists). The UI's map
+  // loader imports the map library's worker address with Vite's `?url`, declared in the UI's own file.
   "include": [
     "src",
     "fixtures",
     "vite.config.ts",
     "vitest.config.ts",
     "vitest.deep.config.ts",
-    "../../skeleton/sensors/src/magvar.d.ts"
+    "../../skeleton/sensors/src/magvar.d.ts",
+    "../../skeleton/ui/src/adapters/map/maplibre-worker-url.d.ts"
   ]
 }

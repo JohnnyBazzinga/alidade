@@ -11,6 +11,15 @@
 //
 // A Notice is shown in every state but `failed`; `portrait_required` is shown in `live` and
 // `frozen` while the newest sample's Screen angle is not 0.
+//
+// Layout (Req 13.13, 13.14; amendments of 2026-11-19). Every part lies in the normal flow and the
+// screen is as tall as its content; only the Reticle and the Mark are placed over the image, which
+// clips them. The image has a height of its own (`IMAGE_HEIGHT`). The control bar follows directly
+// after the parts it belongs to, and the longer forms come after it. Directly above the bar are, in
+// this order, the Yaw status (with its prompt) and the Message of a Notice, so that a refused action
+// is shown where the user is looking when the control is pressed. While a bearing Session on the
+// Relative frame has no valid north, "Set north from the compass" is the primary control and Freeze
+// a secondary one.
 
 import { wrapPi } from '@alidade/core';
 import type { ReactNode } from 'react';
@@ -50,6 +59,13 @@ export interface SightingScreenProps {
   readonly imageLabel?: string;
 }
 
+/**
+ * The height of the image: about half the small viewport, and never under 240 or over 480 CSS px,
+ * so that the readout and the controls follow it on a phone. A height of its own, not a share of
+ * the screen's, so that the screen grows with its content and nothing spills out of it.
+ */
+export const IMAGE_HEIGHT = 'clamp(240px, 45svh, 480px)';
+
 export const SCREEN_TEXT = {
   permission:
     'Hold the phone upright in portrait, tap Start, then aim the crosshair at the target.',
@@ -88,6 +104,16 @@ export function SightingScreen(props: SightingScreenProps) {
   const frozen = state === 'frozen';
   const showImage = state === 'starting' || state === 'live' || frozen;
   const mark = session.frozen?.mark ?? null;
+  const status = yawStatus(
+    session.yawReference,
+    session.history.frameResets,
+    session.nowUtcMs ?? 0,
+    parameters.yawReferenceMaxAgeMs,
+  );
+  const frame = newestFrame(session);
+  // Req 13.14: with no valid north on the Relative frame, a bearing cannot be captured; setting
+  // north is what the user must do first.
+  const northFirst = bearing && frame === 'relative' && status.status !== 'valid';
 
   const controls: ControlSpec[] = [];
   if (state === 'permission') {
@@ -98,19 +124,21 @@ export function SightingScreen(props: SightingScreenProps) {
       onPress: props.onRequestPermission,
     });
   } else if (state === 'live') {
-    controls.push({
+    const freeze: ControlSpec = {
       id: 'freeze',
       label: 'Freeze',
-      primary: true,
+      primary: !northFirst,
       onPress: () => onAction({ kind: 'freeze' }),
-    });
-    if (bearing) {
-      controls.push({
-        id: 'north-compass',
-        label: 'Set north from the compass',
-        onPress: () => onAction({ kind: 'establishYaw', from: { kind: 'compass' } }),
-      });
-    }
+    };
+    const north: ControlSpec = {
+      id: 'north-compass',
+      label: 'Set north from the compass',
+      primary: northFirst,
+      onPress: () => onAction({ kind: 'establishYaw', from: { kind: 'compass' } }),
+    };
+    if (!bearing) controls.push(freeze);
+    else if (northFirst) controls.push(north, freeze);
+    else controls.push(freeze, north);
   } else if (frozen) {
     controls.push({
       id: 'capture',
@@ -144,12 +172,6 @@ export function SightingScreen(props: SightingScreenProps) {
     });
   }
 
-  const status = yawStatus(
-    session.yawReference,
-    session.history.frameResets,
-    session.nowUtcMs ?? 0,
-    parameters.yawReferenceMaxAgeMs,
-  );
   const portrait =
     (state === 'live' || frozen) &&
     portraitProblem(session, parameters) &&
@@ -170,7 +192,6 @@ export function SightingScreen(props: SightingScreenProps) {
       style={{
         display: 'flex',
         flexDirection: 'column',
-        minHeight: '100%',
         background: COLOURS.bg,
       }}
     >
@@ -179,13 +200,14 @@ export function SightingScreen(props: SightingScreenProps) {
           {SCREEN_TEXT.permission}
         </p>
       )}
+      {state === 'permission' && <LimitsNote />}
       {state === 'starting' && (
         <p data-part="hint" style={text}>
           {SCREEN_TEXT.starting}
         </p>
       )}
       {showImage && (
-        <div style={{ position: 'relative', flex: '1 1 320px', minHeight: 320 }}>
+        <div data-part="image-box" style={{ position: 'relative', height: IMAGE_HEIGHT }}>
           <ImageSurface
             frozen={frozen}
             sourceSize={props.sourceSize}
@@ -210,14 +232,6 @@ export function SightingScreen(props: SightingScreenProps) {
         </div>
       )}
       {state === 'live' && <Readout readout={session.readout} />}
-      {(state === 'live' || frozen) && bearing && (
-        <YawStatusBar
-          status={status}
-          yawReference={session.yawReference}
-          frame={newestFrame(session)}
-          headingSigmaRad={parameters.headingSigmaRad}
-        />
-      )}
       {state === 'live' && (
         <p data-part="hint" style={text}>
           {SCREEN_TEXT.liveHint}
@@ -232,15 +246,23 @@ export function SightingScreen(props: SightingScreenProps) {
       {state === 'captured' && session.captured !== null && (
         <CaptureSummary result={session.captured} />
       )}
+      {(state === 'live' || frozen) && bearing && (
+        <YawStatusBar
+          status={status}
+          yawReference={session.yawReference}
+          frame={frame}
+          headingSigmaRad={parameters.headingSigmaRad}
+        />
+      )}
       {state === 'failed' && session.failure !== null && (
         <FailureNotice failure={session.failure} />
       )}
       {state !== 'failed' && session.notice !== null && <FailureNotice failure={session.notice} />}
-      {(state === 'permission' || state === 'live') && <LimitsNote />}
+      <ControlBar controls={controls} />
+      {state === 'live' && <LimitsNote />}
       {(state === 'live' || frozen) && bearing && (
         <KnownAzimuthForm onSubmit={(from) => onAction({ kind: 'establishYaw', from })} />
       )}
-      <ControlBar controls={controls} />
     </div>
   );
 }

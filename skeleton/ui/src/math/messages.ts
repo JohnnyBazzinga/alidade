@@ -237,8 +237,9 @@ export const MESSAGES: Record<UiReason, MessageSource> = {
       'Check the internet connection, because the sightings are still drawn on a plain background.',
   },
   map_unavailable: {
-    whatHappened: 'The map could not be started on this device.',
-    whatToDo: 'Use a browser that supports WebGL, or read the positions from the list.',
+    whatHappened: 'The map cannot be drawn on this device.',
+    whatToDo:
+      'The list of sightings and the fix in words still work; a browser with WebGL may draw the map.',
   },
   crosses_antimeridian: {
     whatHappened: 'The points are too far apart to show on one map.',

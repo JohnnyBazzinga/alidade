@@ -1,5 +1,8 @@
 // The controls of a sighting (Req 13.7): each at least 48 × 48 CSS px, 8 px apart, the primary
 // ones (Freeze, Capture) at least 64 tall, in the lower part of the screen where a thumb reaches.
+// The bar lies in the normal flow, directly after the parts of the screen it belongs to (Req 13.13):
+// a bar held at the lower edge of the viewport would lie over the image, the readout or the
+// Message that the user needs to read.
 
 import { COLOURS, FONT_STACK, SIZES } from './theme';
 
@@ -36,8 +39,6 @@ export function ControlBar({ controls }: { readonly controls: readonly ControlSp
       data-testid="control-bar"
       data-placement="lower"
       style={{
-        position: 'sticky',
-        bottom: 0,
         display: 'flex',
         flexWrap: 'wrap',
         gap: SIZES.gapPx,

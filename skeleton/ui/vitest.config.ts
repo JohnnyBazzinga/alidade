@@ -39,6 +39,15 @@ export default defineConfig({
           setupFiles: ['src/test-support/fast-check-setup.ts', 'src/test-support/dom-setup.ts'],
         },
       },
+      {
+        // Req 15.18: the output of the Playground's build (the test runs `vite build`, which exits).
+        extends: true,
+        test: {
+          name: 'build',
+          environment: 'node',
+          include: ['playground/build-output.test.ts'],
+        },
+      },
     ],
   },
 });

@@ -305,3 +305,22 @@ describe('the API (Req 15.5, 15.9, D13)', () => {
     ]);
   });
 });
+
+describe('a worker that does not start (Req 15.18)', () => {
+  it('delivers map_unavailable, never tiles_unavailable, before or after load', () => {
+    for (const loadFirst of [false, true]) {
+      const { adapter, map, timer } = setUp(TILES);
+      if (loadFirst) map.fire('load');
+      const seen: unknown[] = [];
+      adapter.onError((f) => seen.push(f));
+      map.fire('unavailable', { error: new Error('Worker failed to load.') });
+      expect(seen).toEqual([{ ok: false, reason: 'map_unavailable', errorName: 'Error' }]);
+      // The map draws nothing now, so a tile or a write that fails afterwards is not reported as
+      // the tiles' fault, and the failure is not repeated.
+      timer.advance(5000);
+      map.fire('error', { error: new Error('404') });
+      map.fire('unavailable', { error: new Error('Worker failed to load.') });
+      expect(seen).toHaveLength(1);
+    }
+  });
+});

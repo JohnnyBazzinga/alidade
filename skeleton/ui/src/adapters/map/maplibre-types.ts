@@ -35,7 +35,12 @@ export interface GeoJsonSourceLike {
   setData(data: unknown): Promise<void> | void;
 }
 
-export type MapEventName = 'load' | 'error';
+/**
+ * `load` and `error` are the library's own. `unavailable` is the library's `error` event when it
+ * says that its worker did not start (Req 15.18): the map can then draw nothing at all, which is not
+ * a failure of the tiles. The loader tells the two apart; every other `error` stays `error`.
+ */
+export type MapEventName = 'load' | 'error' | 'unavailable';
 
 export interface SubscriptionLike {
   unsubscribe(): void;

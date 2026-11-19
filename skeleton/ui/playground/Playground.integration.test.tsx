@@ -359,6 +359,36 @@ describe('the Playground in device mode (Req 18.2, 18.3)', () => {
     return { m, advance };
   }
 
+  // Req 18.11: on the phone, Start is on the first screen. The sighting screen comes first, above
+  // the mode switch and everything else, and the Camera calibration form after it, closed.
+  it('shows the sighting screen first and the calibration form after it, closed until opened', async () => {
+    const { m } = deviceSetup();
+    await m.settle();
+    const page = m.getByTestId('playground');
+    const screen = m.getByTestId('sighting-screen');
+    const first = page.firstElementChild;
+    expect(first !== null && (first === screen || first.contains(screen))).toBe(true);
+    const form = m.getByTestId('calibration-form');
+    expect(screen.compareDocumentPosition(form) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+    const details = form.closest('details');
+    if (details === null) throw new Error('the form is not in a details element');
+    expect(details.open).toBe(false);
+    const summary = details.querySelector('summary');
+    expect(summary?.textContent).toBe('Camera calibration');
+    expect(Number.parseFloat(summary?.style.minHeight ?? '0')).toBeGreaterThanOrEqual(48);
+    await m.settle(() => {
+      details.open = true;
+      fireEvent(details, new Event('toggle'));
+    });
+    expect(m.getByTestId('calibration-form').closest('details')?.open).toBe(true);
+  });
+
+  it('in simulator mode keeps the tap form open before the panel, as before', async () => {
+    const m = mount({ hasDeviceOrientation: false });
+    await m.settle();
+    expect(m.getByTestId('calibration-form').closest('details')).toBeNull();
+  });
+
   it('Start asks for motion and starts the rear camera from the one tap', async () => {
     const { m } = deviceSetup();
     await m.settle();
