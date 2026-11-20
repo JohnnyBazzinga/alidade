@@ -131,8 +131,9 @@ export function applyAction(
   switch (action.kind) {
     case 'createIncident': {
       if (!finite(action.nowUtcMs)) return err('invalid_number', { field: 'nowUtcMs' });
-      const exists = incidentHolding(state, action.incidentId) !== undefined;
-      if (!isIncidentId(action.incidentId) || exists)
+      const holder = incidentHolding(state, action.incidentId);
+      if (!holder.ok) return holder;
+      if (!isIncidentId(action.incidentId) || holder.value !== null)
         return err('invalid_number', { field: 'incidentId' });
       return changed({
         incidents: [...state.incidents, newIncident(action.incidentId, action.nowUtcMs, 'created')],
@@ -168,8 +169,10 @@ export function applyAction(
       if (!finite(action.nowUtcMs)) return err('invalid_number', { field: 'nowUtcMs' });
       const { item } = action;
       // A code made under a former id is a code of the Incident that holds it (design §7.4a).
-      const known = incidentHolding(state, item.sighting.incidentId);
-      if (known === undefined && !action.joinIfUnknown) return err('incident_unknown');
+      const holder = incidentHolding(state, item.sighting.incidentId);
+      if (!holder.ok) return holder;
+      const known = holder.value;
+      if (known === null && !action.joinIfUnknown) return err('incident_unknown');
       const target = known ?? newIncident(item.sighting.incidentId, action.nowUtcMs, 'joined');
       const labelled = relabelItem(item, target.incidentId, parameters);
       if (!labelled.ok) return labelled;
@@ -181,7 +184,7 @@ export function applyAction(
         parameters,
       );
       if (!merged.ok) return merged;
-      if (known === undefined) {
+      if (known === null) {
         return changed(
           {
             incidents: [...state.incidents, merged.value.incident],

@@ -636,3 +636,14 @@ into the skeleton-sensors requirements.
     that it does not wrap over the map's content in a way that hides the Fix, and that it stays open
     after the map is moved: jsdom has no layout and the fake map library creates no control. Then
     the root checks.
+  - [x] 31.4 Continued (2026-11-20, from the lead's look at 390 px: pale text on the library's
+    half-transparent white strip, and the strip over an observer's dot). Tests first, seen to fail:
+    `math/map/attribution-style.test.ts` (dark ink on light ink, opaque, at least 7:1; links the same
+    colour and underlined; 12 px on 20 px lines; the strip of two lines and its padding, 44 px),
+    `theme.test.tsx` (the pair `outline on mapInk (map attribution)` among the palette's pairs),
+    `MapView.test.tsx` (the style, scoped to the map container's class), `map-adapter.test.ts` (the
+    fit's bottom padding is the padding plus 44 px). Code: `math/map/attribution-style.ts`,
+    `theme.ts` (the pair), `MapView.tsx` (the `<style>` and the class), `map-adapter.ts` and
+    `maplibre-types.ts` (padding by side), the purity list. Only a picture can confirm that the
+    rules win over the library's stylesheet in a real browser, that the strip is one line at 390 px
+    with the trial's attribution, and that the observers now sit above it.

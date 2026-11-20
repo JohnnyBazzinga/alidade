@@ -12,6 +12,7 @@
 // the ids and former ids of all Incidents are pairwise different (I1).
 
 import { encodeSighting } from '../code/sighting-code';
+import { err, ok, type VigiaResult } from '../../result';
 import type { VigiaParameters } from '../parameters';
 import { incidentMode, isIncidentId } from './ids';
 import type { Sighting } from './sighting';
@@ -85,13 +86,20 @@ export function emptyState(): VigiaState {
 }
 
 /**
- * The Incident whose id, or one of whose former ids, is `incidentId` (design §7.4a), or
- * `undefined`. A code made under either is a code of that Incident.
+ * The Incident whose id, or one of whose former ids, is `incidentId` (design §7.4a), or `null`
+ * when none holds it. A code made under either is a code of that Incident. A state that holds a
+ * number that is not finite is `invalid_number` naming `state` (Req 2.1; the counterexample of
+ * P-2.6, seed 898952540).
  */
-export function incidentHolding(state: VigiaState, incidentId: string): Incident | undefined {
-  return state.incidents.find(
+export function incidentHolding(
+  state: VigiaState,
+  incidentId: string,
+): VigiaResult<Incident | null> {
+  if (!hasOnlyFiniteNumbers(state)) return err('invalid_number', { field: 'state' });
+  const held = state.incidents.find(
     (i) => i.incidentId === incidentId || (i.formerIds ?? []).includes(incidentId),
   );
+  return ok(held ?? null);
 }
 
 /** Code-unit order of two strings: the order of the entries of an Incident (I2). */

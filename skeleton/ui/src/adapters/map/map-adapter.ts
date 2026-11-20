@@ -3,6 +3,7 @@
 // which writes the single result of `fixFeatures` (the Point and its 95 % ellipse) in one
 // `setData` of one source; there is no operation that draws a Position as a Fix.
 
+import { ATTRIBUTION_STRIP_PX } from '../../math/map/attribution-style';
 import type { Bearing, Fix } from '@alidade/core';
 import {
   ELLIPSE_VERTEX_COUNT,
@@ -367,7 +368,17 @@ export function createMapAdapter(
             [b.westDeg, b.southDeg],
             [b.eastDeg, b.northDeg],
           ],
-          { padding: paddingPx, animate: false },
+          {
+            // The bottom also keeps the attribution's strip clear, so that no observer, line end or
+            // ellipse lies under it (task 31 continued, Req 15.2).
+            padding: {
+              top: paddingPx,
+              right: paddingPx,
+              bottom: paddingPx + ATTRIBUTION_STRIP_PX,
+              left: paddingPx,
+            },
+            animate: false,
+          },
         );
       } catch (error) {
         const name = nameOf(error);

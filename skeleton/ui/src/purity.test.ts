@@ -101,6 +101,7 @@ const SOURCES = [
   'src/math/image-layout.ts',
   'src/math/map/app-feature.ts',
   'src/math/map/app-layer.ts',
+  'src/math/map/attribution-style.ts',
   'src/math/map/bearing-features.ts',
   'src/math/map/fix-features.ts',
   'src/math/map/geojson.ts',

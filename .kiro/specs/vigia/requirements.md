@@ -490,7 +490,7 @@ Assumed until the owner answers (lead's decision of 2026-11-18): A, B and C with
 
 Open, with the owner. Decided (design review): there is no Content-Security-Policy generator and no `docs/hosting.md`; two paragraphs of the package's README say which hosts the page contacts and which headers the host should send (`Referrer-Policy: strict-origin` first, as amended on 2026-11-20 with Requirement 10.2).
 
-Decided by the owner's choices so far (2026-11-20): the trial builds are served as built files from GitHub Pages (a static host over HTTPS that sets no headers of ours, so the page's `meta` carries the referrer policy). The host of the final apps is the same unless the owner says otherwise at submission.
+Decided by the owner's choices so far (2026-11-20): the trial builds are served as built files from GitHub Pages (a static host over HTTPS that sets no headers of ours, so the page's `meta` carries the referrer policy). Decided (owner, 2026-11-20): the final apps are served from GitHub Pages too, from the public repository of the submission, which is under the owner's GitHub account `JohnnyBazzinga` (the trial builds are under another account that is signed in on the build machine).
 
 **O3. Accounts, relay operation and data protection.** If a relay is ever chosen: who operates it, how long it keeps a Sighting, whether the owner accepts the legal duties of holding positions of private persons, how abuse is handled, and who pays. Proposal: decide only if O1 chooses D; until then the privacy table of Requirement 15.3 is the whole answer.
 
@@ -514,7 +514,7 @@ Decided (owner, 2026-11-20): Open-Meteo, under those terms (a hackathon entry is
 
 Read by the lead on 2026-11-20 (the OpenStreetMap Foundation's tile usage policy, for `tile.openstreetmap.org`, which the owner chose for the trial builds on 2026-11-19): the attribution is shown clearly on the map and is not hidden behind a toggle; the browser sends a valid referrer, and a page must not set a referrer policy that withholds it (such traffic may be blocked without notice); only the tiles a user is looking at are fetched (no prefetching, no offline store); caches are not bypassed; the HTTPS address is used; the service is best effort with no guarantee, and heavy use may be blocked. What follows for the app: Requirement 10.2's page policy is `strict-origin`; the map's attribution is always shown in full (skeleton-ui Requirement 15); the app never fetches tiles ahead and has no offline map. A hackathon entry opened by a few judges is light use. A release to many users needs a provider with an agreement, or its own tiles: the provider stays a build-time choice for that reason.
 
-Recommended to the owner for the submission: OpenStreetMap's tiles under that policy. Open until the owner confirms.
+Decided (owner, 2026-11-20): OpenStreetMap's tiles under that policy, for the trial builds and for the submission.
 
 **O8. Wording that carries liability.** The statements that the app does not call anyone, is not certified, is not a replacement for the emergency number, and its limits (`product.md`, non-goals). Proposal: the owner approves the text of those statements, the privacy table of Requirement 15.3, and a short privacy note for `docs/`, before the demo link is public.
 

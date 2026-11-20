@@ -45,6 +45,17 @@ describe('the palette (Req 13.2, 13.11, design §7.18)', () => {
     expect(ratio(COLOURS.rule, COLOURS.raised).toFixed(2)).toBe('3.42');
   });
 
+  // Task 31 continued (Req 15.2): the map's attribution is the map's dark ink on its light ink.
+  it('holds the map attribution, outline on mapInk, among its pairs at 7:1', () => {
+    const pair = PALETTE_PAIRS.find((p) => p.label === 'outline on mapInk (map attribution)');
+    expect(pair).toEqual({
+      label: 'outline on mapInk (map attribution)',
+      foreground: COLOURS.outline,
+      background: COLOURS.mapInk,
+    });
+    expect(ratio(COLOURS.outline, COLOURS.mapInk)).toBeGreaterThanOrEqual(MIN_CONTRAST_RATIO);
+  });
+
   it('holds the hairline to 3:1 against every surface', () => {
     for (const surface of [COLOURS.bg, COLOURS.panel, COLOURS.raised]) {
       expect(ratio(COLOURS.rule, surface)).toBeGreaterThanOrEqual(HAIRLINE_MIN_RATIO);

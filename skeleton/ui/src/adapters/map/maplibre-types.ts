@@ -20,7 +20,8 @@
 //   also exists and returns the map. Event names `load` (MapLibreEvent), `error` (ErrorEvent with
 //   `.error`) and `sourcedata` (MapSourceDataEvent) are in `MapEventType`.
 // - `fitBounds(bounds: LngLatBoundsLike, options?: FitBoundsOptions): this`; `[[w, s], [e, n]]` is
-//   a valid `LngLatBoundsLike`; `animate: false` and `padding` are `FitBoundsOptions`.
+//   a valid `LngLatBoundsLike`; `animate: false` and `padding` are `FitBoundsOptions`; `padding` is a
+//   number or `PaddingOptions` `{ top, bottom, left, right }` in CSS px.
 // - `remove(): void`.
 // - Missing WebGL: the constructor THROWS `GPUInitializationError` (`name` of that class) from
 //   `_setupPainter` when `getContext('webgl2')` is null. It is not emitted as an `error` event on
@@ -70,7 +71,15 @@ export interface MapLike {
   removeSource(id: string): void;
   fitBounds(
     bounds: readonly [readonly [number, number], readonly [number, number]],
-    options: { readonly padding: number; readonly animate: false },
+    options: {
+      readonly padding: {
+        readonly top: number;
+        readonly right: number;
+        readonly bottom: number;
+        readonly left: number;
+      };
+      readonly animate: false;
+    },
   ): void;
   remove(): void;
 }

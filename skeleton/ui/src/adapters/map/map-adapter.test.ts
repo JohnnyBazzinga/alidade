@@ -1,3 +1,4 @@
+import { ATTRIBUTION_STRIP_PX } from '../../math/map/attribution-style';
 import type { Bearing } from '@alidade/core';
 import { describe, expect, it, vi } from 'vitest';
 import { ELLIPSE_VERTEX_COUNT } from '../../defaults';
@@ -204,7 +205,11 @@ describe('writing data (Req 15.5, 15.6, D12)', () => {
     adapter.setFix(FIX);
     expect(adapter.fitToFeatures(20).ok).toBe(true);
     const [bounds, options] = map.fitBoundsCalls[0] ?? [];
-    expect(options).toEqual({ padding: 20, animate: false });
+    // Task 31 continued (Req 15.2): the bottom keeps the attribution's strip clear as well.
+    expect(options).toEqual({
+      padding: { top: 20, right: 20, bottom: 20 + ATTRIBUTION_STRIP_PX, left: 20 },
+      animate: false,
+    });
     const [[w, s], [e, n]] = bounds as [[number, number], [number, number]];
     // The 95 % ellipse is 294 m long: the box is wider than a point.
     expect(e - w).toBeGreaterThan(0.001);

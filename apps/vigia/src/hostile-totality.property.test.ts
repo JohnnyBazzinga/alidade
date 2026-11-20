@@ -669,9 +669,15 @@ export const HOSTILE_LIST: readonly HostileEntry[] = [
       fc.oneof(hostileString(), fc.constantFrom(...INCIDENT_POOL)),
     ),
     incidentHolding,
-    ([, id], result) => {
-      if (result !== undefined) {
-        const held = result as Incident;
+    ([state, id], result) => {
+      // A result like every public function (the lead's decision after seed 898952540).
+      if (!hasOnlyFiniteNumbers(state)) {
+        expect(result).toEqual({ ok: false, reason: 'invalid_number', field: 'state' });
+        return;
+      }
+      expect(Reflect.get(result as object, 'ok')).toBe(true);
+      const held = Reflect.get(result as object, 'value') as Incident | null;
+      if (held !== null) {
         expect(held.incidentId === id || (held.formerIds ?? []).includes(id)).toBe(true);
       }
     },

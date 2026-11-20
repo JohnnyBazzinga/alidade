@@ -1,7 +1,7 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { deepSame } from './deep-same';
-import { cappedRuns, MIN_PROPERTY_RUNS, propertyRuns } from './fast-check-setup';
+import { cappedRuns, MIN_PROPERTY_RUNS, propertyRuns, seedFrom } from './fast-check-setup';
 import { checkProperty, ErrorTracker, propertyReports } from './property-report';
 
 describe('shared fast-check configuration', () => {
@@ -20,6 +20,23 @@ describe('shared fast-check configuration', () => {
     expect(cappedRuns(1000)).toBe(Math.max(MIN_PROPERTY_RUNS, Math.min(propertyRuns(), 1000)));
     expect(cappedRuns(50)).toBe(MIN_PROPERTY_RUNS);
     expect(cappedRuns(1_000_000)).toBe(propertyRuns());
+  });
+});
+
+// A seed for a whole run, given as `VIGIA_PROPERTY_SEED` (the lead, 2026-11-20: run the P-2.6
+// entries of task group 20 deep with five seeds). None given: fast-check draws its own.
+describe('the seed of a run', () => {
+  it('is a 32-bit integer read from the variable, or none when it is not set', () => {
+    expect(seedFrom(undefined)).toBeNull();
+    expect(seedFrom('898952540')).toBe(898952540);
+    expect(seedFrom('-333382481')).toBe(-333382481);
+    expect(seedFrom('0')).toBe(0);
+  });
+
+  it('refuses text that is not such an integer, so that a typing slip is not a silent random run', () => {
+    for (const bad of ['', ' 1', '1.5', 'abc', '1e3', '2147483648', '-2147483649', 'NaN']) {
+      expect(() => seedFrom(bad), bad).toThrow();
+    }
   });
 });
 

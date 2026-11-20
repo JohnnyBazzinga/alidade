@@ -15,6 +15,7 @@ import type { AppFeatureCollection, LayerPaint } from '../math/map/app-layer';
 import { messageFor } from '../math/messages';
 import { FakeMapLibre } from '../test-support/fake-maplibre';
 import { FakeTimer } from '../test-support/fake-timer';
+import { attributionCss } from '../math/map/attribution-style';
 import { MapView } from './MapView';
 
 const ORIGIN: Position = { latRad: 0.5, lonRad: -0.7 };
@@ -147,6 +148,27 @@ describe('MapView (Req 15, 13.6)', () => {
   });
 
   // Task group 30 (design D34): an app gives the map the height it needs; 240 px by default.
+  // Task 31 continued (Req 15.2): the skeleton's own style makes the attribution readable, for
+  // every app that shows MapView; no app sets it.
+  it('carries the attribution style, scoped to its own map container', () => {
+    const view = render(
+      <MapView
+        lib={null}
+        tiles={null}
+        timer={timer}
+        observers={[]}
+        bearings={[]}
+        lineLengthM={5000}
+        fix={null}
+      />,
+    );
+    const mapContainer = view.getByTestId('map-container');
+    expect(mapContainer.classList.contains('alidade-map')).toBe(true);
+    const styles = view.getByTestId('map-view').querySelectorAll('style');
+    expect(styles).toHaveLength(1);
+    expect(styles[0]?.textContent).toBe(attributionCss('alidade-map'));
+  });
+
   it('takes the height of the map from its prop, 240 CSS px by default', () => {
     const base = {
       lib: null,

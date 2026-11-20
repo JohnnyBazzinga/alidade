@@ -87,6 +87,12 @@ export const PALETTE_PAIRS: readonly PalettePair[] = [
   { label: 'outline on white', foreground: COLOURS.outline, background: WHITE },
   { label: 'outline on brass', foreground: COLOURS.outline, background: COLOURS.brass },
   { label: 'mapInk on black', foreground: COLOURS.mapInk, background: BLACK },
+  // The map's attribution (Req 15.2, task 31): `math/map/attribution-style.ts` uses this pair.
+  {
+    label: 'outline on mapInk (map attribution)',
+    foreground: COLOURS.outline,
+    background: COLOURS.mapInk,
+  },
 ];
 
 /** Hairlines carry no value; they are held to the 3:1 of non-text contrast (design §7.18). */

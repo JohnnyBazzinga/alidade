@@ -108,9 +108,9 @@ export function joinIncident(
   const open = state.incidents.find((i) => i.incidentId === state.openIncidentId);
   if (open === undefined) return err('incident_unknown');
   const other = item.sighting.incidentId;
-  if (incidentHolding(state, other) !== undefined) {
-    return err('invalid_number', { field: 'incidentId' });
-  }
+  const holder = incidentHolding(state, other);
+  if (!holder.ok) return holder;
+  if (holder.value !== null) return err('invalid_number', { field: 'incidentId' });
   if (incidentMode(open.incidentId) !== incidentMode(other)) return err('incident_not_joinable');
 
   const survivorId = compareIds(open.incidentId, other) <= 0 ? open.incidentId : other;

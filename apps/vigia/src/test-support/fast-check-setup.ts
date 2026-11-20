@@ -36,4 +36,26 @@ export function isDeepRun(): boolean {
   return propertyRuns() > MIN_PROPERTY_RUNS;
 }
 
-fc.configureGlobal({ numRuns: propertyRuns() });
+/**
+ * The seed of the whole run from the text of `VIGIA_PROPERTY_SEED`, or `null` when it is not set.
+ * Throws for text that is not a 32-bit integer: a slip must not become an unseeded run.
+ */
+export function seedFrom(text: string | undefined): number | null {
+  if (text === undefined) return null;
+  if (!/^-?\d+$/.test(text)) throw new Error(`VIGIA_PROPERTY_SEED is not an integer: ${text}`);
+  const seed = Number(text);
+  if (seed < -2147483648 || seed > 2147483647) {
+    throw new Error(`VIGIA_PROPERTY_SEED is not a 32-bit integer: ${text}`);
+  }
+  return seed;
+}
+
+const environment: unknown = Reflect.get(globalThis, 'process');
+const seedText: unknown =
+  typeof environment === 'object' && environment !== null
+    ? Reflect.get(Reflect.get(environment, 'env') as object, 'VIGIA_PROPERTY_SEED')
+    : undefined;
+const runSeed = seedFrom(typeof seedText === 'string' ? seedText : undefined);
+
+fc.configureGlobal({ numRuns: propertyRuns(), ...(runSeed === null ? {} : { seed: runSeed }) });
+if (runSeed !== null && isDeepRun()) console.log(`[deep] seed of this run: ${runSeed}`);

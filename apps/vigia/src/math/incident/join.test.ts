@@ -13,7 +13,9 @@ import {
 } from '../../test-support/incident-fixtures';
 import { invariants } from '../../test-support/incident-invariants';
 import { applyAction, type VigiaAction } from './apply-action';
-import { relabelItem } from './join';
+import { joinIncident, relabelCode, relabelItem } from './join';
+import { parseStoredState, serialiseState } from './storage-format';
+import { sanitiseState } from './incident-state';
 import {
   emptyState,
   incidentHolding,
@@ -271,10 +273,14 @@ describe('a code of a former id (design §7.4a)', () => {
 
   it('is held by the Incident of the current id: no question, no new Incident', () => {
     const state = joined();
-    expect(incidentHolding(state, SMALL)?.incidentId).toBe(SMALL);
-    expect(incidentHolding(state, LARGE)?.incidentId).toBe(SMALL);
-    expect(incidentHolding(state, MIDDLE)).toBeUndefined();
-    expect(incidentHolding(emptyState(), LARGE)).toBeUndefined();
+    const holderId = (s: VigiaState, id: string) => {
+      const r = incidentHolding(s, id);
+      return r.ok ? (r.value?.incidentId ?? null) : r;
+    };
+    expect(holderId(state, SMALL)).toBe(SMALL);
+    expect(holderId(state, LARGE)).toBe(SMALL);
+    expect(incidentHolding(state, MIDDLE)).toEqual({ ok: true, value: null });
+    expect(incidentHolding(emptyState(), LARGE)).toEqual({ ok: true, value: null });
   });
 
   it('is added without joinIfUnknown, relabelled to the current id', () => {
@@ -339,7 +345,7 @@ describe('a code of a former id (design §7.4a)', () => {
 
   it('goes with the Incident: after it is deleted the id is unknown again', () => {
     const state = ran(joined(), { kind: 'deleteIncident', incidentId: SMALL });
-    expect(incidentHolding(state, LARGE)).toBeUndefined();
+    expect(incidentHolding(state, LARGE)).toEqual({ ok: true, value: null });
     expect(
       failure(state, {
         kind: 'addReceived',
@@ -494,6 +500,166 @@ describe('relabelItem refuses an item that holds a number that is not finite (P-
       ok: false,
       reason: 'invalid_number',
       field: 'item',
+    });
+  });
+});
+
+// The shrunk counterexample of P-2.6 (`incidentHolding`, root `pnpm test` of skeleton-ui task 31.4,
+// project no-overlays, seed 898952540): a state whose Incident has a creation time of NaN, asked
+// for its own id, gave that Incident back, NaN and all (Req 2.1). The lead's decision: the function
+// returns a result, `invalid_number` naming `state` for a state that is not finite.
+describe('incidentHolding refuses a state that holds a number that is not finite (P-2.6 counterexample)', () => {
+  const counterexample: VigiaState = {
+    incidents: [
+      {
+        incidentId: 'K7PQ3MWXA2',
+        createdUtcMs: Number.NaN,
+        creation: 'created',
+        formerIds: [],
+        entries: [],
+        conflicts: [],
+      },
+    ],
+    openIncidentId: 'K7PQ3MWXA2',
+  };
+
+  it('the counterexample, asked for its own id, is invalid_number naming state', () => {
+    expect(incidentHolding(counterexample, 'K7PQ3MWXA2')).toEqual({
+      ok: false,
+      reason: 'invalid_number',
+      field: 'state',
+    });
+  });
+
+  it('is refused for any id, held or not, and for every number of the state', () => {
+    const good = phone(LARGE, 1);
+    const [incident] = good.incidents;
+    if (incident === undefined) throw new Error('no Incident');
+    const [entry] = incident.entries;
+    if (entry === undefined) throw new Error('no entry');
+    const bads: VigiaState[] = [
+      counterexample,
+      { ...good, incidents: [{ ...incident, createdUtcMs: Number.POSITIVE_INFINITY }] },
+      {
+        ...good,
+        incidents: [
+          {
+            ...incident,
+            entries: [
+              {
+                ...entry,
+                sighting: {
+                  ...entry.sighting,
+                  bearing: { ...entry.sighting.bearing, azimuthRad: Number.NaN },
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ];
+    for (const bad of bads) {
+      for (const id of [LARGE, SMALL, 'K7PQ3MWXA2', '']) {
+        expect(incidentHolding(bad, id), id).toEqual({
+          ok: false,
+          reason: 'invalid_number',
+          field: 'state',
+        });
+      }
+    }
+    expect(incidentHolding(good, LARGE)).toEqual({ ok: true, value: incident });
+  });
+});
+
+// The audit of task group 20's functions after the third omission of the same kind (the lead,
+// 2026-11-20): how each treats a state, an item and a number that is not finite. Each holds here;
+// `incidentHolding` and `relabelItem` are the two that did not, fixed above with their own
+// counterexamples.
+describe('group 20 audit: no number that is not finite gets through', () => {
+  const NAN_ITEM = { ...itemOf(2, SMALL), arrivedUtcMs: Number.NaN };
+  const nanState = (): VigiaState => {
+    const good = phone(LARGE, 1);
+    const [incident] = good.incidents;
+    if (incident === undefined) throw new Error('no Incident');
+    return { ...good, incidents: [{ ...incident, createdUtcMs: Number.NaN }] };
+  };
+  const refused = (field: string) => ({ ok: false, reason: 'invalid_number', field });
+
+  it('relabelCode takes text and parameters only: a bad parameter is named, a code is never a number', () => {
+    const { code } = canonicalOf(2, SMALL);
+    expect(relabelCode(code, LARGE, { ...PARAMETERS, maxCodeLengthChars: Number.NaN })).toEqual(
+      refused('maxCodeLengthChars'),
+    );
+    const relabelled = relabelCode(code, LARGE, PARAMETERS);
+    expect(relabelled.ok).toBe(true);
+  });
+
+  it('joinIncident refuses a state, an item and a time that are not finite, naming each', () => {
+    expect(joinIncident(nanState(), itemOf(2, SMALL), NOW_UTC_MS, PARAMETERS)).toEqual(
+      refused('state'),
+    );
+    expect(joinIncident(phone(LARGE, 1), NAN_ITEM, NOW_UTC_MS, PARAMETERS)).toEqual(
+      refused('item'),
+    );
+    expect(joinIncident(phone(LARGE, 1), itemOf(2, SMALL), Number.NaN, PARAMETERS)).toEqual(
+      refused('nowUtcMs'),
+    );
+  });
+
+  it('applyAction refuses each action of group 20 on a state that is not finite, and an item that is not', () => {
+    for (const action of [
+      join(itemOf(2, SMALL)),
+      { kind: 'addReceived', item: itemOf(2, SMALL), nowUtcMs: NOW_UTC_MS, joinIfUnknown: true },
+      { kind: 'createIncident', incidentId: MIDDLE, nowUtcMs: NOW_UTC_MS },
+    ] as VigiaAction[]) {
+      expect(failure(nanState(), action), action.kind).toEqual(refused('state'));
+    }
+    expect(failure(phone(LARGE, 1), join(NAN_ITEM))).toEqual(refused('item'));
+    expect(
+      failure(phone(LARGE, 1), {
+        kind: 'addReceived',
+        item: NAN_ITEM,
+        nowUtcMs: NOW_UTC_MS,
+        joinIfUnknown: true,
+      }),
+    ).toEqual(refused('item'));
+    // A code of a former id, so relabelled: the branch of the first counterexample.
+    const joined = ran(phone(LARGE, 1), join(itemOf(7, SMALL)));
+    expect(
+      failure(joined, {
+        kind: 'addReceived',
+        item: { ...itemOf(8, LARGE), arrivedUtcMs: Number.POSITIVE_INFINITY },
+        nowUtcMs: NOW_UTC_MS,
+        joinIfUnknown: false,
+      }),
+    ).toEqual(refused('item'));
+  });
+
+  it('sanitiseState (replace) drops an Incident whose numbers are not finite, keeping its former ids out', () => {
+    const joined = ran(phone(LARGE, 1), join(itemOf(7, SMALL)));
+    const [incident] = joined.incidents;
+    if (incident === undefined) throw new Error('no Incident');
+    const { state, dropped } = sanitiseState(
+      { ...joined, incidents: [{ ...incident, createdUtcMs: Number.NaN }] },
+      PARAMETERS,
+    );
+    expect(state.incidents).toEqual([]);
+    expect(dropped).toBeGreaterThan(0);
+    expect(failure(joined, { kind: 'replace', state: nanState() })).toBeNull();
+  });
+
+  it('serialiseState writes a number that is not finite as JSON null, and parseStoredState drops it and counts it', () => {
+    const text = serialiseState(nanState(), NOW_UTC_MS);
+    expect(text).not.toMatch(/NaN|Infinity/);
+    const loaded = parseStoredState(text, NOW_UTC_MS, PARAMETERS);
+    expect(loaded).toMatchObject({ ok: true, value: { kind: 'loaded', state: { incidents: [] } } });
+    // JSON can say 1e999, which reads as infinity: a stored time like that is dropped too.
+    const good = serialiseState(phone(LARGE, 1), NOW_UTC_MS);
+    const huge = good.replace(/"createdUtcMs":\d+/, '"createdUtcMs":1e999');
+    expect(huge).not.toBe(good);
+    expect(parseStoredState(huge, NOW_UTC_MS, PARAMETERS)).toMatchObject({
+      ok: true,
+      value: { kind: 'loaded', state: { incidents: [] } },
     });
   });
 });

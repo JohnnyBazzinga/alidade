@@ -29,8 +29,10 @@ const SIMULATED_TEXT = 'This code comes from a simulation, not from a real place
 function smokeText(item: InboxItem, state: VigiaState, inbox: readonly InboxItem[]): string {
   const incidentId = item.sighting.incidentId;
   // A smoke is held under its id or a former id (design §7.4a).
-  const holder = incidentHolding(state, incidentId);
-  if (holder !== undefined) {
+  // A state the store holds has only finite numbers; a refusal reads as "not held".
+  const found = incidentHolding(state, incidentId);
+  const holder = found.ok ? found.value : null;
+  if (holder !== null) {
     return holder.incidentId === state.openIncidentId
       ? 'For the smoke you have open'
       : 'For another smoke on this phone';
@@ -47,13 +49,14 @@ function Card({ item }: { readonly item: InboxItem }) {
   const [confirmingJoin, setConfirmingJoin] = useState(false);
   const [failure, setFailure] = useState<VigiaFailure | null>(null);
   const { bearing, incidentId, sightingId } = item.sighting;
-  const known = incidentHolding(state, incidentId);
+  const found = incidentHolding(state, incidentId);
+  const known = found.ok ? found.value : null;
   const held = known?.entries.find((e) => e.sighting.sightingId === sightingId);
   // The same sighting under the id the smoke has now, to tell a duplicate from a different one.
-  const asHeld = known === undefined ? null : relabelItem(item, known.incidentId, parameters);
+  const asHeld = known === null ? null : relabelItem(item, known.incidentId, parameters);
   const heldCode = asHeld !== null && asHeld.ok ? asHeld.value.code : item.code;
   // An Incident is open: the code of a smoke this phone does not have may be of the same smoke.
-  const asksSameSmoke = known === undefined && state.openIncidentId !== null;
+  const asksSameSmoke = known === null && state.openIncidentId !== null;
   const direction = directionText(bearing.azimuthRad, bearing.azimuthSigmaRad);
   const accuracy = accuracyText(bearing.positionAccuracyM);
   const add = (joinIfUnknown: boolean) => {
@@ -118,7 +121,7 @@ function Card({ item }: { readonly item: InboxItem }) {
                 It is a different smoke
               </button>
             </>
-          ) : known === undefined ? (
+          ) : known === null ? (
             <button type="button" onClick={() => setConfirmingOpen(true)} style={LOOK.button}>
               Open it as a new smoke on this phone
             </button>

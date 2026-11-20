@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createMapAdapter, type MapAdapter } from '../adapters/map/map-adapter';
 import type { MapLibreLike } from '../adapters/map/maplibre-types';
 import type { AppLayer } from '../math/map/app-layer';
+import { attributionCss } from '../math/map/attribution-style';
 import type { MapObserver } from '../math/map/observer-features';
 import type { TileSource } from '../math/map/map-style';
 import type { UiFailure } from '../result';
@@ -41,6 +42,10 @@ export interface MapViewProps {
 const NO_LAYERS: readonly AppLayer[] = [];
 
 const FIT_PADDING_PX = 48;
+
+/** The class of the map container that the attribution style is scoped to (Req 15.2). */
+const MAP_CLASS = 'alidade-map';
+const ATTRIBUTION_CSS = attributionCss(MAP_CLASS);
 
 export function MapView(props: MapViewProps) {
   const { lib, tiles, timer, observers, bearings, lineLengthM, fix } = props;
@@ -105,8 +110,10 @@ export function MapView(props: MapViewProps) {
   const shown = unavailable ?? failure;
   return (
     <div data-testid="map-view">
+      <style>{ATTRIBUTION_CSS}</style>
       <div
         ref={container}
+        className={MAP_CLASS}
         data-testid="map-container"
         style={{
           width: '100%',
