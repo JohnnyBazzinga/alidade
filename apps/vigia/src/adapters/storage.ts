@@ -77,6 +77,34 @@ export function createStorage(storage: StorageLike): VigiaStorage {
   };
 }
 
+/** The object that holds the browser's Storage: the page's global object, passed in. */
+export interface StorageHost {
+  readonly localStorage?: StorageLike | null | undefined;
+}
+
+/**
+ * The storage over the Storage object of `host`, or the memory storage when the browser has none
+ * or denies reading it (reading `localStorage` throws in some browsers with storage disabled).
+ * The memory storage is not `persistent`, which the store reports as `storage_unavailable`.
+ */
+export function createStorageFromHost(host: StorageHost): VigiaStorage {
+  try {
+    const storage = host.localStorage;
+    if (
+      storage === null ||
+      storage === undefined ||
+      typeof storage.getItem !== 'function' ||
+      typeof storage.setItem !== 'function' ||
+      typeof storage.removeItem !== 'function'
+    ) {
+      return createMemoryStorage();
+    }
+    return createStorage(storage);
+  } catch {
+    return createMemoryStorage();
+  }
+}
+
 /** A storage in memory: Simulation mode's, and the fallback when the browser's is unavailable. */
 export function createMemoryStorage(): VigiaStorage {
   const items = new Map<string, string>();

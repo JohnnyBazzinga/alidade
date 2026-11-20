@@ -7,7 +7,7 @@ import { err, ok, type VigiaResult } from '../result';
 
 /** The part of the browser's crypto object this adapter uses. */
 export interface CryptoLike {
-  getRandomValues(array: Uint8Array): Uint8Array;
+  getRandomValues(array: Uint8Array<ArrayBuffer>): Uint8Array;
 }
 
 export interface VigiaRandom {

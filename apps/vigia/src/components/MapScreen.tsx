@@ -120,6 +120,12 @@ export function MapScreen({ overlays }: { readonly overlays: OverlaySlot | null 
               ? 'Plain background: no map tiles are loaded, so no tile server is asked for anything.'
               : 'Map tiles: their source is named on the map.'}
           </li>
+          {environment.tileSourceNote !== undefined && (
+            <li style={LOOK.dim}>
+              Map tiles: {environment.tileSourceNote.sourceName}.{' '}
+              {environment.tileSourceNote.attribution}. Terms: {environment.tileSourceNote.termsUrl}
+            </li>
+          )}
         </ul>
         {overlays?.legend}
       </section>

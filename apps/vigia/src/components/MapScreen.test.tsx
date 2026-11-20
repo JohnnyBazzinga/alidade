@@ -130,6 +130,34 @@ describe('MapScreen (Req 18.1 to 18.3, 6.1)', () => {
     expect(s.getByTestId('map-legend').textContent).toContain('Plain background');
   });
 
+  it('names the Source of the tiles in the legend, with its attribution and its terms as text', async () => {
+    const fake = createFakeEnvironment({
+      map: new FakeMapLibre(),
+      storedItems: storedWith([postsIncident(['west', 'east'])]),
+    });
+    const environment = {
+      ...fake.environment,
+      tileSourceNote: {
+        sourceName: 'Provider Maps',
+        attribution: 'Map data by the Provider',
+        termsUrl: 'https://provider.test/terms',
+      },
+    };
+    const s = renderScreen(<MapScreen overlays={null} />, {}, { ...fake, environment });
+    await s.settle();
+    const legend = s.getByTestId('map-legend');
+    expect(legend.textContent).toContain('Provider Maps');
+    expect(legend.textContent).toContain('Map data by the Provider');
+    expect(legend.textContent).toContain('Terms: https://provider.test/terms');
+    expect(legend.querySelector('a')).toBeNull();
+  });
+
+  it('names no Source of tiles when the build named none', async () => {
+    const s = show([postsIncident(['west', 'east'])]);
+    await loaded(s);
+    expect(s.getByTestId('map-legend').textContent).not.toContain('Terms:');
+  });
+
   it('with a Tile source refused at start: host_not_allowed', async () => {
     const fake = createFakeEnvironment({ map: new FakeMapLibre() });
     const environment = { ...fake.environment, tilesFailure: err('host_not_allowed') };

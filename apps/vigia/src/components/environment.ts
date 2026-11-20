@@ -57,6 +57,13 @@ export type SightingSource =
       readonly render: (onSession: (session: Session) => void) => ReactNode;
     };
 
+/** What the Map screen says about the tile provider the build named. */
+export interface TileSourceNote {
+  readonly sourceName: string;
+  readonly attribution: string;
+  readonly termsUrl: string;
+}
+
 export interface VigiaEnvironment {
   readonly mode: VigiaMode;
   readonly parameters: VigiaParameters;
@@ -78,6 +85,11 @@ export interface VigiaEnvironment {
   readonly tiles: TileSource | null;
   /** Why there is no Tile source although one was configured (`host_not_allowed`). */
   readonly tilesFailure: VigiaFailure | null;
+  /**
+   * The Source of the tiles, named on the Map screen with its attribution and the address of its
+   * terms (Req 11.2); absent when the build named none. The terms are text, never a link (Req 11.1).
+   */
+  readonly tileSourceNote?: TileSourceNote | undefined;
   readonly sighting: SightingSource;
 }
 

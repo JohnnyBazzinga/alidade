@@ -23,12 +23,18 @@ export interface SightScreenProps {
   readonly onBack: () => void;
   /** The capture was added to a smoke: the App goes back to the Smoke screen. */
   readonly onAdded: () => void;
+  /**
+   * Switches the page to Simulation mode. When given, a phone-mode screen whose sensors never
+   * sent an event offers it beside the refusal (Req 17.1): a desktop browser has the event type
+   * and no sensor.
+   */
+  readonly onTrySimulator?: () => void;
 }
 
 /** A tap is refused on a phone: there is no field of view (Req 3.3, Open question U1). */
 const NO_TAP_SIGMA_PX = Number.NaN;
 
-export function SightScreen({ onBack, onAdded }: SightScreenProps) {
+export function SightScreen({ onBack, onAdded, onTrySimulator }: SightScreenProps) {
   const environment = useEnvironment();
   const store = useStore();
   const { open } = useVigia();
@@ -74,6 +80,12 @@ export function SightScreen({ onBack, onAdded }: SightScreenProps) {
   };
 
   const source = environment.sighting;
+  // Started, refused, and not one orientation event arrived: the sensors are not there.
+  const noSensorEvent =
+    source.kind === 'device' &&
+    session !== null &&
+    session.state === 'failed' &&
+    session.history.samples.length === 0;
   return (
     <section data-testid="sight-screen" style={LOOK.stack}>
       <div style={LOOK.controls}>
@@ -86,16 +98,23 @@ export function SightScreen({ onBack, onAdded }: SightScreenProps) {
       )}
       <GuidanceBlock collapsed={captureCount > 0} windShown={false} />
       {source.kind === 'device' ? (
-        <DeviceSighting
-          createSource={source.createSource}
-          cameraSurface={source.cameraSurface}
-          timer={environment.timer}
-          parameters={source.sessionParameters}
-          calibration={null}
-          tapSigmaPx={NO_TAP_SIGMA_PX}
-          onSession={onSession}
-          {...(source.observe === undefined ? {} : { observe: source.observe })}
-        />
+        <>
+          <DeviceSighting
+            createSource={source.createSource}
+            cameraSurface={source.cameraSurface}
+            timer={environment.timer}
+            parameters={source.sessionParameters}
+            calibration={null}
+            tapSigmaPx={NO_TAP_SIGMA_PX}
+            onSession={onSession}
+            {...(source.observe === undefined ? {} : { observe: source.observe })}
+          />
+          {noSensorEvent && onTrySimulator !== undefined && (
+            <button type="button" onClick={onTrySimulator} style={LOOK.button}>
+              Try the simulator instead
+            </button>
+          )}
+        </>
       ) : (
         <>
           <p style={LOOK.dim}>{SIMULATION_VALUES_TEXT}</p>

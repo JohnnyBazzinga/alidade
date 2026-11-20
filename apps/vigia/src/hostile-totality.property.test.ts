@@ -15,7 +15,12 @@ import { createNetworkGate } from './adapters/network-gate';
 import { createPage } from './adapters/page-address';
 import { createQrEncoder, type QrMatrix } from './adapters/qr-encoder';
 import { createRandom, MAX_BYTES_PER_CALL } from './adapters/random';
-import { createMemoryStorage, createStorage, type StorageLike } from './adapters/storage';
+import {
+  createMemoryStorage,
+  createStorage,
+  createStorageFromHost,
+  type StorageLike,
+} from './adapters/storage';
 import { createManualTransport } from './adapters/transport/manual-transport';
 import { createMemoryNetwork, DIRECT_DELIVERY } from './adapters/transport/memory-network';
 import { assess } from './math/assessment/assess';
@@ -81,6 +86,9 @@ import {
   type TileProvider,
 } from './math/network/host-list';
 import { windPoint, windRequestUrl } from './math/network/request-boxes';
+import { tileSetupFromEnvironment } from './math/network/tile-setup';
+import { smokeScenes } from './math/scenes/smoke-scenes';
+import { initialMode, simulatorRequested } from './math/start-mode';
 import { sightingGuidance } from './math/texts';
 import { toDeg, fromDeg } from './math/degrees';
 import { checkParameters, defaultParameters, type VigiaParameters } from './math/parameters';
@@ -987,6 +995,60 @@ export const HOSTILE_LIST: readonly HostileEntry[] = [
     },
   ),
   hostileEntry(
+    'tileSetupFromEnvironment',
+    fc.tuple(
+      fc.record({
+        urlTemplate: fc.oneof(
+          hostileString(),
+          fc.constantFrom(...TILE_TEMPLATES),
+          fc.constantFrom('https://tiles.provider.test/{z}/{x}/{y}.png'),
+          fc.constant(undefined),
+        ),
+        attribution: fc.oneof(hostileString(), fc.constant('Data by P'), fc.constant(undefined)),
+        sourceName: fc.oneof(hostileString(), fc.constant('P'), fc.constant(undefined)),
+        termsUrl: fc.oneof(
+          hostileString(),
+          fc.constant('https://provider.test/terms'),
+          fc.constant(undefined),
+        ),
+      }),
+    ),
+    tileSetupFromEnvironment,
+    (_env, result) => {
+      if (Reflect.get(result as object, 'ok') === true) {
+        const value = Reflect.get(result as object, 'value') as { hostList: HostList } | null;
+        if (value !== null) expect(value.hostList[0]).toBe(WIND_ENTRY);
+      } else {
+        expect(result).toMatchObject({ ok: false, reason: 'host_not_allowed' });
+      }
+    },
+  ),
+  hostileEntry(
+    'simulatorRequested',
+    fc.tuple(fc.oneof(hostileString(), fc.constantFrom('https://a.example/?mode=simulator'))),
+    simulatorRequested,
+    ([address], result) => {
+      expect(typeof result).toBe('boolean');
+      if (result === true) expect(address).toContain('mode=simulator');
+    },
+  ),
+  hostileEntry(
+    'initialMode',
+    fc.tuple(
+      fc.boolean(),
+      fc.oneof(hostileString(), fc.constantFrom('https://a.example/?mode=simulator')),
+    ),
+    (hasDeviceOrientation, address) => initialMode({ hasDeviceOrientation, address }),
+    ([hasDeviceOrientation], result) => {
+      expect(['device', 'simulation']).toContain(result);
+      if (!hasDeviceOrientation) expect(result).toBe('simulation');
+    },
+  ),
+  hostileEntry('smokeScenes', fc.constant([] as []), smokeScenes, (_args, result) => {
+    expect(Reflect.get(result as object, 'ok')).toBe(true);
+    expect((Reflect.get(result as object, 'value') as unknown[]).length).toBe(4);
+  }),
+  hostileEntry(
     'windPoint',
     fc.tuple(hostilePosition, hostileParameters),
     windPoint,
@@ -1091,6 +1153,41 @@ export const HOSTILE_LIST: readonly HostileEntry[] = [
     },
     (_args, result) => {
       for (const one of result as unknown[]) expect(isTotalResult(one)).toBe(true);
+    },
+  ),
+  hostileEntry(
+    'createStorageFromHost',
+    fc.tuple(fc.constantFrom('ok', 'throws', 'missing', 'null', 'not-a-storage'), hostileString()),
+    (mode, text) => {
+      const items = new Map<string, string>();
+      const storage: StorageLike = {
+        getItem: (key) => items.get(key) ?? null,
+        setItem: (key, value) => void items.set(key, value),
+        removeItem: (key) => void items.delete(key),
+      };
+      const host =
+        mode === 'throws'
+          ? Object.defineProperty({}, 'localStorage', {
+              get: () => {
+                throw new Error(text);
+              },
+            })
+          : mode === 'missing'
+            ? {}
+            : mode === 'null'
+              ? { localStorage: null }
+              : mode === 'not-a-storage'
+                ? { localStorage: { getItem: 7 } }
+                : { localStorage: storage };
+      const made = createStorageFromHost(host as Parameters<typeof createStorageFromHost>[0]);
+      made.write(text);
+      return { persistent: made.persistent, read: made.read(), held: [...items.values()] };
+    },
+    ([mode, text], result) => {
+      const r = result as { persistent: boolean; read: unknown; held: string[] };
+      expect(r.persistent).toBe(mode === 'ok');
+      expect(r.read).toEqual({ ok: true, value: text });
+      expect(r.held).toEqual(mode === 'ok' ? [text] : []);
     },
   ),
   hostileEntry(

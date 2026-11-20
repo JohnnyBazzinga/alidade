@@ -118,7 +118,15 @@ function Shell({ hasDeviceOrientation, onModeChange }: Omit<AppProps, 'environme
 
   let content;
   if (route.kind === 'sight') {
-    content = <SightScreen onBack={() => toTab('smoke')} onAdded={() => toTab('smoke')} />;
+    content = (
+      <SightScreen
+        onBack={() => toTab('smoke')}
+        onAdded={() => toTab('smoke')}
+        {...(hasDeviceOrientation && onModeChange !== undefined
+          ? { onTrySimulator: () => onModeChange('simulation') }
+          : {})}
+      />
+    );
   } else if (route.kind === 'share') {
     content = (
       <ShareSheet

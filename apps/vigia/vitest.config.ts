@@ -73,7 +73,8 @@ export default defineConfig({
           ],
           // The purity scan reads the sources and `.env.example` as text, which no alias changes;
           // Vite refuses to serve `.env*` files in its browser-like mode, so it runs in `math` only.
-          exclude: ['src/overlays/**', 'src/purity.test.ts'],
+          // The build test runs Vite's build, once, in `math` only.
+          exclude: ['src/overlays/**', 'src/purity.test.ts', 'src/build-output.test.ts'],
           setupFiles: ['src/test-support/fast-check-setup.ts', 'src/test-support/dom-setup.ts'],
         },
       },

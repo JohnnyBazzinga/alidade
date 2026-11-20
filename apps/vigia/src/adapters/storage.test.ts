@@ -3,7 +3,13 @@
 
 import { describe, expect, it } from 'vitest';
 import { createFakeStorage } from '../test-support/fake-browser';
-import { BACKUP_KEY, createMemoryStorage, createStorage, STATE_KEY } from './storage';
+import {
+  BACKUP_KEY,
+  createMemoryStorage,
+  createStorage,
+  createStorageFromHost,
+  STATE_KEY,
+} from './storage';
 
 const sources = import.meta.glob<string>('./storage.ts', {
   query: '?raw',
@@ -177,5 +183,35 @@ describe('no storage event handler (Req 4.4)', () => {
     }
     expect(SOURCE).not.toBe('');
     expect(SOURCE).not.toMatch(/addEventListener|onExternalChange|'storage'/);
+  });
+});
+
+describe('createStorageFromHost', () => {
+  it('uses the Storage object of the host when it has one', () => {
+    const fake = createFakeStorage();
+    const storage = createStorageFromHost({ localStorage: fake });
+    expect(storage.persistent).toBe(true);
+    storage.write('X');
+    expect(fake.items.get(STATE_KEY)).toBe('X');
+  });
+
+  it('falls back to the memory storage when the host has none', () => {
+    for (const host of [{}, { localStorage: null }, { localStorage: undefined }]) {
+      const storage = createStorageFromHost(host);
+      expect(storage.persistent).toBe(false);
+      storage.write('Y');
+      expect(storage.read()).toEqual({ ok: true, value: 'Y' });
+    }
+  });
+
+  it('falls back to the memory storage when reading the Storage object throws', () => {
+    const host = Object.defineProperty({}, 'localStorage', {
+      get: () => {
+        throw new DOMException('denied', 'SecurityError');
+      },
+    });
+    const storage = createStorageFromHost(host);
+    expect(storage.persistent).toBe(false);
+    expect(storage.write('Z')).toEqual({ ok: true, value: undefined });
   });
 });

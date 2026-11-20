@@ -137,6 +137,15 @@ const SOURCES: readonly string[] = [
   'src/App.tsx',
   'src/overlays-empty.ts',
   'src/system.ts',
+  // task 14.2
+  'src/math/scenes/smoke-scenes.ts',
+  // task 14.4
+  'src/math/network/tile-setup.ts',
+  'src/math/start-mode.ts',
+  'src/components/simulation/simulated-phone.ts',
+  'src/components/simulation/SimulationShell.tsx',
+  'src/components/Root.tsx',
+  'src/main.tsx',
 ];
 
 const VIEWS: Readonly<Record<string, View>> = Object.fromEntries(
@@ -236,6 +245,7 @@ const DEG_FILES = [
   'src/math/network/host-list.ts',
   'src/defaults.ts',
   'src/math/parameters.ts',
+  'src/math/scenes/smoke-scenes.ts',
 ];
 
 /** Globals no layer reads, and the one adapter that wraps each (it takes the object as an argument). */
@@ -659,8 +669,18 @@ describe('packaging (Req 1.1, 1.8, 11.6, 20.1 to 20.5)', () => {
   });
 
   it('has a .env.example with names and no values, and no other .env file (Req 11.6)', () => {
-    const lines = ENV_EXAMPLE.split('\n').filter((l) => l.trim() !== '');
-    expect(lines).toEqual(['VITE_TILE_URL_TEMPLATE=', 'VITE_TILE_ATTRIBUTION=']);
+    // Comments document the four tile variables (with a synthetic `.test` host); every other line
+    // is a name with no value, so that no key, token or provider is in the repository.
+    const lines = ENV_EXAMPLE.split('\n').filter((l) => l.trim() !== '' && !l.startsWith('#'));
+    expect(lines).toEqual([
+      'VITE_TILE_URL_TEMPLATE=',
+      'VITE_TILE_ATTRIBUTION=',
+      'VITE_TILE_SOURCE_NAME=',
+      'VITE_TILE_TERMS_URL=',
+    ]);
+    const hosts = [...ENV_EXAMPLE.matchAll(/https?:\/\/([^/\s{]+)/g)].map((m) => m[1] ?? '');
+    expect(hosts.length).toBeGreaterThan(0);
+    for (const host of hosts) expect(host).toMatch(/\.test$/);
     expect(lines.every((l) => /^[A-Z][A-Z0-9_]*=$/.test(l))).toBe(true);
     expect(ENV_FILES).toEqual(['../.env.example']);
     const ignore = GITIGNORE.split('\n');
