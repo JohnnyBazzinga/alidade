@@ -54,4 +54,20 @@ export default defineConfig(
       '@typescript-eslint/no-non-null-assertion': 'error',
     },
   },
+  {
+    // apps/nonius (Req 1.8, design §12): as apps/vigia.
+    files: ['apps/nonius/**/*.{ts,tsx}'],
+    plugins: { 'react-hooks': reactHooks },
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'error',
+      'react-hooks/rules-of-hooks': 'error',
+      'react-hooks/exhaustive-deps': 'error',
+    },
+  },
+  {
+    files: ['apps/nonius/src/**/math/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-non-null-assertion': 'error',
+    },
+  },
 );

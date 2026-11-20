@@ -1,0 +1,34 @@
+{
+  "name": "@alidade/nonius",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Nonius: a position fix from Sun sights, without GPS, on the Alidade skeleton.",
+  "scripts": {
+    "test": "vitest run",
+    "test:deep": "vitest run --config vitest.deep.config.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "build": "vite build --config vite.config.ts",
+    "dev": "vite --config vite.config.ts"
+  },
+  "dependencies": {
+    "@alidade/core": "workspace:*",
+    "@alidade/sensors": "workspace:*",
+    "@alidade/ui": "workspace:*",
+    "astronomy-engine": "2.1.19",
+    "maplibre-gl": "6.16.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@testing-library/dom": "10.4.2",
+    "@testing-library/react": "16.3.3",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "fast-check": "4.10.2",
+    "jsdom": "30.1.3",
+    "typescript": "6.0.3",
+    "vite": "8.3.8",
+    "vitest": "5.1.0"
+  }
+}
