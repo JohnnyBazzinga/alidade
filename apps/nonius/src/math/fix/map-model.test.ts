@@ -109,6 +109,21 @@ describe('mapModel', () => {
     }
   });
 
+  it('refuses a Fix whose covariance is not finite, and returns no Fix with it (shrunk counterexample of P-2.6, seed 62556104)', () => {
+    const a = assessed(T, true);
+    if (a.kind !== 'fix') throw new Error(a.kind);
+    const bad = {
+      ...a,
+      fix: { ...a.fix, covariance: { ...a.fix.covariance, varEastM2: Number.NaN } },
+    } as Assessment;
+    expect(mapModel(bad, null, params)).toMatchObject({ ok: false, reason: 'invalid_number' });
+    const infinite = {
+      ...a,
+      fix: { ...a.fix, ellipse: { ...a.fix.ellipse, semiMajorM: Number.POSITIVE_INFINITY } },
+    } as Assessment;
+    expect(mapModel(infinite, null, params).ok).toBe(false);
+  });
+
   it('refuses parameters that are not valid', () => {
     expect(mapModel(assessed(T, true), null, { ...params, circleArcStepRad: Number.NaN }).ok).toBe(
       false,

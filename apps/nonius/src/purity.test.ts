@@ -90,6 +90,9 @@ const SOURCES: readonly string[] = [
   'src/math/fix/solve-candidate.ts',
   'src/math/sphere/circle-crossings.ts',
   // task group 8
+  'src/math/sight/calibration-difference.ts',
+  'src/components/ask-location.ts',
+  'src/adapters/storage.ts',
   'src/math/fix/comparison.ts',
   'src/math/fix/fix-words.ts',
   'src/math/fix/format.ts',
@@ -97,6 +100,32 @@ const SOURCES: readonly string[] = [
   'src/math/sphere/circle-arc.ts',
   'src/math/state/apply-action.ts',
   'src/math/state/storage-format.ts',
+  // task group 9
+  'src/App.tsx',
+  'src/components/FailureNotice.tsx',
+  'src/components/FixScreen.tsx',
+  'src/components/GuidanceBlock.tsx',
+  'src/components/HowItWorks.tsx',
+  'src/components/IndexErrorScreen.tsx',
+  'src/components/MapScreen.tsx',
+  'src/components/PrimaryAction.tsx',
+  'src/components/SightScreen.tsx',
+  'src/components/SightsScreen.tsx',
+  'src/components/SimulationBanner.tsx',
+  'src/components/SunSightingPane.tsx',
+  'src/components/TabBar.tsx',
+  'src/components/environment.ts',
+  'src/components/look.ts',
+  'src/components/store.ts',
+  'src/main.tsx',
+  'src/math/tile-setup.ts',
+  // task group 10
+  'src/components/ModeControl.tsx',
+  'src/components/Root.tsx',
+  'src/components/simulation/ReviewerPath.tsx',
+  'src/components/simulation/SightTimeBar.tsx',
+  'src/components/simulation/SimulationShell.tsx',
+  'src/math/scenes/sun-scenes.ts',
 ];
 
 const VIEWS: Readonly<Record<string, View>> = Object.fromEntries(
@@ -181,6 +210,10 @@ const DEG_FILES = [
   'src/math/fix/fix-words.ts',
   'src/math/fix/format.ts',
   'src/math/scenes/sun-scenes.ts',
+  // The screens are the display: they print degrees through `format.ts` and name them.
+  'src/components/IndexErrorScreen.tsx',
+  'src/components/SightScreen.tsx',
+  'src/components/SightsScreen.tsx',
 ];
 
 /** Globals no layer reads (Req 1.2, 1.3, 1.5); `Date` has its own rule below. */

@@ -10,7 +10,7 @@ import { EARTH_RADIUS_M } from './earth';
 const D = DEG_TO_RAD;
 
 describe('P-9.9: arc vertices lie on their Circle (Req 9.9)', () => {
-  // Generator: centre latitude uniform in [-80°, 80°], longitude in [-180°, 180°); radius uniform
+  // Generator: centre latitude uniform in [-80°, 80°], longitude in (-180°, 180°] (Core's longitude domain is (-π, π]; -180° is the same meridian as 180° and Core refuses it: an example test of its own); radius uniform
   // in [5°, 85°]; the Fix at a uniform azimuth and a distance from the Circle of up to 2° of arc
   // (a Fix near its Circle); half-length uniform in [1 km, 4 000 km]. Excludes a Fix at the centre
   // (an example test of its own refuses it).
@@ -20,7 +20,7 @@ describe('P-9.9: arc vertices lie on their Circle (Req 9.9)', () => {
       'P-9.9',
       fc.property(
         fc.double({ min: -80, max: 80, noNaN: true }),
-        fc.double({ min: -180, max: 179.999, noNaN: true }),
+        fc.double({ min: -179.999, max: 180, noNaN: true }),
         fc.double({ min: 5, max: 85, noNaN: true }),
         fc.double({ min: -180, max: 180, noNaN: true }),
         fc.double({ min: 1, max: 4000, noNaN: true }),

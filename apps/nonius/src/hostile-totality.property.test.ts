@@ -47,6 +47,11 @@ import {
   subsolarPoint,
   sunPosition,
 } from './math/sun/sun-wrapper';
+import { calibrationDifferenceRad } from './math/sight/calibration-difference';
+import { createMemoryStorage, createStorage, createStorageFromHost } from './adapters/storage';
+import { createFakeStorage } from './test-support/fake-storage';
+import { tileSetupFromEnvironment } from './math/tile-setup';
+import { catalogueSceneAt, sunScenes } from './math/scenes/sun-scenes';
 import { circleArc } from './math/sphere/circle-arc';
 import {
   axisWords,
@@ -59,7 +64,7 @@ import {
   positionText,
   sigmaDegText,
 } from './math/fix/format';
-import { fixWords, oneSightWords, placeWords } from './math/fix/fix-words';
+import { comparisonWords, fixWords, oneSightWords, placeWords } from './math/fix/fix-words';
 import { compare } from './math/fix/comparison';
 import { mapModel } from './math/fix/map-model';
 import {
@@ -860,6 +865,113 @@ export const HOSTILE_LIST: readonly HostileEntry[] = [
     fc.tuple(fc.oneof(fc.constant(null), hostileString(), fc.json()), hostileParameters()),
     parseStoredState,
     ([, p], r) => expectParametersFirst(p, r),
+  ),
+  hostileEntry(
+    'calibrationDifferenceRad',
+    fc.tuple(hostileSight(), hostilePosition(), hostileParameters()),
+    calibrationDifferenceRad,
+    ([, , p], r) => expectParametersFirst(p, r),
+  ),
+  // The Storage adapter: every method over a storage that works or throws, with hostile keys and text.
+  hostileEntry(
+    'createStorage',
+    fc.tuple(
+      hostileString(),
+      fc.constantFrom('getItem', 'setItem', 'removeItem', 'none'),
+      hostileString(),
+    ),
+    (key, failing, text) => {
+      const fake = createFakeStorage();
+      if (failing !== 'none') fake.failing = { [failing]: 'SecurityError' };
+      const s = createStorage(fake, key);
+      return [
+        s.read(),
+        s.write(text),
+        s.remove(),
+        s.readBackup(),
+        s.writeBackup(text),
+        s.removeBackup(),
+      ];
+    },
+  ),
+  hostileEntry(
+    'createStorageFromHost',
+    fc.tuple(fc.constantFrom('whole', 'none', 'throws'), hostileString()),
+    (kind, key) => {
+      const host =
+        kind === 'whole'
+          ? { localStorage: createFakeStorage() }
+          : kind === 'none'
+            ? {}
+            : {
+                get localStorage(): never {
+                  throw new Error('denied');
+                },
+              };
+      const s = createStorageFromHost(host, key);
+      return [s.read(), s.write('x'), s.readBackup()];
+    },
+  ),
+  hostileEntry('createMemoryStorage', fc.tuple(hostileString()), (text) => {
+    const s = createMemoryStorage();
+    return [
+      s.write(text),
+      s.read(),
+      s.writeBackup(text),
+      s.readBackup(),
+      s.remove(),
+      s.removeBackup(),
+    ];
+  }),
+  hostileEntry(
+    'comparisonWords',
+    fc.tuple(
+      fc.record({
+        gps: hostilePosition(),
+        distanceM: hostileNumber(),
+        azimuthRad: hostileNumber(),
+        mahalanobisSquared: hostileNumber(),
+        inside: fc.boolean(),
+      }),
+      fc.boolean(),
+      fc.boolean(),
+    ),
+    comparisonWords,
+  ),
+  hostileEntry(
+    'tileSetupFromEnvironment',
+    fc.tuple(
+      fc.record({
+        urlTemplate: fc.oneof(fc.constant(undefined), hostileString()),
+        attribution: fc.oneof(fc.constant(undefined), hostileString()),
+        sourceName: fc.oneof(fc.constant(undefined), hostileString()),
+        termsUrl: fc.oneof(fc.constant(undefined), hostileString()),
+      }),
+    ),
+    tileSetupFromEnvironment,
+  ),
+  hostileEntry('sunScenes', fc.tuple(hostileParameters()), sunScenes, ([p], r) =>
+    expectParametersFirst(p, r),
+  ),
+  hostileEntry(
+    'catalogueSceneAt',
+    fc.tuple(
+      fc.record({
+        id: hostileString(),
+        name: hostileString(),
+        truth: hostilePosition(),
+        sightTimesUtcMs: fc.array(hostileTime(), { maxLength: 4 }),
+        altitudeBiasRad: hostileNumber(),
+        addedErrorRad: fc.constant({}),
+        orientationNoiseSigmaRad: hostileNumber(),
+        indexError: fc.constant(null),
+        description: hostileString(),
+      }),
+      hostileNumber(),
+      hostileParameters(),
+    ),
+    catalogueSceneAt,
+    ([, , p], r) => expectParametersFirst(p, r),
   ),
   hostileEntry('defaultParameters', fc.constant<[]>([]), defaultParameters),
   hostileEntry(

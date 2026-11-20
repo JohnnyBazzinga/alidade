@@ -101,6 +101,28 @@ describe('circleArc', () => {
     }
   });
 
+  it('refuses a centre at longitude -180°, outside Core’s domain (-π, π] (shrunk counterexample of P-9.9, seed -1971247205)', () => {
+    // [lat 0°, lon -180°, radius 5°, azimuth -1.45e-13°, half-length 1 km]: the generator drew the
+    // closed range [-180°, 180°]; the meridian is 180°, and Subsolar points are `wrapPi(-GHA)`.
+    const r = circleArc(
+      { latRad: 0, lonRad: -Math.PI },
+      5 * D,
+      { latRad: 5 * D, lonRad: -Math.PI + 1e-9 },
+      1000,
+      STEP,
+    );
+    expect(r).toMatchObject({ ok: false, reason: 'unsupported_position' });
+    expect(
+      circleArc(
+        { latRad: 0, lonRad: Math.PI },
+        5 * D,
+        { latRad: 5 * D, lonRad: Math.PI },
+        1000,
+        STEP,
+      ).ok,
+    ).toBe(true);
+  });
+
   it('refuses a radius outside (0, π), non-finite numbers and a Fix at the centre', () => {
     for (const bad of [0, Math.PI, -1, Number.NaN]) {
       expect(circleArc(centre, bad, near, 1000, STEP).ok).toBe(false);

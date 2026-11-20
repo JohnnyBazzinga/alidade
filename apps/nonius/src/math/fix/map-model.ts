@@ -23,6 +23,13 @@ export const MAP_LAYER_IDS = [
   'gps',
 ] as const;
 
+/** Whether every number reachable in `value` is finite (a Fix holds only numbers, strings and lists). */
+function hasOnlyFiniteNumbers(value: unknown, depth = 0): boolean {
+  if (typeof value === 'number') return Number.isFinite(value);
+  if (depth > 8 || typeof value !== 'object' || value === null) return true;
+  return Object.values(value).every((v) => hasOnlyFiniteNumbers(v, depth + 1));
+}
+
 /** Vertices of the ellipse polygon of a place (UI asks for at least 16). Unit: count. */
 const ELLIPSE_VERTEX_COUNT = 72;
 const USED_COLOUR = '#1F4E9E';
@@ -118,6 +125,17 @@ export function mapModel(
 ): NoniusResult<MapModel> {
   const checked = checkParameters(params);
   if (!checked.ok) return checked;
+
+  // Nothing that is not a finite number leaves this function (Req 2.6): a Fix is checked whole.
+  const fixes =
+    assessment.kind === 'fix'
+      ? [assessment.fix]
+      : assessment.kind === 'two_places'
+        ? assessment.places.map((p) => p.fix)
+        : [];
+  for (const f of fixes) {
+    if (!hasOnlyFiniteNumbers(f)) return err('invalid_number', { field: 'fix' });
+  }
 
   const used: AppFeature[] = [];
   const setAside: AppFeature[] = [];

@@ -7,6 +7,7 @@ import { utcClockText, utcDateText } from '../civil-time';
 import { checkParameters, type NoniusParameters } from '../parameters';
 import type { PreparedSight } from '../sight/prepare';
 import { EARTH_RADIUS_M } from '../sphere/earth';
+import type { Comparison } from './comparison';
 import { adviceWords, nextSightAdvice, ruleOfThumb } from './advice';
 import type { Assessment, Choice, Place, TwoPlacesWhy } from './assess';
 import {
@@ -280,4 +281,31 @@ export function fixWords(
       return ok(out);
     }
   }
+}
+
+/**
+ * The Comparison in words (Req 11.3): the distance to the nearest step, the direction, and whether
+ * the GPS position lies inside the 95 % area, with what each means. With an Index error in use it
+ * says that the Index error was measured with this phone's GPS. `simulated` labels the position as
+ * the scene's true one (Req 11.5).
+ */
+export function comparisonWords(
+  comparison: Comparison,
+  usesIndexError: boolean,
+  simulated: boolean,
+): NoniusResult<string> {
+  const distance = distanceText(comparison.distanceM);
+  const direction = compassWord8(comparison.azimuthRad);
+  if (!distance.ok) return distance;
+  if (!direction.ok) return direction;
+  const source = simulated ? "the scene's true position (simulated)" : "this phone's GPS position";
+  const where = comparison.inside
+    ? 'It lies inside the 95 % area, which is expected about 19 times in 20.'
+    : 'It lies outside the 95 % area. That happens about 1 time in 20 by chance, and more often means the sights carried more error than stated (the phone\u2019s altitude, a wrong clock, a move between sights).';
+  const independent = usesIndexError
+    ? ' The index error was measured with this phone\u2019s GPS, so a comparison at the place where it was measured is not wholly independent of the GPS.'
+    : '';
+  return ok(
+    `${source[0]?.toUpperCase() ?? ''}${source.slice(1)} is about ${distance.value} to the ${direction.value} of the position from the sights. ${where}${independent}`,
+  );
 }
