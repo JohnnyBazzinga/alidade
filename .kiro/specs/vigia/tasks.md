@@ -732,3 +732,27 @@ three hotspot reasons wait for the lead's word after the wind checkpoint).
     both phones show the same Fix and the same Incident id); `four-posts-one-wrong` and `almost-in-line` keep the old order.
   - [x] 20.6 The hostile list (`joinIncident`, `incidentHolding` and the generators), the purity list, P-15.9 (the join is an
     action of its sequences), the privacy table if it lists what a code holds. Then the root checks.
+
+- [x] 21. What a judge meets in the first minute (2026-11-20; design §9 note of 2026-11-20; skeleton-ui task group 30, its D34)
+  - The working rules of this file apply (tests first, `timeout` on every run, outputs under /tmp/vigia/, one run at a time, no
+    commit, `requirements.md` untouched). The edits under `skeleton/` are skeleton-ui task group 30, asked for by the lead.
+  - [x] 21.1 Tabs. `TabBar.test.tsx`: the width of every label at 320 px computed from the styles (0.63 em a character), with no
+    badge and with badges of 1 to 3 digits; no label wraps; none suggests a call. Code: `TabBar.tsx` (tabs as wide as their
+    labels, the badge under the label), `index.html` (no `body` margin).
+  - [x] 21.2 Emergency. `EmergencyScreen.test.tsx`: the text whole in the flow (no height, no scroll inside, `pre-wrap`,
+    selectable), the selection after a failed Copy, the switch's state with room of its own. Code: `EmergencyScreen.tsx`.
+  - [x] 21.3 The primary action above the tabs. `App.test.tsx`: on Smoke and on Emergency the primary action is in the row
+    after the scrolling part and before the tab bar, in the column; empty on Sightings and Map; the secondary controls in the
+    scrolling part. Code: `PrimaryAction.tsx`, `App.tsx`, `SmokeScreen.tsx`, `EmergencyScreen.tsx`.
+  - [x] 21.4 The reviewer's Sight screen. `SimulationShell.test.tsx`: the post, the scene and Start before the closed
+    "Simulator controls"; Start plays; the guidance after Start. Code: `SimulationShell.tsx` (the compact panel,
+    `selectedStationId`), `SightScreen.tsx` (the order in Simulation mode), the test driver.
+  - [x] 21.5 The phone in hand and the reviewer's path. `App.test.tsx` and `SimulationShell.test.tsx`: the bar under the
+    banner on every screen and sheet; changing the post from any screen moves the panel, and the next capture is from there;
+    the three numbered lines while the phone in hand holds no smoke, and not on a phone. Code: `PhoneInHandBar.tsx`,
+    `ReviewerPath.tsx`, `math/texts.ts` (`reviewerPathLines`, in the hostile list of P-2.6), `App.tsx`, `SmokeScreen.tsx`.
+  - [x] 21.6 Map. `MapScreen.test.tsx`: the map's height; `crosses_antimeridian` said once, by `MapView`. Code:
+    `MapScreen.tsx` (the height; its own check of the extent removed).
+  - [x] 21.7 The counts: `reasons.test.ts` (the 23 of Req 2.2 typed out), `messages.test.ts` and `reasons.ts` comments, design D2
+    (23 reasons, 70 in all, the row of `incident_not_joinable`).
+  - [x] 21.8 The new files join the purity list; mutation checks M1 to M9 (each fails a named test); then the root checks.

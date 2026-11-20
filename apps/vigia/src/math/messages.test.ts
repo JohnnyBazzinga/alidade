@@ -10,11 +10,11 @@ import { partsOf, problemsOf } from '../test-support/message-rules';
 import { MESSAGES, messageFor } from './messages';
 
 /**
- * The 22 rows of the table of design D2, typed out on purpose (the table is the specification:
+ * The 23 rows of the table of design D2, typed out on purpose (the table is the specification:
  * "every row as written there"). A drift in the source fails here.
  */
 const ROWS: Record<VigiaOnlyReason, Message> = {
-  // Added by design §7.4a (2026-11-21), proposed there: a join that cannot be made.
+  // Added by design §7.4a (2026-11-21) and to Req 2.2: a join that cannot be made.
   incident_not_joinable: {
     whatHappened: 'These two smokes cannot be joined into one.',
     whatToDo: 'Open the new sighting as a separate smoke, or delete a smoke you no longer need.',

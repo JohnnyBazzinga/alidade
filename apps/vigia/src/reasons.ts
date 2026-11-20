@@ -1,9 +1,9 @@
 // The closed set of failure reasons of Vigia (Req 2.2, design D2).
 //
 // `VigiaReason` is every `UiReason` (which includes every reason of Sensors and of Core)
-// unchanged in meaning, plus the 23 of `VIGIA_ONLY_REASONS` (the 22 of Req 2.2 and
-// `incident_not_joinable`, proposed in design §7.4a). The list of UI's reasons is UI's own
-// export (`UI_REASONS`); this file repeats none of it. The three reasons of the hotspot Overlay
+// unchanged in meaning, plus the 23 of `VIGIA_ONLY_REASONS`, the list of Req 2.2 (its last
+// addition, `incident_not_joinable`, came with the join of design §7.4a). The list of UI's
+// reasons is UI's own export (`UI_REASONS`); this file repeats none of it. The three reasons of the hotspot Overlay
 // (`overlay_needs_key`, `overlay_area_too_large`, `hotspot_footprint_unknown`) are the second
 // release's and are not here.
 

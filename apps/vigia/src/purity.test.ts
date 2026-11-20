@@ -147,6 +147,10 @@ const SOURCES: readonly string[] = [
   'src/components/simulation/SimulationShell.tsx',
   'src/components/Root.tsx',
   'src/main.tsx',
+  // task group 21
+  'src/components/PrimaryAction.tsx',
+  'src/components/PhoneInHandBar.tsx',
+  'src/components/ReviewerPath.tsx',
 ];
 
 const VIEWS: Readonly<Record<string, View>> = Object.fromEntries(

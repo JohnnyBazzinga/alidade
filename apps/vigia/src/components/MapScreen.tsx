@@ -4,16 +4,7 @@
 // names every drawing, and the Overlays panel when the Overlays module is present. This screen
 // knows nothing of the Overlays but the slot it is given (Req 1.10): the App builds it.
 
-import {
-  bearingFeatures,
-  mapBounds,
-  MapView,
-  observerFeatures,
-  WEDGE_ARC_STEP_RAD,
-  type AppLayer,
-  type MapLibreLike,
-  type UiFailure,
-} from '@alidade/ui';
+import { MapView, type AppLayer, type MapLibreLike, type UiFailure } from '@alidade/ui';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { mapModel } from '../math/fix/map-model';
 import { useEnvironment } from './environment';
@@ -32,6 +23,13 @@ export interface OverlaySlot {
 }
 
 const NOTHING: readonly never[] = [];
+
+/**
+ * The map is this screen's main content (task 21.6): about the width of the screen, at least
+ * 320 CSS px, and never more than 70 % of the screen's height. A map whose extent crosses the
+ * antimeridian is said by UI's MapView from its own fit (Req 18.5, skeleton-ui task group 30).
+ */
+const MAP_HEIGHT = 'clamp(320px, 100vw, 70svh)';
 
 export function MapScreen({ overlays }: { readonly overlays: OverlaySlot | null }) {
   const environment = useEnvironment();
@@ -64,19 +62,6 @@ export function MapScreen({ overlays }: { readonly overlays: OverlaySlot | null 
     () => [...(drawn?.layers ?? NOTHING), ...overlayLayers],
     [drawn, overlayLayers],
   );
-  // UI's MapView does not show the result of its fit, so the extent is checked here with UI's own
-  // builders: a map that would cross the antimeridian says so (Req 18.5).
-  const crossing = useMemo(() => {
-    if (drawn === null || drawn.observers.length === 0) return null;
-    const observers = observerFeatures(drawn.observers);
-    if (!observers.ok) return null;
-    const lines = drawn.bearings.flatMap((b) => {
-      const f = bearingFeatures(b, drawn.lineLengthM, WEDGE_ARC_STEP_RAD);
-      return f.ok ? [f.value] : [];
-    });
-    const bounds = mapBounds([observers.value, ...lines]);
-    return !bounds.ok && bounds.reason === 'crosses_antimeridian' ? bounds : null;
-  }, [drawn]);
   const setAside = open !== null && open.assessment.ok && open.assessment.value.setAside.length > 0;
 
   return (
@@ -94,8 +79,8 @@ export function MapScreen({ overlays }: { readonly overlays: OverlaySlot | null 
         lineLengthM={drawn?.lineLengthM ?? 5000}
         fix={drawn?.fix ?? null}
         layers={layers}
+        height={MAP_HEIGHT}
       />
-      {crossing !== null && <FailureNotice failure={crossing} />}
       {libFailure !== null && <FailureNotice failure={libFailure} />}
       {environment.tilesFailure !== null && <FailureNotice failure={environment.tilesFailure} />}
       {model !== null && !model.ok && <FailureNotice failure={model} />}

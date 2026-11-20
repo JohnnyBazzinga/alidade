@@ -25,10 +25,12 @@ describe('the shell at the start', () => {
       (o) => o.value,
     );
     expect(scenes).toEqual(['two-posts', 'three-posts', 'four-posts-one-wrong', 'almost-in-line']);
-    const stations = [...(m.getByLabelText('Station') as HTMLSelectElement).options].map(
-      (o) => o.value,
-    );
+    const stations = [
+      ...(m.getByLabelText('You hold the phone at') as HTMLSelectElement).options,
+    ].map((o) => o.value);
     expect(stations).toEqual(['west', 'east']);
+    // One chooser of the post on the screen: the panel shows none of its own (task 21.4).
+    expect(m.queryByLabelText('Station')).toBeNull();
   });
 
   it('shows the banner on every screen, the Sight screen included', async () => {
@@ -90,7 +92,25 @@ describe('the phone in hand', () => {
     await m.click('Back');
     await m.openSight();
     expect((m.getByLabelText('Scene') as HTMLSelectElement).value).toBe('three-posts');
-    expect((m.getByLabelText('Station') as HTMLSelectElement).value).toBe('side');
+    expect((m.getByLabelText('You hold the phone at') as HTMLSelectElement).value).toBe('side');
+  });
+
+  it('changes the post from any screen, and the panel goes to it: the next capture is from there', async () => {
+    const m = mountSimulation();
+    await m.settle();
+    await m.tab('Map');
+    await m.chooseStation('east');
+    await m.tab('Smoke');
+    await m.openSight();
+    expect(m.sessions.at(-1)?.context.station.id).toBe('east');
+    await m.toLive();
+    await m.press('freeze');
+    await m.press('capture');
+    expect(m.sightingState()).toBe('captured');
+    expect(m.sessions.at(-1)?.context.station.id).toBe('east');
+    await m.chooseStation('west');
+    expect(m.sessions.at(-1)?.context.station.id).toBe('west');
+    expect(m.sightingState()).toBe('permission');
   });
 
   it('does not ask the question again for a capture it already gave', async () => {
@@ -110,6 +130,41 @@ describe('the phone in hand', () => {
     await m.chooseScene('three-posts');
     await m.click('Back');
     expect(m.getByText('No smoke yet')).toBeTruthy();
+  });
+});
+
+// Task 21.4 (skeleton-ui task group 30): the reviewer meets what to sight and Start first; the
+// Simulator's own controls are folded away; Start also plays the script.
+describe('the Sight screen of a reviewer', () => {
+  const before = (a: Element, b: Element) =>
+    (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+
+  it('puts the post, the scene and Start before the folded Simulator controls', async () => {
+    const m = mountSimulation();
+    await m.settle();
+    await m.openSight();
+    const post = m.getByLabelText('You hold the phone at');
+    const scene = m.getByLabelText('Scene');
+    const start = m.control('start');
+    const folded = m.getByTestId('simulator-controls') as HTMLDetailsElement;
+    expect(folded.open).toBe(false);
+    expect(folded.querySelector('summary')?.textContent).toBe('Simulator controls');
+    expect(folded.contains(m.getByText('Play'))).toBe(true);
+    expect(folded.contains(m.getByLabelText('Seed'))).toBe(true);
+    expect(before(post, scene)).toBe(true);
+    expect(before(scene, start)).toBe(true);
+    expect(before(start, folded)).toBe(true);
+    // The guidance on aiming at smoke is still on the screen, after the sighting (task 21.4).
+    expect(before(start, m.getByTestId('guidance'))).toBe(true);
+  });
+
+  it('plays the script from Start: live with no Play', async () => {
+    const m = mountSimulation();
+    await m.settle();
+    await m.openSight();
+    await m.press('start');
+    await m.ticks(20);
+    expect(m.sightingState()).toBe('live');
   });
 });
 

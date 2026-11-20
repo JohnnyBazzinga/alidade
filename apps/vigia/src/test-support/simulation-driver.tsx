@@ -124,14 +124,17 @@ export function mountSimulation(options: MountOptions = {}) {
   const openSight = () => click('Sight the smoke');
   const chooseScene = (sceneId: string) =>
     settle(() => fireEvent.change(q.getByLabelText('Scene'), { target: { value: sceneId } }));
+  /** The phone in hand, chosen under the banner (task 21.5): on any screen. */
   const chooseStation = (stationId: string) =>
-    settle(() => fireEvent.change(q.getByLabelText('Station'), { target: { value: stationId } }));
-  /** Start, play two seconds, pause: the Session is live. */
+    settle(() =>
+      fireEvent.change(q.getByLabelText('You hold the phone at'), {
+        target: { value: stationId },
+      }),
+    );
+  /** Start, which also plays the script (task 21.4), and two seconds: the Session is live. */
   const toLive = async () => {
     await press('start');
-    await click('Play');
     await ticks(20);
-    await click('Pause');
   };
 
   /**
@@ -160,11 +163,9 @@ export function mountSimulation(options: MountOptions = {}) {
     await click(label);
   };
 
-  /** The phone in hand becomes the one at `stationId`, through the panel; back on the Smoke screen. */
+  /** The phone in hand becomes the one at `stationId`, by the chooser under the banner. */
   const switchTo = async (stationId: string) => {
-    await openSight();
     await chooseStation(stationId);
-    await click('Back');
   };
 
   /**

@@ -6,7 +6,9 @@
 //
 // After a capture the question of Req 4.3 comes first on the screen, because answering it is the
 // next thing to do; nothing is added until it is answered. The guidance is in view before the
-// first capture and one tap away after it.
+// first capture and one tap away after it. In Simulation mode the reviewer's controls come first
+// (the post is chosen under the banner, then the scene and Start in the panel), and the guidance,
+// which is about real smoke, after them (task 21.4): before it, Start was below the first screen.
 
 import { DeviceSighting, type CapturedResult, type Session } from '@alidade/ui';
 import { useCallback, useMemo, useRef, useState } from 'react';
@@ -96,9 +98,9 @@ export function SightScreen({ onBack, onAdded, onTrySimulator }: SightScreenProp
       {captured !== null && (
         <ConfirmSmokeDialog preselected={preselected} failure={failure} onAnswer={answer} />
       )}
-      <GuidanceBlock collapsed={captureCount > 0} windShown={false} />
       {source.kind === 'device' ? (
         <>
+          <GuidanceBlock collapsed={captureCount > 0} windShown={false} />
           <DeviceSighting
             createSource={source.createSource}
             cameraSurface={source.cameraSurface}
@@ -117,8 +119,9 @@ export function SightScreen({ onBack, onAdded, onTrySimulator }: SightScreenProp
         </>
       ) : (
         <>
-          <p style={LOOK.dim}>{SIMULATION_VALUES_TEXT}</p>
           {source.render(onSession)}
+          <p style={LOOK.dim}>{SIMULATION_VALUES_TEXT}</p>
+          <GuidanceBlock collapsed={captureCount > 0} windShown={false} />
         </>
       )}
     </section>

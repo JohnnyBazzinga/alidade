@@ -31,6 +31,11 @@ export interface MapViewProps {
    * map is fitted to the observers, and also to each layer that says `fit: true`.
    */
   readonly layers?: readonly AppLayer[];
+  /**
+   * The height of the map, as a CSS length (240 CSS px by default). An app whose map is the
+   * screen's main content gives it more, so that a small 95 % ellipse can be read (design D34).
+   */
+  readonly height?: string | number;
 }
 
 const NO_LAYERS: readonly AppLayer[] = [];
@@ -87,10 +92,14 @@ export function MapView(props: MapViewProps) {
       if (!layers.some((l) => l.id === id)) results.push(adapter.clearLayer(id));
     }
     heldLayers.current = held;
+    const fitted = layers.filter((l) => l.fit === true && held.has(l.id)).map((l) => l.collection);
+    // The fit's result is shown like any other (task group 30.1): an extent over 180° of
+    // longitude is `crosses_antimeridian`, and the user must be told the map is not fitted.
+    if (observers.length > 0 || fitted.length > 0) {
+      results.push(adapter.fitToFeatures(FIT_PADDING_PX, fitted));
+    }
     const failed = results.find((r) => !r.ok);
     setFailure(failed !== undefined && !failed.ok ? failed : null);
-    const fitted = layers.filter((l) => l.fit === true && held.has(l.id)).map((l) => l.collection);
-    if (observers.length > 0 || fitted.length > 0) adapter.fitToFeatures(FIT_PADDING_PX, fitted);
   }, [adapter, observers, bearings, lineLengthM, fix, layers]);
 
   const shown = unavailable ?? failure;
@@ -101,7 +110,7 @@ export function MapView(props: MapViewProps) {
         data-testid="map-container"
         style={{
           width: '100%',
-          height: 240,
+          height: props.height ?? 240,
           background: COLOURS.raised,
           marginBottom: SIZES.gapPx,
         }}

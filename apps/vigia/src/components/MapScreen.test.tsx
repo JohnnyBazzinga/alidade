@@ -183,9 +183,21 @@ describe('MapScreen (Req 18.1 to 18.3, 6.1)', () => {
       entryOfBearing(n, { ...pointingAt(sightingIdOf(n), o, TARGET), azimuthRad: 0.1 });
     const s = show([incidentOfEntries([north(a, 1), north(b, 2)])]);
     await loaded(s);
-    expect(s.getAllByRole('alert').map((x) => x.textContent)).toContain(
-      messageText('crosses_antimeridian'),
-    );
+    // Said once, by UI's MapView from the result of its own fit (skeleton-ui task group 30.1):
+    // the screen no longer checks the extent itself (task 21.6).
+    const alerts = s.queryAllByRole('alert');
+    // UI's notice sets the two parts of the Message as two blocks.
+    const m = messageFor({ ok: false, reason: 'crosses_antimeridian' });
+    const said = alerts.filter((x) => x.textContent === `${m.whatHappened}${m.whatToDo}`);
+    expect(said, alerts.map((x) => x.textContent).join(' | ')).toHaveLength(1);
+    expect(within(s.getByTestId('map-view')).getAllByRole('alert')).toContain(said[0]);
+  });
+
+  // Task 21.6: the map is the screen's main content; at least about the width of the screen.
+  it('gives the map a height of at least 320 CSS px and about the width of the screen', async () => {
+    const s = show([postsIncident(['west', 'east'])]);
+    await loaded(s);
+    expect(s.getByTestId('map-container').style.height).toBe('clamp(320px, 100vw, 70svh)');
   });
 
   it('has no Overlays panel when the Overlays module is empty', async () => {

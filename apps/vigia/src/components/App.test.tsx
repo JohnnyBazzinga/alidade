@@ -15,9 +15,14 @@ import { FakeMapLibre } from '../test-support/fake-maplibre';
 import { postsIncident } from '../test-support/geometry-fixtures';
 import { canonicalOf, INCIDENT_ID } from '../test-support/incident-fixtures';
 import { storedWith } from '../test-support/render-screen';
+import type { PhoneInHand } from './PhoneInHandBar';
 import { createVigiaStore } from './store';
 
-function mount(options: FakeEnvironmentOptions = {}, hasDeviceOrientation = true) {
+function mount(
+  options: FakeEnvironmentOptions = {},
+  hasDeviceOrientation = true,
+  phoneInHand?: PhoneInHand,
+) {
   const fake = createFakeEnvironment({
     map: new FakeMapLibre(),
     storedItems: storedWith([postsIncident(['west', 'east'])]),
@@ -32,6 +37,7 @@ function mount(options: FakeEnvironmentOptions = {}, hasDeviceOrientation = true
       store={store}
       hasDeviceOrientation={hasDeviceOrientation}
       onModeChange={(m) => void modes.push(m)}
+      {...(phoneInHand === undefined ? {} : { phoneInHand })}
     />,
   );
   const tabs = () => utils.queryByTestId('tab-bar');
@@ -163,5 +169,128 @@ describe('the layout (skeleton-ui Req 13.13, 18.11)', () => {
     expect(shell.lastElementChild).toBe(a.getByTestId('tab-bar'));
     expect(a.getByTestId('app-main').style.overflowY).toBe('auto');
     expect(a.getByTestId('app-main').style.overflowX).toBe('hidden');
+  });
+});
+
+/** Whether `a` comes before `b` in the document. */
+const before = (a: Element, b: Element) =>
+  (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+
+// Task 21.3 (design §9: the primary action where the thumb is). On a phone the Smoke screen with a
+// Fix was three screens long with "Sight the smoke" at its end, and Copy came after the Emergency
+// text. Each screen's primary action is in a row of its own between the part that scrolls and the
+// tab bar, in the column: not a layer over anything.
+describe('the primary action, above the tabs (task 21.3)', () => {
+  const rowOf = (a: ReturnType<typeof mount>) => a.getByTestId('primary-row');
+
+  it('on the Smoke screen: Sight the smoke, after the scrolling part and before the tabs', () => {
+    const a = mount();
+    const row = rowOf(a);
+    const sight = within(row).getByRole('button', { name: 'Sight the smoke' });
+    expect(sight.dataset.primary).toBe('true');
+    expect(a.getByTestId('app-main').contains(sight)).toBe(false);
+    expect(row.parentElement).toBe(a.getByTestId('app-shell'));
+    expect(before(a.getByTestId('app-main'), row)).toBe(true);
+    expect(before(row, a.getByTestId('tab-bar'))).toBe(true);
+    expect(row.nextElementSibling).toBe(a.getByTestId('tab-bar'));
+    // The secondary controls stay in the scrolling part.
+    const main = within(a.getByTestId('app-main'));
+    expect(main.getByRole('button', { name: /Add a sighting someone sent me/ })).toBeTruthy();
+    expect(main.getByRole('button', { name: 'Delete everything on this phone' })).toBeTruthy();
+    expect(a.getAllByRole('button', { name: 'Sight the smoke' })).toHaveLength(1);
+  });
+
+  it('on the Emergency screen: Copy, with its result, in the row; the switch in the scrolling part', () => {
+    const a = mount();
+    a.tab('Emergency');
+    const row = rowOf(a);
+    expect(within(row).getByRole('button', { name: 'Copy the text' }).dataset.primary).toBe('true');
+    expect(within(row).getByTestId('copy-box')).toBeTruthy();
+    expect(
+      within(a.getByTestId('app-main')).getByRole('switch', {
+        name: 'Include where I took my last sighting',
+      }),
+    ).toBeTruthy();
+    expect(row.nextElementSibling).toBe(a.getByTestId('tab-bar'));
+  });
+
+  it('is empty on the screens that have none, and in no fixed, absolute or sticky layer', async () => {
+    const a = mount();
+    for (const name of ['Sightings', 'Map']) {
+      await act(async () => a.tab(name));
+      expect(rowOf(a).childElementCount).toBe(0);
+    }
+    for (const element of [rowOf(a), ...rowOf(a).querySelectorAll<HTMLElement>('*')]) {
+      expect(['fixed', 'absolute', 'sticky']).not.toContain(element.style.position);
+    }
+  });
+
+  it('runs the action: Sight the smoke opens the Sight screen', () => {
+    const a = mount();
+    fireEvent.click(within(rowOf(a)).getByRole('button', { name: 'Sight the smoke' }));
+    expect(a.getByTestId('sight-screen')).toBeTruthy();
+  });
+});
+
+// Task 21.5: in Simulation mode every screen says which simulated phone is in hand, under the
+// banner, with the control that changes it; and the first screen, with nothing sighted, gives
+// the reviewer's path in three numbered lines.
+describe('the phone in hand, in Simulation mode (task 21.5)', () => {
+  const hand = (chosen: string[]): PhoneInHand => ({
+    stationId: 'west',
+    stations: [
+      { id: 'west', name: 'West post' },
+      { id: 'east', name: 'East post' },
+    ],
+    onSelect: (id) => void chosen.push(id),
+  });
+
+  it('is said under the banner on every screen and sheet, with its chooser', async () => {
+    const chosen: string[] = [];
+    const a = mount({ mode: 'simulation', storedItems: {} }, false, hand(chosen));
+    const check = () => {
+      const bar = a.getByTestId('phone-in-hand');
+      expect(bar.previousElementSibling).toBe(a.getByTestId('simulation-banner'));
+      const select = within(bar).getByLabelText('You hold the phone at') as HTMLSelectElement;
+      expect(select.value).toBe('west');
+      expect([...select.options].map((o) => o.text)).toEqual(['West post', 'East post']);
+    };
+    check();
+    for (const name of ['Sightings', 'Map', 'Emergency', 'Smoke']) {
+      await act(async () => a.tab(name));
+      check();
+    }
+    a.tap('Sight the smoke');
+    check();
+    a.tap('Back');
+    a.tap(/Add a sighting someone sent me/);
+    check();
+    fireEvent.change(a.getByLabelText('You hold the phone at'), { target: { value: 'east' } });
+    expect(chosen).toEqual(['east']);
+  });
+
+  it('is not there on a phone', () => {
+    const a = mount();
+    expect(a.queryByTestId('phone-in-hand')).toBeNull();
+    expect(a.queryByTestId('reviewer-path')).toBeNull();
+  });
+
+  it('gives the path in three numbered lines on the first screen while this phone has sighted nothing', () => {
+    const a = mount({ mode: 'simulation', storedItems: {} }, false, hand([]));
+    const path = a.getByTestId('reviewer-path');
+    const lines = [...path.querySelectorAll('ol > li')].map((li) => li.textContent ?? '');
+    expect(path.querySelector('ol')).not.toBeNull();
+    expect(lines).toHaveLength(3);
+    expect(lines[0]).toMatch(/West post/);
+    expect(lines[1]).toMatch(/another post/);
+    expect(lines[2]).toMatch(/other phone/);
+    expect(lines[2]).toMatch(/same smoke/);
+    for (const line of lines) expect(line.length).toBeLessThanOrEqual(90);
+  });
+
+  it('gives no path once this phone holds a smoke', () => {
+    const a = mount({ mode: 'simulation' }, false, hand([]));
+    expect(a.getByTestId('phone-in-hand')).toBeTruthy();
+    expect(a.queryByTestId('reviewer-path')).toBeNull();
   });
 });

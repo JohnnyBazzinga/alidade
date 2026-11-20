@@ -60,6 +60,11 @@ function kindIs(kind: string): readonly unknown[] {
  * draw order, the Wedges under the lines, the ellipse under the Fix's point (Req 15.7). Every line
  * is two-tone, a light core of 2.5 CSS px over a dark casing of 5, so that it holds 7:1 against a
  * dark and a light map.
+ *
+ * The 95 % ellipse is what the map is for (task group 30, design D34): its fill lies under the
+ * lines, so that it hides none of them, and its outline (a brass core of 3 over a dark casing of
+ * 6) over the lines and the Wedges, so that it is seen where they cross it. The Fix's point is a
+ * small dot, 10 CSS px across, so that it does not cover a small ellipse.
  */
 export function buildMapStyle(tiles: TileSource | null): MapStyle {
   const sources: Record<string, unknown> = {};
@@ -96,21 +101,7 @@ export function buildMapStyle(tiles: TileSource | null): MapStyle {
       type: 'fill',
       source: 'fix',
       filter: kindIs('fix-ellipse-95'),
-      paint: { 'fill-color': MAP_FIX, 'fill-opacity': 0.18 },
-    },
-    {
-      id: 'fix-ellipse-casing',
-      type: 'line',
-      source: 'fix',
-      filter: kindIs('fix-ellipse-95'),
-      paint: { 'line-color': MAP_DARK, 'line-width': 5 },
-    },
-    {
-      id: 'fix-ellipse-core',
-      type: 'line',
-      source: 'fix',
-      filter: kindIs('fix-ellipse-95'),
-      paint: { 'line-color': MAP_FIX, 'line-width': 2.5 },
+      paint: { 'fill-color': MAP_FIX, 'fill-opacity': 0.25 },
     },
     {
       id: 'bearings-casing',
@@ -123,6 +114,20 @@ export function buildMapStyle(tiles: TileSource | null): MapStyle {
       type: 'line',
       source: 'bearings',
       paint: { 'line-color': MAP_LIGHT, 'line-width': 2.5 },
+    },
+    {
+      id: 'fix-ellipse-casing',
+      type: 'line',
+      source: 'fix',
+      filter: kindIs('fix-ellipse-95'),
+      paint: { 'line-color': MAP_DARK, 'line-width': 6 },
+    },
+    {
+      id: 'fix-ellipse-core',
+      type: 'line',
+      source: 'fix',
+      filter: kindIs('fix-ellipse-95'),
+      paint: { 'line-color': MAP_FIX, 'line-width': 3 },
     },
     {
       id: 'observers-casing',
@@ -141,14 +146,14 @@ export function buildMapStyle(tiles: TileSource | null): MapStyle {
       type: 'circle',
       source: 'fix',
       filter: kindIs('fix'),
-      paint: { 'circle-color': MAP_DARK, 'circle-radius': 11 },
+      paint: { 'circle-color': MAP_DARK, 'circle-radius': 5 },
     },
     {
       id: 'fix-core',
       type: 'circle',
       source: 'fix',
       filter: kindIs('fix'),
-      paint: { 'circle-color': MAP_FIX, 'circle-radius': 7.5 },
+      paint: { 'circle-color': MAP_FIX, 'circle-radius': 3 },
     },
   );
   return { version: 8, sources, layers };

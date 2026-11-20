@@ -163,9 +163,9 @@ Criteria no test cites by number are listed with what covers them.
 | 15.2 | adapters/map/map-adapter, math/map/map-style |
 | 15.3 | adapters/map/map-adapter |
 | 15.4 | math/map/map-style |
-| 15.5 | adapters/map/map-adapter |
+| 15.5 | adapters/map/map-adapter (with a Fix the fit holds the observers and the ellipse, D34), components/MapView (the fit's result shown, the height) |
 | 15.6 | adapters/map/map-adapter |
-| 15.7 | math/map/map-style |
+| 15.7 | math/map/map-style (the ellipse seen over the lines, the small Fix dot, D34) |
 | 15.8 | adapters/map/map-adapter |
 | 15.9 | adapters/map/map-adapter, math/map/map-style |
 | 15.10 | adapters/map/map-adapter |
@@ -191,7 +191,7 @@ Criteria no test cites by number are listed with what covers them.
 | 17.1 | components/catalogue-scenes |
 | 17.2 | components/catalogue-scenes |
 | 17.3 | components/catalogue-scenes |
-| 17.4 | components/SimulatorPanel, math/panel/panel-state |
+| 17.4 | components/SimulatorPanel, components/SimulatorPanel.compact (the compact presentation, Start that plays, the Station chosen by the app, D34), math/panel/panel-state |
 | 17.5 | components/SimulatorPanel, math/hostile-map-scene.property, math/panel/panel-bounds, math/panel/panel-state |
 | 17.6 | components/SimulatorPanel, components/SimulatorPanel.failure |
 | 17.7 | components/SimulatorPanel |

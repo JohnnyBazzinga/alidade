@@ -1,5 +1,10 @@
 // The four tabs (design §9): Smoke, Sightings, Map, Emergency. The App places the bar last in a
 // column whose middle scrolls, so it stays under the thumb without a fixed layer over the screen.
+//
+// Each tab is as wide as its label, and the space left is shared (task 21.1): with four equal
+// shares "Sightings" and "Emergency" do not fit 320 CSS px at 16 px of monospace and broke inside
+// the word. A label is never wrapped; the Inbox badge sits under the Smoke label, so that it
+// widens nothing. `TabBar.test.tsx` checks the arithmetic at 320 px.
 
 import { COLOURS, FONT_STACK, SIZES } from '@alidade/ui';
 
@@ -41,8 +46,13 @@ export function TabBar({ current, inboxCount, onSelect }: TabBarProps) {
             data-tab={tab.id}
             onClick={() => onSelect(tab.id)}
             style={{
-              flex: '1 1 0',
-              minWidth: 0,
+              flex: '1 1 auto',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 2,
+              minWidth: SIZES.touchPx,
               minHeight: SIZES.touchPx + SIZES.gapPx,
               padding: `0 ${SIZES.gapPx / 2}px`,
               fontFamily: FONT_STACK,
@@ -52,18 +62,19 @@ export function TabBar({ current, inboxCount, onSelect }: TabBarProps) {
               borderTop: `3px solid ${selected ? COLOURS.brass : COLOURS.panel}`,
               background: COLOURS.panel,
               color: selected ? COLOURS.brass : COLOURS.ink,
-              overflowWrap: 'anywhere',
               cursor: 'pointer',
             }}
           >
-            {tab.label}
+            <span data-part="tab-label" style={{ whiteSpace: 'nowrap' }}>
+              {tab.label}
+            </span>
             {tab.id === 'smoke' && inboxCount > 0 && (
               <span
                 data-testid="inbox-badge"
                 aria-label={`${inboxCount} waiting`}
                 style={{
-                  marginLeft: SIZES.gapPx / 2,
                   padding: '0 6px',
+                  lineHeight: 1.2,
                   background: COLOURS.brass,
                   color: COLOURS.brassInk,
                 }}

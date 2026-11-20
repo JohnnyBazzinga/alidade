@@ -91,7 +91,7 @@ import { windPoint, windRequestUrl } from './math/network/request-boxes';
 import { tileSetupFromEnvironment } from './math/network/tile-setup';
 import { smokeScenes } from './math/scenes/smoke-scenes';
 import { initialMode, simulatorRequested } from './math/start-mode';
-import { sightingGuidance } from './math/texts';
+import { reviewerPathLines, sightingGuidance } from './math/texts';
 import { toDeg, fromDeg } from './math/degrees';
 import { checkParameters, defaultParameters, type VigiaParameters } from './math/parameters';
 import type { Incident } from './math/incident/incident-state';
@@ -954,6 +954,8 @@ export const HOSTILE_LIST: readonly HostileEntry[] = [
     },
   ),
   hostileEntry('sightingGuidance', fc.tuple(fc.boolean()), sightingGuidance),
+  // --- the reviewer's path (task 21.5): any post name, hostile strings included ---
+  hostileEntry('reviewerPathLines', fc.tuple(hostileString()), reviewerPathLines),
   // --- the Emergency text (task 8.2) ---
   hostileEntry(
     'emergencyText',

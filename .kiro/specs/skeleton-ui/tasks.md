@@ -585,17 +585,28 @@ into the skeleton-sensors requirements.
     the lead checks Req 13.13 in a real browser.
 
 
-- [ ] 30. Two findings of Vigia's screens (note of 2026-11-20, from Vigia's task group 13 and the trial on a phone; not yet built, waits for the lead's word)
-  - [ ] 30.1 `MapView` ignores the result of its fit. Its effect calls `adapter.fitToFeatures(…)` and drops
-    the `UiResult`, so a map whose extent spans more than 180° of longitude never shows
-    `crosses_antimeridian`, although `mapBounds` returns it and the README says the map shows it
-    (Vigia Req 18.5). Vigia's Map screen works around it by calling `mapBounds` itself over UI's
-    `observerFeatures` and `bearingFeatures` (it cannot include the ellipse: the vertex-count constant
-    is a token its purity scan forbids). Tests first: a `MapView.test.tsx` case with two observers on
-    either side of 180° shows the Message of `crosses_antimeridian`; then `MapView` shows a failed fit
-    like any other failure, and Vigia's workaround is removed in a Vigia task.
-  - [ ] 30.2 On the trial on a phone, the Fix marker is so large that it hides the 95 % ellipse of a
-    small Fix. The marker should be smaller than the ellipse at the fitted zoom, and the map should be
-    fitted to the ellipse as well as to the observers, so that the region of the Fix is always seen.
-    Tests first, against `FakeMapLibre`: the Fix's paint has a smaller radius (a value to be set with
-    the lead), and `fitToFeatures` after `setFix` includes the ellipse's polygon in the bounds.
+- [x] 30. What a reviewer of an app sees first (2026-11-20; Req 13.13, 15.5, 15.7, 17.4, 17.7;
+  design D34; with Vigia's task group 21). Replaces the note of 2026-11-20.
+  - Tests before code; no new dependency; `timeout` in front of every test run, no `pkill`, no
+    commit; every run keeps its output under `/tmp/vigia/`.
+  - [x] 30.1 `MapView` shows the result of its fit. Tests first: `MapView.test.tsx`, two observers
+    either side of 180° show the Message of `crosses_antimeridian`, gone when the map fits again.
+    Code: `MapView` adds the fit's result to the results it shows. Vigia's own check of the extent
+    is removed in Vigia's task 21.6.
+  - [x] 30.2 The 95 % ellipse is seen. Tests first: `map-style.test.ts` (the ellipse's outline over
+    the lines and the Wedges, its fill under the lines, still under the Fix's point; the Fix dot at
+    most 10 px across with a 2 px ring), `map-adapter.test.ts` (with a Fix the fit holds the
+    observers and the ellipse, not the ends of a 50 km line; without one, everything held),
+    `MapView.test.tsx` (the `height` prop, 240 px by default). Code: `map-style.ts`,
+    `map-adapter.ts`, `MapView.tsx`.
+  - [x] 30.3 The compact presentation of `SimulatorPanel`. Tests first:
+    `SimulatorPanel.compact.test.tsx` (the order scene, Station, Start, then the closed
+    "Simulator controls" with Seed, Speed, Play, Pause, Step, Restart; Start plays; the full
+    presentation unchanged; `selectedStationId` followed, kept across a change of scene, an unknown
+    id ignored; no Station chooser of the panel's own then). Code: `SimulatorPanel.tsx`. The
+    Playground keeps the full presentation (D34.1).
+  - [x] 30.4 Checkpoint: `pnpm test` from the root, `pnpm typecheck`, `pnpm lint`,
+    `pnpm format:check`, and `pnpm --filter @alidade/ui build:playground` once with the test of its
+    output (the worker file). Mutation checks: the fit that holds the lines with a Fix, `MapView`
+    dropping the fit's result, Start that does not play, the panel ignoring the given Station;
+    each fails a named test.

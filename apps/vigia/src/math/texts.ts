@@ -41,6 +41,20 @@ export const JOIN_CROSSES_TEXT =
 export const JOIN_NOT_TAKEN_BACK_TEXT =
   'A join is not taken back: its sightings can still be hidden or deleted one by one.';
 
+/**
+ * The reviewer's path, on the first screen in Simulation mode while the phone in hand has sighted
+ * nothing (task 21.5): three short lines, the post named. A smoke is located by sightings from two
+ * posts, joined on one phone by sending one of them and answering that it is the same smoke.
+ */
+export const REVIEWER_PATH_TITLE = 'Try it in three steps';
+export function reviewerPathLines(postName: string): readonly string[] {
+  return [
+    `Sight the smoke from here, the ${postName}.`,
+    'Change to another post above, and sight the smoke again.',
+    'Send one sighting to the other phone, and answer there that it is the same smoke.',
+  ];
+}
+
 /** How to sight smoke (Req 16.2); the last sentence only when a wind reading is shown (Req 13.5). */
 export function sightingGuidance(windShown: boolean): readonly string[] {
   const always = [

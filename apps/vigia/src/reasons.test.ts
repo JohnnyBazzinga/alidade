@@ -8,7 +8,7 @@ import {
   type VigiaOnlyReason,
 } from './reasons';
 
-/** The 22 reasons of Req 2.2, typed out on purpose: a drift in the source fails here. */
+/** The 23 reasons of Req 2.2, typed out on purpose: a drift in the source fails here. */
 const REQ_2_2 = [
   'code_damaged',
   'code_too_long',
@@ -17,6 +17,7 @@ const REQ_2_2 = [
   'link_too_long',
   'incident_unknown',
   'incident_full',
+  'incident_not_joinable',
   'sighting_conflict',
   'simulation_not_shareable',
   'sighting_too_old',
@@ -34,12 +35,6 @@ const REQ_2_2 = [
   'random_unavailable',
 ] as const satisfies readonly VigiaOnlyReason[];
 
-/**
- * The reason added by design §7.4a (2026-11-21), proposed there and not yet in Req 2.2's list of
- * 22: a join that cannot be made (a simulation and a real smoke, or too many former ids).
- */
-const ADDED_BY_THE_JOIN = ['incident_not_joinable'] as const satisfies readonly VigiaOnlyReason[];
-
 /** The three of the hotspot Overlay (second release): in no list of the first release. */
 const HOTSPOT_REASONS = [
   'overlay_needs_key',
@@ -48,9 +43,9 @@ const HOTSPOT_REASONS = [
 ];
 
 describe('VIGIA_REASONS (Req 2.2, design D2)', () => {
-  it('has the 22 reasons of Req 2.2 and the one of the join, no more and no fewer', () => {
-    expect(REQ_2_2).toHaveLength(22);
-    const all = [...REQ_2_2, ...ADDED_BY_THE_JOIN].sort();
+  it('has the 23 reasons of Req 2.2, no more and no fewer', () => {
+    expect(REQ_2_2).toHaveLength(23);
+    const all = [...REQ_2_2].sort();
     expect([...VIGIA_ONLY_REASON_LIST].sort()).toEqual(all);
     expect(Object.keys(VIGIA_ONLY_REASONS).sort()).toEqual(all);
   });

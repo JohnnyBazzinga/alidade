@@ -2,7 +2,8 @@
 // The order is the order of importance: the not-calling statement (one line), the smoke, a
 // disagreement when there is one, where the smoke probably is and how far to trust it, what the
 // count can check, the limits, where to sight from next, then the actions, the notices of this
-// phone, the Incident's note, the other smokes and the controls of the phone.
+// phone, the Incident's note, the other smokes and the controls of the phone. "Sight the smoke",
+// the primary action, is in the App's row above the tabs (task 21.3), however long the screen.
 
 import { useState, type ReactNode } from 'react';
 import {
@@ -21,6 +22,7 @@ import { FailureNotice } from './FailureNotice';
 import { FixWordsView } from './FixWordsView';
 import { LimitsBlock } from './LimitsBlock';
 import { LOOK } from './look';
+import { PrimaryAction } from './PrimaryAction';
 import { useStore, useVigia, type OpenView, type OwnPosition } from './store';
 
 export interface SmokeScreenProps {
@@ -29,6 +31,8 @@ export interface SmokeScreenProps {
   readonly onPrivacy: () => void;
   /** "This phone" / "Simulator", shown only when the browser has motion sensors (Req 17.1). */
   readonly modeControl?: ReactNode;
+  /** In Simulation mode, with nothing sighted on this phone: the reviewer's path (task 21.5). */
+  readonly reviewerPath?: ReactNode;
 }
 
 /** The failures of the solve after which the advice is to move sideways (Req 7.5). */
@@ -93,7 +97,13 @@ function Result({
   );
 }
 
-export function SmokeScreen({ onSight, onInbox, onPrivacy, modeControl }: SmokeScreenProps) {
+export function SmokeScreen({
+  onSight,
+  onInbox,
+  onPrivacy,
+  modeControl,
+  reviewerPath,
+}: SmokeScreenProps) {
   const store = useStore();
   const snapshot = useVigia();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -102,9 +112,6 @@ export function SmokeScreen({ onSight, onInbox, onPrivacy, modeControl }: SmokeS
 
   const actions = (
     <div style={LOOK.stack}>
-      <button type="button" data-primary="true" onClick={onSight} style={LOOK.primaryButton}>
-        Sight the smoke
-      </button>
       <button type="button" onClick={onInbox} style={LOOK.button}>
         Add a sighting someone sent me{inbox.length > 0 ? ` (${inbox.length} waiting)` : ''}
       </button>
@@ -122,6 +129,7 @@ export function SmokeScreen({ onSight, onInbox, onPrivacy, modeControl }: SmokeS
             <h1 style={LOOK.title}>No smoke yet</h1>
             <p style={LOOK.text}>{checkStatement('none')}</p>
           </div>
+          {reviewerPath}
           {actions}
         </>
       ) : (
@@ -194,6 +202,11 @@ export function SmokeScreen({ onSight, onInbox, onPrivacy, modeControl }: SmokeS
         </button>
         {modeControl}
       </div>
+      <PrimaryAction>
+        <button type="button" data-primary="true" onClick={onSight} style={LOOK.primaryButton}>
+          Sight the smoke
+        </button>
+      </PrimaryAction>
     </section>
   );
 }

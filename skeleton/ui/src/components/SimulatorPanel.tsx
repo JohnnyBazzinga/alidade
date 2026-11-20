@@ -3,6 +3,14 @@
 // Simulator's clock only through `advanceTo`, from the injected Timer; a change of scene, Station
 // or seed (or a restart) makes a new source and a new Session and stops the old ones. The Scene
 // image replaces the camera image, and the truth of the scene is shown as text.
+//
+// Two presentations (task group 30, design D34). The full one, the Playground's, shows every
+// control at the top. The compact one is for a reviewer who has never seen the app: the scene and
+// the Station, then the sighting screen with its Start, then the description and the truth, and
+// the Simulator's own controls (seed, speed, play, pause, step, restart) in a closed disclosure
+// at the end; there Start also starts the script playing, since nothing would move otherwise. An
+// app that shows its own Station chooser (Vigia's "You hold the phone at") passes
+// `selectedStationId`: the panel follows it and shows no chooser of its own.
 
 import {
   createSimulator,
@@ -59,10 +67,24 @@ export interface SimulatorPanelProps {
   readonly onSession?: (session: Session, context: SimulatorContext) => void;
   /** Extra content under the image, for example the Playground's diagnostics. */
   readonly children?: ReactNode;
+  /** `full` (the default) or `compact`, for a reviewer (design D34). */
+  readonly presentation?: 'full' | 'compact';
+  /**
+   * The Station chosen by the application's own chooser. When given, the panel shows no Station
+   * chooser, goes to this Station whenever the scene has it (a change makes a new Simulator and
+   * Session, Req 17.4), keeps it across a change of scene when the new scene has it, and ignores
+   * an id the scene does not have.
+   */
+  readonly selectedStationId?: string;
 }
 
-function initialPanelState(entry: CatalogueScene): PanelState | null {
-  const station = entry.scene.stations[0];
+/** The Station `wanted` if the scene has it, else its first. */
+function stationOf(entry: CatalogueScene, wanted: string | undefined): Station | undefined {
+  return entry.scene.stations.find((s) => s.id === wanted) ?? entry.scene.stations[0];
+}
+
+function initialPanelState(entry: CatalogueScene, wanted: string | undefined): PanelState | null {
+  const station = stationOf(entry, wanted);
   const script = station === undefined ? undefined : entry.scripts[station.id];
   if (station === undefined || script === undefined) return null;
   return {
@@ -81,7 +103,7 @@ export function SimulatorPanel(props: SimulatorPanelProps) {
   const { catalogue, timer, parameters, sensorOptions, onSession } = props;
   const first = catalogue.find((c) => c.scene.id === props.initialSceneId) ?? catalogue[0] ?? null;
   const [panel, setPanel] = useState<PanelState | null>(() =>
-    first === null ? null : initialPanelState(first),
+    first === null ? null : initialPanelState(first, props.selectedStationId),
   );
   const panelRef = useRef(panel);
   const [generation, setGeneration] = useState(0);
@@ -154,6 +176,16 @@ export function SimulatorPanel(props: SimulatorPanelProps) {
     if (stepped.value.recreate) setGeneration((g) => g + 1);
     setRenderTick((n) => n + 1);
   }, []);
+
+  // The application's Station chooser drives the panel's (design D34).
+  const wantedStationId = props.selectedStationId;
+  const currentStationId = panel?.stationId;
+  useEffect(() => {
+    if (wantedStationId === undefined || entry === null) return;
+    if (wantedStationId === currentStationId) return;
+    if (!entry.scene.stations.some((s) => s.id === wantedStationId)) return;
+    apply({ kind: 'selectStation', stationId: wantedStationId });
+  }, [wantedStationId, currentStationId, entry, apply]);
 
   const playing = panel?.playing === true;
   const tickMs = panel?.tickMs ?? SIMULATOR_TICK_MS;
@@ -242,119 +274,144 @@ export function SimulatorPanel(props: SimulatorPanelProps) {
     borderRadius: 0,
   } as const;
 
-  return (
-    <div data-testid="simulator-panel" style={{ background: COLOURS.bg }}>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: SIZES.gapPx, padding: SIZES.gapPx }}>
-        <label style={labelStyle}>
-          Scene
-          <select
-            style={fieldStyle}
-            value={panel.sceneId}
-            onChange={(e) => {
-              const chosen = catalogue.find((c) => c.scene.id === e.target.value);
-              const st = chosen?.scene.stations[0];
-              const script = st === undefined ? undefined : chosen?.scripts[st.id];
-              if (chosen === undefined || st === undefined || script === undefined) return;
-              apply({
-                kind: 'selectScene',
-                sceneId: chosen.scene.id,
-                stationId: st.id,
-                startUtcMs: script.startUtcMs,
-              });
-            }}
-          >
-            {catalogue.map((c) => (
-              <option key={c.scene.id} value={c.scene.id}>
-                {c.scene.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label style={labelStyle}>
-          Station
-          <select
-            style={fieldStyle}
-            value={panel.stationId}
-            onChange={(e) => apply({ kind: 'selectStation', stationId: e.target.value })}
-          >
-            {entry.scene.stations.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label style={labelStyle}>
-          Seed
-          <input
-            style={fieldStyle}
-            inputMode="numeric"
-            value={seedText}
-            onChange={(e) => {
-              setSeedText(e.target.value);
-              const text = e.target.value.trim();
-              apply({ kind: 'setSeed', seed: text === '' ? Number.NaN : Number(text) });
-            }}
-          />
-        </label>
-        <label style={labelStyle}>
-          Speed
-          <select
-            style={fieldStyle}
-            value={String(panel.speed)}
-            onChange={(e) => {
-              const speed = SPEEDS.find((s) => String(s) === e.target.value);
-              if (speed !== undefined) apply({ kind: 'setSpeed', speed });
-            }}
-          >
-            {SPEEDS.map((s) => (
-              <option key={s} value={String(s)}>
-                {`${s}×`}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: SIZES.gapPx, padding: SIZES.gapPx }}>
-        {button('Play', { kind: 'play' }, panel.playing)}
-        {button('Pause', { kind: 'pause' }, !panel.playing)}
-        {button('Step', { kind: 'step' }, panel.playing)}
-        {button('Restart', { kind: 'restart' })}
-      </div>
-      {shownFailure !== null && <FailureNotice failure={shownFailure} />}
-      <p
-        data-testid="scene-description"
-        style={{ ...labelStyle, margin: 0, padding: SIZES.gapPx, color: COLOURS.inkDim }}
+  const compact = props.presentation === 'compact';
+  const ownStationChooser = props.selectedStationId === undefined;
+  // In the compact presentation Start also plays the script (design D34).
+  const onStart = (): void => {
+    sighting.requestPermission();
+    if (compact && panelRef.current?.playing !== true) apply({ kind: 'play' });
+  };
+  const row = {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: SIZES.gapPx,
+    padding: SIZES.gapPx,
+  } as const;
+  const sceneChooser = (
+    <label style={labelStyle}>
+      Scene
+      <select
+        style={fieldStyle}
+        value={panel.sceneId}
+        onChange={(e) => {
+          const chosen = catalogue.find((c) => c.scene.id === e.target.value);
+          const st = chosen === undefined ? undefined : stationOf(chosen, props.selectedStationId);
+          const script = st === undefined ? undefined : chosen?.scripts[st.id];
+          if (chosen === undefined || st === undefined || script === undefined) return;
+          apply({
+            kind: 'selectScene',
+            sceneId: chosen.scene.id,
+            stationId: st.id,
+            startUtcMs: script.startUtcMs,
+          });
+        }}
       >
-        {entry.description}
-      </p>
-      <div
-        data-testid="truth"
-        style={{ ...labelStyle, padding: SIZES.gapPx, background: COLOURS.panel }}
+        {catalogue.map((c) => (
+          <option key={c.scene.id} value={c.scene.id}>
+            {c.scene.name}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+  const stationChooser = ownStationChooser ? (
+    <label style={labelStyle}>
+      Station
+      <select
+        style={fieldStyle}
+        value={panel.stationId}
+        onChange={(e) => apply({ kind: 'selectStation', stationId: e.target.value })}
       >
-        {pose !== null && (
-          <p style={{ margin: 0 }} data-part="camera">
-            {`Camera: azimuth ${formatAzimuthDeg(pose.azimuthRad, 1)}° true, altitude ${formatSignedDeg(pose.apparentAltitudeRad, 1)}°`}
+        {entry.scene.stations.map((s) => (
+          <option key={s.id} value={s.id}>
+            {s.name}
+          </option>
+        ))}
+      </select>
+    </label>
+  ) : null;
+  const settings = (
+    <>
+      <label style={labelStyle}>
+        Seed
+        <input
+          style={fieldStyle}
+          inputMode="numeric"
+          value={seedText}
+          onChange={(e) => {
+            setSeedText(e.target.value);
+            const text = e.target.value.trim();
+            apply({ kind: 'setSeed', seed: text === '' ? Number.NaN : Number(text) });
+          }}
+        />
+      </label>
+      <label style={labelStyle}>
+        Speed
+        <select
+          style={fieldStyle}
+          value={String(panel.speed)}
+          onChange={(e) => {
+            const speed = SPEEDS.find((s) => String(s) === e.target.value);
+            if (speed !== undefined) apply({ kind: 'setSpeed', speed });
+          }}
+        >
+          {SPEEDS.map((s) => (
+            <option key={s} value={String(s)}>
+              {`${s}×`}
+            </option>
+          ))}
+        </select>
+      </label>
+    </>
+  );
+  const clock = (
+    <div style={row}>
+      {button('Play', { kind: 'play' }, panel.playing)}
+      {button('Pause', { kind: 'pause' }, !panel.playing)}
+      {button('Step', { kind: 'step' }, panel.playing)}
+      {button('Restart', { kind: 'restart' })}
+    </div>
+  );
+  const failureNotice = shownFailure !== null && <FailureNotice failure={shownFailure} />;
+  const description = (
+    <p
+      data-testid="scene-description"
+      style={{ ...labelStyle, margin: 0, padding: SIZES.gapPx, color: COLOURS.inkDim }}
+    >
+      {entry.description}
+    </p>
+  );
+  const truth = (
+    <div
+      data-testid="truth"
+      style={{ ...labelStyle, padding: SIZES.gapPx, background: COLOURS.panel }}
+    >
+      {pose !== null && (
+        <p style={{ margin: 0 }} data-part="camera">
+          {`Camera: azimuth ${formatAzimuthDeg(pose.azimuthRad, 1)}° true, altitude ${formatSignedDeg(pose.apparentAltitudeRad, 1)}°`}
+        </p>
+      )}
+      {entry.scene.targets.map((t) => {
+        const d = targetDirection(station, t);
+        return (
+          <p key={t.id} style={{ margin: 0 }} data-part="target" data-target-id={t.id}>
+            {d.ok
+              ? `${t.label}: azimuth ${formatAzimuthDeg(d.value.azimuthRad, 1)}° true, altitude ${formatSignedDeg(d.value.apparentAltitudeRad, 1)}°`
+              : `${t.label}: ${messageFor(d).whatHappened}`}
           </p>
-        )}
-        {entry.scene.targets.map((t) => {
-          const d = targetDirection(station, t);
-          return (
-            <p key={t.id} style={{ margin: 0 }} data-part="target" data-target-id={t.id}>
-              {d.ok
-                ? `${t.label}: azimuth ${formatAzimuthDeg(d.value.azimuthRad, 1)}° true, altitude ${formatSignedDeg(d.value.apparentAltitudeRad, 1)}°`
-                : `${t.label}: ${messageFor(d).whatHappened}`}
-            </p>
-          );
-        })}
-      </div>
+        );
+      })}
+    </div>
+  );
+  const screen = (
+    <>
       {/* No box of fixed height around the screen: it is as tall as its content (Req 13.13). */}
       {session !== null && (
         <div>
           <SightingScreen
             session={session}
             parameters={parameters}
-            onRequestPermission={sighting.requestPermission}
+            onRequestPermission={onStart}
             onAction={sighting.dispatch}
             sourceSize={{
               widthSourcePx: entry.scene.calibration.imageWidthSourcePx,
@@ -377,6 +434,52 @@ export function SimulatorPanel(props: SimulatorPanelProps) {
           />
         </div>
       )}
+    </>
+  );
+
+  if (compact) {
+    return (
+      <div data-testid="simulator-panel" style={{ background: COLOURS.bg }}>
+        <div style={row}>
+          {sceneChooser}
+          {stationChooser}
+        </div>
+        {failureNotice}
+        {screen}
+        {description}
+        {truth}
+        <details data-testid="simulator-controls" style={{ padding: SIZES.gapPx }}>
+          <summary
+            style={{
+              ...labelStyle,
+              display: 'list-item',
+              minHeight: SIZES.touchPx,
+              lineHeight: `${SIZES.touchPx}px`,
+              cursor: 'pointer',
+            }}
+          >
+            Simulator controls
+          </summary>
+          <div style={row}>{settings}</div>
+          {clock}
+        </details>
+        {props.children}
+      </div>
+    );
+  }
+
+  return (
+    <div data-testid="simulator-panel" style={{ background: COLOURS.bg }}>
+      <div style={row}>
+        {sceneChooser}
+        {stationChooser}
+        {settings}
+      </div>
+      {clock}
+      {failureNotice}
+      {description}
+      {truth}
+      {screen}
       {props.children}
     </div>
   );

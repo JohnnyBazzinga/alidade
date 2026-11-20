@@ -44,8 +44,9 @@ export interface MapAdapter {
   setFix(fix: Fix): UiResult<void>;
   clearFix(): UiResult<void>;
   /**
-   * Fits the map to what it draws. The application layers are included only through `extra`, the
-   * collections the caller passes (Req 15.16).
+   * Fits the map to what it draws: with a Fix, to the observers and the Fix with its 95 %
+   * ellipse; with none, to the observers, the lines and the Wedges (design D34). The application
+   * layers are included only through `extra`, the collections the caller passes (Req 15.16).
    */
   fitToFeatures(paddingPx: number, extra?: readonly HasGeometries[]): UiResult<void>;
   /**
@@ -345,10 +346,13 @@ export function createMapAdapter(
       if (destroyed) return gone();
       if (!Number.isFinite(paddingPx) || paddingPx < 0)
         return err('invalid_number', { field: 'paddingPx' });
-      const bounds = mapBounds([
-        ...GEOJSON_SOURCE_IDS.map((id) => latest[id]),
-        ...(Array.isArray(extra) ? extra : []),
-      ]);
+      // With a Fix: the observers and the Fix with its 95 % ellipse (design D34); the lines run
+      // past the Fix and would make the ellipse a few pixels across. With none: everything held.
+      const own =
+        latest.fix.features.length > 0
+          ? [latest.observers, latest.fix]
+          : GEOJSON_SOURCE_IDS.map((id) => latest[id]);
+      const bounds = mapBounds([...own, ...(Array.isArray(extra) ? extra : [])]);
       if (!bounds.ok) return bounds;
       const b = bounds.value;
       try {

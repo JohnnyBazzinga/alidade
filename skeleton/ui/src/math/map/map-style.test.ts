@@ -109,6 +109,47 @@ describe('buildMapStyle (Req 15.4, 15.7, D12)', () => {
   });
 });
 
+// Task group 30 (design D34): on a phone the Fix's marker and the bearing lines hid the 95 %
+// ellipse in every scene. The ellipse's outline is drawn over the lines and the Wedges, its fill
+// under the lines, and the marker is small: the region, not the point, is what is seen.
+describe('the 95 % ellipse is seen (task group 30, D34)', () => {
+  const layers = buildMapStyle(null).layers;
+  const ids = layers.map((l) => l.id);
+  const at = (id: string) => ids.indexOf(id);
+  const paint = (id: string, key: string) => Number(layers.find((l) => l.id === id)?.paint[key]);
+
+  it("draws the ellipse's outline over the lines and the Wedges, and its fill under the lines", () => {
+    for (const line of ['wedges-outline', 'bearings-casing', 'bearings-core']) {
+      expect(at('fix-ellipse-casing')).toBeGreaterThan(at(line));
+    }
+    expect(at('fix-ellipse-core')).toBeGreaterThan(at('fix-ellipse-casing'));
+    expect(at('fix-ellipse-fill')).toBeGreaterThan(at('wedges-fill'));
+    expect(at('fix-ellipse-fill')).toBeLessThan(at('bearings-casing'));
+    // Still under the Fix's point (Req 15.7).
+    expect(at('fix-ellipse-core')).toBeLessThan(at('fix-casing'));
+  });
+
+  it('gives the outline a casing at least as wide as a line casing, and a fill that lets the ground show', () => {
+    expect(paint('fix-ellipse-casing', 'line-width')).toBeGreaterThanOrEqual(
+      paint('bearings-casing', 'line-width'),
+    );
+    expect(paint('fix-ellipse-core', 'line-width')).toBeGreaterThanOrEqual(
+      paint('bearings-core', 'line-width'),
+    );
+    const opacity = paint('fix-ellipse-fill', 'fill-opacity');
+    expect(opacity).toBeGreaterThan(0);
+    expect(opacity).toBeLessThanOrEqual(0.35);
+  });
+
+  it('draws the Fix as a small two-tone dot: 10 CSS px across at most, with a dark ring of 2 px', () => {
+    const casing = paint('fix-casing', 'circle-radius');
+    const core = paint('fix-core', 'circle-radius');
+    expect(casing).toBeLessThanOrEqual(5);
+    expect(casing - core).toBeGreaterThanOrEqual(2);
+    expect(core).toBeGreaterThanOrEqual(2);
+  });
+});
+
 // D31.4 (Req 15.16): application layers are added before `APP_LAYERS_BEFORE_ID`, so that every
 // layer of the skeleton that draws data is above them. A skeleton layer added under it would be
 // hidden by an application layer, and this test notices.

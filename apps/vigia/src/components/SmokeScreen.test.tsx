@@ -71,12 +71,14 @@ const messageText = (reason: Parameters<typeof messageFor>[0]['reason']) => {
 };
 
 describe('SmokeScreen in every state (design §9)', () => {
-  it('no smoke: the not-calling statement, how to start, and Sight the smoke as the first control', () => {
+  // Task 21.3: the primary action is the screen's last control, which the App puts in its row
+  // above the tabs (App.test.tsx); it was the first in the scrolling part.
+  it('no smoke: the not-calling statement, how to start, and Sight the smoke as the primary control', () => {
     const s = show();
     expect(s.getByTestId('not-calling').textContent).toBe(NOT_CALLING_TEXT);
     expect(s.text()).toContain('No smoke yet');
     expect(s.text()).toContain(checkStatement('none'));
-    expect(s.buttons()[0]).toBe('Sight the smoke');
+    expect(s.buttons().at(-1)).toBe('Sight the smoke');
     expect(s.getByRole('button', { name: 'Sight the smoke' }).dataset.primary).toBe('true');
     expect(s.text()).not.toContain(incidentStatement());
     fireEvent.click(s.getByRole('button', { name: 'Sight the smoke' }));

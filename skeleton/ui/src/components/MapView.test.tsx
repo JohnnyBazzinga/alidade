@@ -129,6 +129,41 @@ describe('MapView (Req 15, 13.6)', () => {
     expect(getByRole('alert').textContent).toMatch(/map/i);
   });
 
+  // Task group 30.1 (design D34; Vigia Req 18.5): the result of the fit is shown like any other
+  // failure. Two observers on either side of 180° give a box wider than 180° of longitude.
+  it('shows the Message of crosses_antimeridian when the fit fails, and nothing once it fits again', () => {
+    const lib = new FakeMapLibre();
+    const near = (lonDeg: number) => ({ latRad: 0.2, lonRad: (lonDeg * Math.PI) / 180 });
+    const across = [
+      { id: 'w', position: near(179.9) },
+      { id: 'e', position: near(-179.9) },
+    ];
+    const props = { lib, tiles: null, timer, bearings: [], lineLengthM: 5000, fix: null };
+    const { getByRole, queryByRole, rerender } = render(<MapView {...props} observers={across} />);
+    const m = messageFor({ ok: false, reason: 'crosses_antimeridian' });
+    expect(getByRole('alert').textContent).toContain(m.whatHappened);
+    rerender(<MapView {...props} observers={OBSERVERS} />);
+    expect(queryByRole('alert')).toBeNull();
+  });
+
+  // Task group 30 (design D34): an app gives the map the height it needs; 240 px by default.
+  it('takes the height of the map from its prop, 240 CSS px by default', () => {
+    const base = {
+      lib: null,
+      tiles: null,
+      timer,
+      observers: [],
+      bearings: [],
+      lineLengthM: 5000,
+      fix: null,
+    };
+    const one = render(<MapView {...base} />);
+    expect(one.getByTestId('map-container').style.height).toBe('240px');
+    one.unmount();
+    const two = render(<MapView {...base} height="clamp(320px, 100vw, 70svh)" />);
+    expect(two.getByTestId('map-container').style.height).toBe('clamp(320px, 100vw, 70svh)');
+  });
+
   it('shows the Message of tiles_unavailable when the map reports a tile error', () => {
     const lib = new FakeMapLibre();
     const { queryByRole, getByRole } = render(

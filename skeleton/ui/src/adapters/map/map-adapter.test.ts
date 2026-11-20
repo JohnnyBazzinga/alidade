@@ -1,5 +1,6 @@
 import type { Bearing } from '@alidade/core';
 import { describe, expect, it, vi } from 'vitest';
+import { ELLIPSE_VERTEX_COUNT } from '../../defaults';
 import { fixFeatures } from '../../math/map/fix-features';
 import type { TileSource } from '../../math/map/map-style';
 import { FakeMapLibre } from '../../test-support/fake-maplibre';
@@ -200,6 +201,42 @@ describe('writing data (Req 15.5, 15.6, D12)', () => {
       reason: 'invalid_number',
       field: 'paddingPx',
     });
+  });
+
+  // Task group 30 (design D34): with a Fix the view is fitted to the observers and the Fix with its
+  // 95 % ellipse, not to the ends of the lines, which are drawn past the Fix and made the ellipse a
+  // few pixels across. With no Fix the lines are what there is to see, and the view holds them.
+  it('with a Fix, fits the observers and the ellipse and not the far ends of the lines', () => {
+    const { adapter, map } = setUp();
+    const south = { latRad: ORIGIN.latRad - 3000 / 6_371_008.8, lonRad: ORIGIN.lonRad };
+    adapter.setObservers([{ id: 'o', position: south }]);
+    adapter.setBearings([{ ...BEARING, observer: south, azimuthRad: 0 }], 50_000);
+    type Box = [[number, number], [number, number]];
+    const box = () => map.fitBoundsCalls.at(-1)?.[0] as Box;
+
+    expect(adapter.fitToFeatures(0).ok).toBe(true);
+    const withoutFix = box();
+    // The line runs 50 km north: about 0.45° of latitude.
+    expect(withoutFix[1][1] - withoutFix[0][1]).toBeGreaterThan(0.4);
+
+    adapter.setFix(FIX);
+    expect(adapter.fitToFeatures(0).ok).toBe(true);
+    const [[w, s], [e, n]] = box();
+    const ellipse = fixFeatures(FIX, ELLIPSE_VERTEX_COUNT);
+    if (!ellipse.ok) throw new Error(ellipse.reason);
+    const polygon = ellipse.value.features[1].geometry;
+    if (polygon.type !== 'Polygon') throw new Error('no polygon');
+    const ring = polygon.coordinates[0] ?? [];
+    const lats = ring.map((c) => c[1]);
+    const lons = ring.map((c) => c[0]);
+    expect(s).toBeCloseTo((south.latRad * 180) / Math.PI, 9);
+    expect(n).toBeCloseTo(Math.max(...lats), 9);
+    expect(w).toBeCloseTo(Math.min(...lons), 9);
+    expect(e).toBeCloseTo(Math.max(...lons), 9);
+
+    adapter.clearFix();
+    expect(adapter.fitToFeatures(0).ok).toBe(true);
+    expect(box()).toEqual(withoutFix);
   });
 });
 

@@ -10,6 +10,10 @@
 // that is moved into the Sight screen while that screen is there and back into a hidden stash
 // when it is not. A Session the panel reports reaches the Sight screen that is there; a capture
 // that was delivered to one Sight screen is not delivered again to the next.
+//
+// Task group 21 (skeleton-ui task group 30): the panel is in its compact presentation, for a
+// reviewer, and the phone in hand is chosen under the banner on every screen ("You hold the phone
+// at"); the shell owns that choice and hands it to the panel as `selectedStationId`.
 
 import {
   SimulatorPanel,
@@ -20,7 +24,7 @@ import {
   type SimulatorContext,
 } from '@alidade/ui';
 import type { SensorSourceOptions } from '@alidade/sensors';
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { App } from '../../App';
 import type { SightingSource, VigiaMode } from '../environment';
@@ -180,6 +184,23 @@ export function SimulationShell(props: SimulationShellProps) {
       ? null
       : (set.phones.find((p) => p.stationId === where.stationId) ?? set.phones[0] ?? null);
 
+  const choosePost = useCallback((stationId: string) => {
+    setWhere((before) =>
+      before.stationId === stationId ? before : { sceneId: before.sceneId, stationId },
+    );
+  }, []);
+  const phoneInHand = useMemo(
+    () =>
+      entry === undefined
+        ? undefined
+        : {
+            stationId: where.stationId,
+            stations: entry.scene.stations.map((s) => ({ id: s.id, name: s.name })),
+            onSelect: choosePost,
+          },
+    [entry, where.stationId, choosePost],
+  );
+
   return (
     <>
       <div hidden data-testid="simulator-stash">
@@ -196,6 +217,8 @@ export function SimulationShell(props: SimulationShellProps) {
             {...(first === undefined ? {} : { initialSceneId: first.scene.id })}
             {...(props.observe === undefined ? {} : { observe: props.observe })}
             onSession={onPanelSession}
+            presentation="compact"
+            selectedStationId={where.stationId}
           />,
           host,
         )}
@@ -205,6 +228,7 @@ export function SimulationShell(props: SimulationShellProps) {
           store={active.store}
           hasDeviceOrientation={hasDeviceOrientation}
           {...(onModeChange === undefined ? {} : { onModeChange })}
+          {...(phoneInHand === undefined ? {} : { phoneInHand })}
         />
       )}
     </>
