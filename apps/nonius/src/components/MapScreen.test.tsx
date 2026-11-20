@@ -177,3 +177,21 @@ describe('MapScreen fits the map to what it draws (task group 13, C)', () => {
     expect(m.q.queryAllByRole('alert')).toHaveLength(0);
   });
 });
+
+describe('MapScreen shows the failure of the map model (Req 9.5)', () => {
+  it('says through messageFor that an ellipse within 1° of a pole cannot be drawn, and draws no place; the words still carry it', async () => {
+    // No index error: the places' ellipses are large, and place B lies near the south pole.
+    const t = testEnvironment();
+    const w = appWrap(t);
+    noiseFreeSights(CATALOGUE_ORIGIN, [T[0] ?? 0, T[2] ?? 0], 0, false, params).forEach((s) =>
+      w.store.dispatch({ kind: 'capture', sight: s }),
+    );
+    const screen = renderScreen(<MapScreen />, w.wrap);
+    await screen.settle();
+    await screen.settle(() => t.maplibre.last().fire('load'));
+    const alerts = within(screen.container).getAllByRole('alert');
+    expect(alerts.map((a) => a.textContent).join(' ')).toContain('within 1° of a pole');
+    expect(alerts.map((a) => a.textContent).join(' ')).not.toContain('unsupported_position');
+    expect(coordinatesOf(t.maplibre.last(), 'app-places-point')).toHaveLength(0);
+  });
+});

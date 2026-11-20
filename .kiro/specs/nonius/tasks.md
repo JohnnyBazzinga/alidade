@@ -103,7 +103,7 @@ Vigia's working rules (`.kiro/specs/vigia/tasks.md`, "Working rules for every ta
   - [ ] 11.2 Code: `math/fix/best-time.ts`, its sentence in `fix-words.ts` and on the Fix screen.
     - _Requirements: 10.3 to 10.6_
 
-- [ ] 12. Final checkpoint (stops for review)
+- [x] 12. Final checkpoint (stops for review)
   - `test:deep` for every property of design §11, then `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm format:check` from the root, and one `pnpm --filter @alidade/nonius build`: report the built size, and the share of `astronomy-engine` in it against design §2's 48.8 kB minified. One mutation check per screen file named in task 9.4 (a removed guard), each failing a test. Report as the working rules say, with every share of the statistical tests again and whether group 11 was built. **Stop for the lead's review.**
 
 - [x] 13. Screens after the lead's review (2026-11-21; the lead walked the built page at 390 × 844 CSS px in a headless browser). Tests first where a test can hold it (arithmetic of heights, the fake map's fit, the order of elements). Task group 12 follows this group.
