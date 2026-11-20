@@ -4,8 +4,7 @@
 import { COLOURS, SIZES } from '@alidade/ui';
 import { LOOK } from './look';
 
-export const SIMULATION_TEXT =
-  'Simulation: the Sun, the sights and the places on this page are made up. Nothing here is a real position.';
+export const SIMULATION_TEXT = 'Simulation: the Sun, sights and places are made up.';
 
 export function SimulationBanner() {
   return (

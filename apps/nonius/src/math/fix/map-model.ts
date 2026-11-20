@@ -109,8 +109,16 @@ function layer(
   id: (typeof MAP_LAYER_IDS)[number],
   features: readonly AppFeature[],
   paint: AppLayer['paint'],
+  fit = false,
 ): AppLayer {
-  return { id, collection: { type: 'FeatureCollection', features }, paint };
+  // MapView fits the map to a layer that says `fit` and holds something; an empty one would make
+  // the fit fail on a map that draws nothing.
+  return {
+    id,
+    collection: { type: 'FeatureCollection', features },
+    paint,
+    ...(fit && features.length > 0 ? { fit: true } : {}),
+  };
 }
 
 /**
@@ -197,16 +205,16 @@ export function mapModel(
   return ok({
     fix,
     layers: [
-      layer('circles-used', used, { kind: 'line', colour: USED_COLOUR, widthPx: 3 }),
+      layer('circles-used', used, { kind: 'line', colour: USED_COLOUR, widthPx: 3 }, true),
       layer('circles-set-aside', setAside, {
         kind: 'line',
         colour: SET_ASIDE_COLOUR,
         widthPx: 3,
         dash: [4, 3],
       }),
-      layer('places-area', area, { kind: 'fill', colour: PLACE_COLOUR, opacity: 0.25 }),
+      layer('places-area', area, { kind: 'fill', colour: PLACE_COLOUR, opacity: 0.25 }, true),
       layer('places-point', point, { kind: 'circle', colour: PLACE_COLOUR, radiusPx: 7 }),
-      layer('gps', gps, { kind: 'circle', colour: GPS_COLOUR, radiusPx: 7 }),
+      layer('gps', gps, { kind: 'circle', colour: GPS_COLOUR, radiusPx: 7 }, true),
     ],
   });
 }

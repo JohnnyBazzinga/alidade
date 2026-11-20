@@ -19,7 +19,7 @@ const params = defaultParameters();
 async function runScene(id: string) {
   const m = mountSimulation();
   await m.choose('Scene', id);
-  const n = Number((m.text('phone-bar').match(/of (\d)/) ?? [])[1]);
+  const n = m.sightTimeCount();
   for (let i = 0; i < n; i += 1) {
     await m.sight();
     if (i < n - 1) await m.nextSightTime();

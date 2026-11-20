@@ -5,7 +5,7 @@ import { LOOK } from '../look';
 
 export const REVIEWER_PATH: readonly string[] = [
   'Tap Sight the Sun, then Start, Freeze and Capture in the panel.',
-  'Tap Done, then Next sight time in the bar above, and sight again.',
+  'Tap Done, then Next in the bar above, and sight again.',
   'After the last sight, read the position, then compare it with the true one.',
 ];
 

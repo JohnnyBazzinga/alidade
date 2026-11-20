@@ -156,3 +156,39 @@ describe('SimulatorPanel with the Station chosen by the application (task group 
     expect(m.last()?.context.station.id).toBe('west');
   });
 });
+
+describe('SimulatorPanel with the scene chosen by the application (task group 33)', () => {
+  it('shows no scene chooser of its own when `hideSceneChooser` is given, in either presentation, and keeps every other control', () => {
+    for (const presentation of ['compact', 'full'] as const) {
+      const m = mount({ presentation, hideSceneChooser: true, selectedStationId: 'west' });
+      expect(m.queryByLabelText('Scene')).toBeNull();
+      if (presentation === 'compact') {
+        // No empty row is left where the choosers were: no select outside the closed disclosure.
+        const outside = [...m.getByTestId('simulator-panel').querySelectorAll('select')].filter(
+          (el) => el.closest('[data-testid="simulator-controls"]') === null,
+        );
+        expect(outside).toHaveLength(0);
+      }
+      expect(m.container.querySelector('[data-control="start"]')).not.toBeNull();
+      expect(m.getByTestId('sighting-screen')).toBeTruthy();
+      m.unmount();
+    }
+  });
+
+  it('shows it as before when the property is absent or false', () => {
+    for (const hideSceneChooser of [undefined, false]) {
+      const m = mount({
+        presentation: 'compact',
+        ...(hideSceneChooser === undefined ? {} : { hideSceneChooser }),
+      });
+      expect(m.getByLabelText('Scene')).toBeTruthy();
+      m.unmount();
+    }
+  });
+
+  it('still shows the scene the application chose: the panel stays on the scene it is given', async () => {
+    const m = mount({ presentation: 'compact', hideSceneChooser: true, initialSceneId: 'iphone' });
+    await m.start();
+    expect(m.last()?.context.scene.id).toBe('iphone');
+  });
+});

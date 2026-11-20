@@ -26,10 +26,10 @@ A laptop has no Sun to sight. A browser with no orientation sensor opens the pag
 mode (a banner says so on every screen); a phone can switch to it with the control on the first
 screen. Five invented scenes, each at a made-up place, with the phone's altitude bias of -3.3°:
 A good day, Sights too close in time, Sights ten minutes apart, One sight disagrees, and A phone
-never calibrated. A bar under the banner says which Sight time you hold.
+never calibrated. A one-row bar under the banner holds the scene and the Sight time; the full time and the note on the still Sun are on the Sight screen.
 
 1. Tap Sight the Sun, then Start, Freeze and Capture in the panel.
-2. Tap Done, then Next sight time in the bar, and sight again.
+2. Tap Done, then Next (the Next sight time control) in the bar, and sight again.
 3. After the last sight, read the position and the words, and compare with the true position.
 
 The simulated Sun stands still, so a sight taken a minute late is up to 15′ off. In the last scene,

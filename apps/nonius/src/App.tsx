@@ -65,12 +65,12 @@ function Shell({ phoneBar, reviewerPath, modeControl, environment }: Omit<AppPro
     content = (
       <>
         {state.sights.length === 0 && reviewerPath}
-        {modeControl}
         <FixScreen
           onSight={() => setRoute({ kind: 'sight', back: currentTab })}
           onMeasureIndexError={() => setRoute({ kind: 'index_error', back: currentTab })}
           onHowItWorks={() => setRoute({ kind: 'how', back: currentTab })}
         />
+        {modeControl}
       </>
     );
   }

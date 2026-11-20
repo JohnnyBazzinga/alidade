@@ -46,6 +46,15 @@ describe('sunScenes', () => {
     expect(byId('uncalibrated').sightTimesUtcMs).toEqual(byId('good-day').sightTimesUtcMs);
   });
 
+  it('gives every scene a short name of at most 12 characters for the bar, all different', () => {
+    const names = scenes().map((s) => s.shortName);
+    for (const n of names) {
+      expect(n.length).toBeGreaterThan(0);
+      expect(n.length).toBeLessThanOrEqual(12);
+    }
+    expect(new Set(names).size).toBe(names.length);
+  });
+
   it('gives every scene the phone’s bias of -3.3°', () => {
     for (const s of scenes()) expect(s.altitudeBiasRad).toBeCloseTo(-3.3 * D, 12);
   });

@@ -94,4 +94,20 @@ describe('App', () => {
       'bar',
     ]);
   });
+
+  it('puts the mode control at the end of the Fix screen, after it and not before', () => {
+    const t = testEnvironment();
+    const store = createNoniusStore(t.environment);
+    const { getByTestId } = render(
+      <App
+        environment={t.environment}
+        store={store}
+        modeControl={<p data-testid="mode-control">mode</p>}
+      />,
+    );
+    const fix = getByTestId('fix-screen');
+    const mode = getByTestId('mode-control');
+    expect(fix.compareDocumentPosition(mode) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+    expect(getByTestId('app-main').lastElementChild).toBe(mode);
+  });
 });

@@ -959,6 +959,7 @@ export const HOSTILE_LIST: readonly HostileEntry[] = [
       fc.record({
         id: hostileString(),
         name: hostileString(),
+        shortName: hostileString(),
         truth: hostilePosition(),
         sightTimesUtcMs: fc.array(hostileTime(), { maxLength: 4 }),
         altitudeBiasRad: hostileNumber(),

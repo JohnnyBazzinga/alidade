@@ -23,7 +23,7 @@ import { FailureNotice } from '../FailureNotice';
 import { ModeControl } from '../ModeControl';
 import { createNoniusStore } from '../store';
 import { ReviewerPath } from './ReviewerPath';
-import { SightTimeBar } from './SightTimeBar';
+import { SightTimeBar, SightTimeNote } from './SightTimeBar';
 
 /** The Adapters and settings of the page, shared by every scene. */
 export interface SimulationBase {
@@ -146,12 +146,15 @@ export function SimulationShell(props: SimulationShellProps) {
             initialSceneId={built.value.scene.id}
             selectedStationId={`sight-${sightIndex + 1}`}
             presentation="compact"
+            hideSceneChooser
             {...(props.observe === undefined ? {} : { observe: props.observe })}
             onSession={(session, context) => {
               onSession(session);
               props.onSession?.(session, context);
             }}
-          />
+          >
+            <SightTimeNote sightTimesUtcMs={scene.sightTimesUtcMs} sightIndex={sightIndex} />
+          </SimulatorPanel>
         ),
     });
   }, [scene, sightIndex, built, base, environmentFor, props]);
@@ -180,7 +183,7 @@ export function SimulationShell(props: SimulationShellProps) {
       store={store}
       phoneBar={
         <SightTimeBar
-          scenes={scenes.map((s) => ({ id: s.id, name: s.name }))}
+          scenes={scenes.map((s) => ({ id: s.id, shortName: s.shortName }))}
           sceneId={scene.id}
           sightTimesUtcMs={scene.sightTimesUtcMs}
           sightIndex={sightIndex}

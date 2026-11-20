@@ -76,6 +76,12 @@ export interface SimulatorPanelProps {
    * an id the scene does not have.
    */
   readonly selectedStationId?: string;
+  /**
+   * The application chooses the scene itself (its own chooser, as for `selectedStationId`): the
+   * panel shows no scene chooser, in either presentation. Default `false`: Vigia and the
+   * Playground are unchanged.
+   */
+  readonly hideSceneChooser?: boolean;
 }
 
 /** The Station `wanted` if the scene has it, else its first. */
@@ -288,33 +294,35 @@ export function SimulatorPanel(props: SimulatorPanelProps) {
     gap: SIZES.gapPx,
     padding: SIZES.gapPx,
   } as const;
-  const sceneChooser = (
-    <label style={labelStyle}>
-      Scene
-      <select
-        style={fieldStyle}
-        value={panel.sceneId}
-        onChange={(e) => {
-          const chosen = catalogue.find((c) => c.scene.id === e.target.value);
-          const st = chosen === undefined ? undefined : stationOf(chosen, props.selectedStationId);
-          const script = st === undefined ? undefined : chosen?.scripts[st.id];
-          if (chosen === undefined || st === undefined || script === undefined) return;
-          apply({
-            kind: 'selectScene',
-            sceneId: chosen.scene.id,
-            stationId: st.id,
-            startUtcMs: script.startUtcMs,
-          });
-        }}
-      >
-        {catalogue.map((c) => (
-          <option key={c.scene.id} value={c.scene.id}>
-            {c.scene.name}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
+  const sceneChooser =
+    props.hideSceneChooser === true ? null : (
+      <label style={labelStyle}>
+        Scene
+        <select
+          style={fieldStyle}
+          value={panel.sceneId}
+          onChange={(e) => {
+            const chosen = catalogue.find((c) => c.scene.id === e.target.value);
+            const st =
+              chosen === undefined ? undefined : stationOf(chosen, props.selectedStationId);
+            const script = st === undefined ? undefined : chosen?.scripts[st.id];
+            if (chosen === undefined || st === undefined || script === undefined) return;
+            apply({
+              kind: 'selectScene',
+              sceneId: chosen.scene.id,
+              stationId: st.id,
+              startUtcMs: script.startUtcMs,
+            });
+          }}
+        >
+          {catalogue.map((c) => (
+            <option key={c.scene.id} value={c.scene.id}>
+              {c.scene.name}
+            </option>
+          ))}
+        </select>
+      </label>
+    );
   const stationChooser = ownStationChooser ? (
     <label style={labelStyle}>
       Station
@@ -441,10 +449,12 @@ export function SimulatorPanel(props: SimulatorPanelProps) {
   if (compact) {
     return (
       <div data-testid="simulator-panel" style={{ background: COLOURS.bg }}>
-        <div style={row}>
-          {sceneChooser}
-          {stationChooser}
-        </div>
+        {(sceneChooser !== null || stationChooser !== null) && (
+          <div style={row}>
+            {sceneChooser}
+            {stationChooser}
+          </div>
+        )}
         {failureNotice}
         {screen}
         {description}

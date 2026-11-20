@@ -88,6 +88,13 @@ export function mountSimulation(options: MountOptions = {}) {
   };
   const choose = (label: string, value: string) =>
     settle(() => fireEvent.change(q.getByLabelText(label), { target: { value } }));
+  /** The number of Sight times of the scene in the bar. */
+  const sightTimeCount = () => (q.getByLabelText('Sight time') as HTMLSelectElement).options.length;
+  /** The Sight time the bar shows, as its chooser reads it (`2/3 14:40`). */
+  const sightTimeShown = () => {
+    const select = q.getByLabelText('Sight time') as HTMLSelectElement;
+    return select.selectedOptions[0]?.text ?? '';
+  };
   const text = (testId: string) => q.getByTestId(testId).textContent ?? '';
 
   /** From a tab to the Sight screen, live after a little over a second, frozen and captured, and back. */
@@ -116,6 +123,8 @@ export function mountSimulation(options: MountOptions = {}) {
     ticks,
     choose,
     text,
+    sightTimeCount,
+    sightTimeShown,
     sight,
     nextSightTime,
   };

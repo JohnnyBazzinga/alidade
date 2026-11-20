@@ -90,13 +90,23 @@ export function SightScreen({ onDone }: SightScreenProps) {
     [store, environment],
   );
 
-  return (
-    <section data-testid="sight-screen" style={LOOK.stack}>
-      <h1 style={LOOK.title}>Sight the Sun</h1>
+  const simulation = environment.mode === 'simulation';
+  const info = (
+    <>
       <section data-testid="calibration-line" style={LOOK.panel}>
         <p style={LOOK.readout}>{calibrationLine.ok ? calibrationLine.value : ''}</p>
       </section>
       <GuidanceBlock collapsed={count > 0} />
+    </>
+  );
+
+  return (
+    <section data-testid="sight-screen" style={LOOK.stack}>
+      <h1 style={LOOK.title}>Sight the Sun</h1>
+      {/* On a phone the safety words come first. In Simulation mode the reviewer's controls come
+          first, so that Freeze is on the first screen, and the guidance, which is about the real
+          Sun, after them (task group 13, B; Vigia's task 21.4). */}
+      {!simulation && info}
       <SunSightingPane onCapture={onCapture} />
       {failure !== null && <FailureNotice failure={failure} />}
       {taken !== null && (
@@ -104,6 +114,7 @@ export function SightScreen({ onDone }: SightScreenProps) {
           {taken}
         </p>
       )}
+      {simulation && info}
       <PrimaryAction>
         <button type="button" data-primary="true" onClick={onDone} style={LOOK.primaryButton}>
           Done

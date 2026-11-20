@@ -27,10 +27,14 @@ describe('SimulationShell', () => {
     }
   });
 
-  it('says the Sight time, with its date, marked simulated, and that the Sun stands still', () => {
+  it('says the Sight time in the bar as its chooser reads, and in full, with its date and the still-Sun note, on the Sight screen', async () => {
     const m = mountSimulation();
-    expect(m.text('phone-bar')).toContain('Sight time 1 of 3: 11:40 UTC, 21 Dec 2026 (simulated)');
-    expect(m.text('phone-bar')).toContain(
+    expect(m.sightTimeShown()).toBe('1/3 11:40');
+    await m.click('Sight the Sun');
+    expect(m.text('sight-time-note')).toContain(
+      'Sight time 1 of 3: 11:40 UTC, 21 Dec 2026 (simulated)',
+    );
+    expect(m.text('sight-time-note')).toContain(
       'The simulated Sun stands still: a sight taken a minute late is up to 15′ off.',
     );
   });
@@ -38,11 +42,11 @@ describe('SimulationShell', () => {
   it('changes the Sight time with Next sight time, and with its select, and the Station of the panel follows', async () => {
     const m = mountSimulation();
     await m.nextSightTime();
-    expect(m.text('phone-bar')).toContain('Sight time 2 of 3: 14:40 UTC');
+    expect(m.sightTimeShown()).toBe('2/3 14:40');
     await m.choose('Sight time', '2');
-    expect(m.text('phone-bar')).toContain('Sight time 3 of 3: 17:40 UTC');
+    expect(m.sightTimeShown()).toBe('3/3 17:40');
     await m.nextSightTime();
-    expect(m.text('phone-bar')).toContain('Sight time 1 of 3');
+    expect(m.sightTimeShown()).toBe('1/3 11:40');
     await m.nextSightTime();
     await m.click('Sight the Sun');
     await m.press('start');
@@ -55,9 +59,9 @@ describe('SimulationShell', () => {
   it('changes the scene with its select: the Sight times of that scene, and no sights of the other', async () => {
     const m = mountSimulation();
     await m.choose('Scene', 'too-close');
-    expect(m.text('phone-bar')).toContain('Sight time 1 of 2: 13:00 UTC');
+    expect(m.sightTimeShown()).toBe('1/2 13:00');
     await m.nextSightTime();
-    expect(m.text('phone-bar')).toContain('Sight time 2 of 2: 13:40 UTC');
+    expect(m.sightTimeShown()).toBe('2/2 13:40');
   });
 
   it('gives the reviewer the path in three short numbered lines on the first screen, until a sight is taken', async () => {

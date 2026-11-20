@@ -107,3 +107,73 @@ describe('MapScreen', () => {
     fireEvent.click(document.body);
   });
 });
+
+type Ring = { geometry: { type: string; coordinates: unknown } }[];
+/** The `[lon, lat]` pairs of every geometry of a source of the fake map. */
+function coordinatesOf(map: ReturnType<typeof Object>, source: string): [number, number][] {
+  const data = (map as { data: Map<string, { features?: Ring }> }).data.get(source);
+  const out: [number, number][] = [];
+  const walk = (c: unknown): void => {
+    if (Array.isArray(c) && typeof c[0] === 'number') out.push([c[0], c[1] as number]);
+    else if (Array.isArray(c)) c.forEach(walk);
+  };
+  for (const f of data?.features ?? []) walk(f.geometry.coordinates);
+  return out;
+}
+
+describe('MapScreen fits the map to what it draws (task group 13, C)', () => {
+  const lastFit = (map: { fitBoundsCalls: unknown[][] }) => {
+    const call = map.fitBoundsCalls[map.fitBoundsCalls.length - 1];
+    if (call === undefined) throw new Error('the map was never fitted');
+    const [bounds, options] = call as [
+      [[number, number], [number, number]],
+      { padding: { top: number; bottom: number } },
+    ];
+    return {
+      west: bounds[0][0],
+      south: bounds[0][1],
+      east: bounds[1][0],
+      north: bounds[1][1],
+      options,
+    };
+  };
+  const inside = (b: ReturnType<typeof lastFit>, [lon, lat]: [number, number]) =>
+    lon >= b.west - 1e-9 && lon <= b.east + 1e-9 && lat >= b.south - 1e-9 && lat <= b.north + 1e-9;
+
+  it('contains the ellipse, the arcs near the Fix and the comparison marker, with the ellipse a third of the width or more', async () => {
+    const m = await show(T, true);
+    await m.screen.settle(() => void m.store.compareWithGps());
+    const b = lastFit(m.map);
+    const ellipse = coordinatesOf(m.map, 'fix');
+    expect(ellipse.length).toBeGreaterThan(16);
+    for (const c of ellipse) expect(inside(b, c)).toBe(true);
+    for (const c of coordinatesOf(m.map, 'app-circles-used')) expect(inside(b, c)).toBe(true);
+    for (const c of coordinatesOf(m.map, 'app-gps')) expect(inside(b, c)).toBe(true);
+    const lons = ellipse.map((c) => c[0]);
+    const ellipseWidth = Math.max(...lons) - Math.min(...lons);
+    expect(ellipseWidth / (b.east - b.west)).toBeGreaterThanOrEqual(1 / 3);
+    // Not the world: an area of a few hundred kilometres.
+    expect(b.east - b.west).toBeLessThan(20);
+  });
+
+  it('keeps the bottom margin the skeleton keeps for the attribution', async () => {
+    const m = await show(T, true);
+    const { options } = lastFit(m.map);
+    expect(options.padding.bottom).toBeGreaterThan(options.padding.top);
+  });
+
+  it('says that Two places too far apart for one map cannot be fitted, and still draws both (Req 9.5)', async () => {
+    // The two places of the good-day sights are 11 700 km apart, near 87° S and 30° N: with their
+    // ellipses the longitudes span more than 180°, which UI's fit refuses (`crosses_antimeridian`).
+    const m = await show([T[0] ?? 0, T[2] ?? 0], false);
+    expect(coordinatesOf(m.map, 'app-places-point')).toHaveLength(2);
+    expect(m.map.fitBoundsCalls).toHaveLength(0);
+    expect(m.q.getByRole('alert').textContent).toContain('too far apart to show on one map');
+  });
+
+  it('makes no fit, and shows no failure, when nothing is drawn', async () => {
+    const m = await show([T[0] ?? 0], false);
+    expect(m.map.fitBoundsCalls).toHaveLength(0);
+    expect(m.q.queryAllByRole('alert')).toHaveLength(0);
+  });
+});

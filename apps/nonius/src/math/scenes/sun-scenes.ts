@@ -22,6 +22,8 @@ import { sunAt } from '../sun/sun-at';
 export interface NoniusScene {
   readonly id: string;
   readonly name: string;
+  /** At most 12 characters, for the reviewer's bar. */
+  readonly shortName: string;
   /** The invented observer: UI's synthetic origin. */
   readonly truth: Position;
   readonly sightTimesUtcMs: readonly number[];
@@ -77,6 +79,7 @@ export function sunScenes(params: NoniusParameters): NoniusResult<readonly Noniu
     {
       ...base,
       id: 'good-day',
+      shortName: 'Good day',
       name: 'A good day',
       sightTimesUtcMs: GOOD_DAY_TIMES,
       description: 'Three sights about three hours apart, with the phone’s index error measured.',
@@ -84,6 +87,7 @@ export function sunScenes(params: NoniusParameters): NoniusResult<readonly Noniu
     {
       ...base,
       id: 'too-close',
+      shortName: 'Too close',
       name: 'Sights too close in time',
       sightTimesUtcMs: [utc(13, 0), utc(13, 40)],
       description:
@@ -92,6 +96,7 @@ export function sunScenes(params: NoniusParameters): NoniusResult<readonly Noniu
     {
       ...base,
       id: 'too-close-10min',
+      shortName: '10 minutes',
       name: 'Sights ten minutes apart',
       sightTimesUtcMs: [utc(13, 0), utc(13, 10)],
       description: 'Two sights 10 minutes apart: too close to give a position.',
@@ -99,6 +104,7 @@ export function sunScenes(params: NoniusParameters): NoniusResult<readonly Noniu
     {
       ...base,
       id: 'one-disagrees',
+      shortName: 'Disagrees',
       name: 'One sight disagrees',
       sightTimesUtcMs: GOOD_DAY_TIMES,
       addedErrorRad: { 1: DISAGREEMENT_ERROR_RAD },
@@ -107,6 +113,7 @@ export function sunScenes(params: NoniusParameters): NoniusResult<readonly Noniu
     {
       ...base,
       id: 'uncalibrated',
+      shortName: 'Uncalibrated',
       name: 'A phone never calibrated',
       sightTimesUtcMs: GOOD_DAY_TIMES,
       indexError: null,

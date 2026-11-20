@@ -674,3 +674,9 @@ into the skeleton-sensors requirements.
   - [ ] 32.3 Checkpoint: `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm format:check` from the root,
     and `pnpm --filter @alidade/ui build:playground` once. One mutation check: the literal `'bearing'`
     put back in place of `kind` fails the new altitude tests. Report and stop.
+
+- [x] 33. The Simulator panel can leave the scene to the application (2026-11-21; from the lead's walk of Nonius at 390 px, where the panel's own "Scene" chooser repeated the app's)
+  - One optional property, `hideSceneChooser?: boolean` (default `false`), on `SimulatorPanelProps`: when `true` the panel shows no scene chooser, in either presentation, and no empty row where the choosers were. Every other control and the Station rules are unchanged; Vigia, the Playground and every earlier test pass unchanged. No Math-layer change, no new export, no new dependency.
+  - [x] 33.1 Tests first, seen to fail (`SimulatorPanel.compact.test.tsx`): no scene chooser in either presentation with the property, and no select outside the closed disclosure in the compact one; the chooser as before when the property is absent or `false`; the panel stays on the scene it is given.
+  - [x] 33.2 Code: `SimulatorPanel.tsx`. Proposed amendment of UI Requirement 17.4 for the lead: "THE panel MAY be told that the application chooses the scene, and then SHALL show no scene chooser of its own."
+
