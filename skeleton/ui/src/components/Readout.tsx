@@ -19,6 +19,8 @@ export function Readout({ readout }: { readonly readout: LiveReadout | null }) {
     ...NUMERAL_STYLE,
     fontFamily: FONT_STACK,
     fontSize: SIZES.labelPx,
+    // Set, not left to the font, so that an app can count the readout's height (task 30.4).
+    lineHeight: 1.25,
     background: COLOURS.panel,
     color: COLOURS.ink,
     padding: SIZES.gapPx,

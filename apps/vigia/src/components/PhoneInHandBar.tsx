@@ -4,7 +4,7 @@
 // Simulator panel, so that the next sighting is taken from the post named here.
 
 import { COLOURS, FONT_STACK, SIZES } from '@alidade/ui';
-import { LOOK } from './look';
+import { BODY_TEXT_PX, LOOK } from './look';
 
 export interface PhoneInHand {
   /** The post (the scene's Station) of the phone in hand. */
@@ -45,7 +45,8 @@ export function PhoneInHandBar({ hand }: { readonly hand: PhoneInHand }) {
             minHeight: SIZES.touchPx,
             minWidth: SIZES.touchPx,
             fontFamily: FONT_STACK,
-            fontSize: SIZES.labelPx,
+            // 16 px, so that the label and the post share one row at 390 CSS px (task 30.4).
+            fontSize: BODY_TEXT_PX,
             fontWeight: 700,
             background: COLOURS.raised,
             color: COLOURS.ink,

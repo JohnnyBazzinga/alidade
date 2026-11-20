@@ -69,6 +69,7 @@ export function YawStatusBar({ status, yawReference, frame, headingSigmaRad }: Y
         ...NUMERAL_STYLE,
         fontFamily: FONT_STACK,
         fontSize: SIZES.labelPx,
+        lineHeight: 1.25,
         background: COLOURS.panel,
         color: COLOURS.ink,
         padding: SIZES.gapPx,

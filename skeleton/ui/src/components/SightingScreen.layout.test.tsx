@@ -175,22 +175,62 @@ describe('the sighting screen lies in the normal flow (Req 13.13)', () => {
     }
   });
 
-  it('puts the control bar directly after the image, the readout and the texts it belongs to', () => {
+  // Task 30.4 (2026-11-20): on a phone held up at smoke the control must be reachable without
+  // scrolling. The bar comes directly after the image and the readout; the instruction, the Yaw
+  // status when it asks nothing, the limits line and the known-azimuth form come after it.
+  it('live: puts the control bar directly after the image and the readout, the texts after it', () => {
     const { bar, getByTestId, screen, unmount } = renderScreen(
       sessionInState('live', 'bearing').session,
     );
+    expect(before(getByTestId('image-surface'), getByTestId('readout'))).toBe(true);
+    expect(bar().previousElementSibling).toBe(getByTestId('readout'));
     const hint = screen.querySelector('[data-part="hint"]') as HTMLElement;
+    // The Absolute frame's Yaw status is advice, not a demand: it follows the bar.
+    expect(getByTestId('yaw-status').dataset.status).toBe('none');
     for (const part of [
-      getByTestId('image-surface'),
-      getByTestId('readout'),
       hint,
       getByTestId('yaw-status'),
+      getByTestId('limits-note'),
+      getByTestId('known-azimuth-form'),
     ]) {
-      expect(before(part, bar())).toBe(true);
+      expect(before(bar(), part)).toBe(true);
     }
-    // The longer forms and the limits line come after the controls, not between them and the image.
-    expect(before(bar(), getByTestId('known-azimuth-form'))).toBe(true);
-    expect(before(bar(), getByTestId('limits-note'))).toBe(true);
+    unmount();
+  });
+
+  it('frozen: puts the control bar directly after the image, the instruction after it', () => {
+    const { bar, getByTestId, screen, unmount } = renderScreen(
+      sessionInState('frozen', 'bearing').session,
+    );
+    expect(bar().previousElementSibling).toBe(getByTestId('image-surface').parentElement);
+    const hint = screen.querySelector('[data-part="hint"]') as HTMLElement;
+    expect(before(bar(), hint)).toBe(true);
+    expect(before(bar(), getByTestId('yaw-status'))).toBe(true);
+    unmount();
+  });
+
+  it('permission: Start is still the first control, after the intro and the limits line', () => {
+    const { bar, screen, unmount } = renderScreen(sessionInState('permission', 'bearing').session);
+    const first = screen.querySelector('[data-control]');
+    expect(first?.getAttribute('data-control')).toBe('start');
+    expect(before(screen.querySelector('[data-part="intro"]') as HTMLElement, bar())).toBe(true);
+    unmount();
+  });
+
+  // Task 30.4: the image's height leaves room for the readout and the bar on a phone's first
+  // screen (the arithmetic is in Vigia's `sight-first-screen.test.tsx`): 28 % of the small
+  // viewport, between 200 and 480 CSS px.
+  it('gives the image 28 % of the viewport, between 200 and 480 CSS px', () => {
+    const { getByTestId, unmount } = renderScreen(sessionInState('live', 'bearing').session);
+    const box = getByTestId('image-surface').parentElement as HTMLElement;
+    expect(box.style.height).toBe('clamp(200px, 28svh, 480px)');
+    unmount();
+  });
+
+  it('sets the line height of the readout and of the Yaw status, so that their height can be counted', () => {
+    const { getByTestId, unmount } = renderScreen(sessionInState('live', 'bearing').session);
+    expect(getByTestId('readout').style.lineHeight).toBe('1.25');
+    expect(getByTestId('yaw-status').style.lineHeight).toBe('1.25');
     unmount();
   });
 

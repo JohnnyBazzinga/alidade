@@ -7,7 +7,7 @@
 // (skeleton-ui Req 13.13, 18.11). The tabs are hidden on the Sight screen and in a sheet. A sheet
 // replaces the screen in the page's flow rather than covering it.
 //
-// Task group 21 (design §9, note of 2026-11-22): between the part that scrolls and the tab bar is
+// Task group 21 (design §9, note of 2026-11-20): between the part that scrolls and the tab bar is
 // the row of the screen's primary action (`PrimaryAction`), so that it is under the thumb however
 // long the screen is; in Simulation mode the bar of the phone in hand is under the banner on every
 // screen, and the first screen gives the reviewer's path while this phone has sighted nothing.

@@ -260,6 +260,7 @@ export function SimulatorPanel(props: SimulatorPanelProps) {
     flexDirection: 'column',
     fontFamily: FONT_STACK,
     fontSize: SIZES.labelPx,
+    lineHeight: 1.25,
     color: COLOURS.ink,
   } as const;
   const fieldStyle = {

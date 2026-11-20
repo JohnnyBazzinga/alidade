@@ -20,6 +20,14 @@
 // is shown where the user is looking when the control is pressed. While a bearing Session on the
 // Relative frame has no valid north, "Set north from the compass" is the primary control and Freeze
 // a secondary one.
+//
+// Task 30.4 (2026-11-20): on a phone held up at smoke the control must be reachable without
+// scrolling, so the bar comes directly after the image and the readout. Above it are only what
+// Req 13.14 puts there: the Yaw status while north must be set (the Relative frame without a valid
+// north), the portrait warning and the Message of a Notice. The instruction ("Aim the crosshair
+// …"), the Yaw status when it asks nothing, the limits line and the known-azimuth form follow
+// the bar. The image is 28 % of the small viewport, so that at 844 CSS px of height the readout
+// and the bar fit under an app's banner and Back (Vigia's `sight-first-screen.test.tsx`).
 
 import { wrapPi } from '@alidade/core';
 import type { ReactNode } from 'react';
@@ -60,11 +68,11 @@ export interface SightingScreenProps {
 }
 
 /**
- * The height of the image: about half the small viewport, and never under 240 or over 480 CSS px,
- * so that the readout and the controls follow it on a phone. A height of its own, not a share of
+ * The height of the image: 28 % of the small viewport, and never under 200 or over 480 CSS px,
+ * so that the readout and the controls follow it inside a phone's first screen (task 30.4). A height of its own, not a share of
  * the screen's, so that the screen grows with its content and nothing spills out of it.
  */
-export const IMAGE_HEIGHT = 'clamp(240px, 45svh, 480px)';
+export const IMAGE_HEIGHT = 'clamp(200px, 28svh, 480px)';
 
 export const SCREEN_TEXT = {
   permission:
@@ -185,6 +193,15 @@ export function SightingScreen(props: SightingScreenProps) {
     padding: SIZES.gapPx,
   } as const;
 
+  const yawBar = (
+    <YawStatusBar
+      status={status}
+      yawReference={session.yawReference}
+      frame={frame}
+      headingSigmaRad={parameters.headingSigmaRad}
+    />
+  );
+
   return (
     <div
       data-testid="sighting-screen"
@@ -232,6 +249,16 @@ export function SightingScreen(props: SightingScreenProps) {
         </div>
       )}
       {state === 'live' && <Readout readout={session.readout} />}
+      {portrait && <FailureNotice failure={{ reason: 'portrait_required' }} />}
+      {state === 'captured' && session.captured !== null && (
+        <CaptureSummary result={session.captured} />
+      )}
+      {(state === 'live' || frozen) && bearing && northFirst && yawBar}
+      {state === 'failed' && session.failure !== null && (
+        <FailureNotice failure={session.failure} />
+      )}
+      {state !== 'failed' && session.notice !== null && <FailureNotice failure={session.notice} />}
+      <ControlBar controls={controls} />
       {state === 'live' && (
         <p data-part="hint" style={text}>
           {SCREEN_TEXT.liveHint}
@@ -242,23 +269,7 @@ export function SightingScreen(props: SightingScreenProps) {
           {SCREEN_TEXT.frozenHint} {mark === null ? SCREEN_TEXT.notMarked : SCREEN_TEXT.marked}
         </p>
       )}
-      {portrait && <FailureNotice failure={{ reason: 'portrait_required' }} />}
-      {state === 'captured' && session.captured !== null && (
-        <CaptureSummary result={session.captured} />
-      )}
-      {(state === 'live' || frozen) && bearing && (
-        <YawStatusBar
-          status={status}
-          yawReference={session.yawReference}
-          frame={frame}
-          headingSigmaRad={parameters.headingSigmaRad}
-        />
-      )}
-      {state === 'failed' && session.failure !== null && (
-        <FailureNotice failure={session.failure} />
-      )}
-      {state !== 'failed' && session.notice !== null && <FailureNotice failure={session.notice} />}
-      <ControlBar controls={controls} />
+      {(state === 'live' || frozen) && bearing && !northFirst && yawBar}
       {state === 'live' && <LimitsNote />}
       {(state === 'live' || frozen) && bearing && (
         <KnownAzimuthForm onSubmit={(from) => onAction({ kind: 'establishYaw', from })} />

@@ -1,4 +1,4 @@
-// The tab labels fit the narrowest screen (task 21.1; design §9 and its note of 2026-11-22). At
+// The tab labels fit the narrowest screen (task 21.1; design §9 and its note of 2026-11-20). At
 // 390 CSS px two labels broke inside the word ("Sighting / s", "Emergenc / y"). jsdom does no
 // layout, so the width is computed: the font is monospace (UI's `FONT_STACK`), so a label is its
 // characters times the advance of one, about 0.6 of the font size; the test uses 0.63, a margin of

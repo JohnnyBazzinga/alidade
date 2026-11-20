@@ -605,7 +605,18 @@ into the skeleton-sensors requirements.
     presentation unchanged; `selectedStationId` followed, kept across a change of scene, an unknown
     id ignored; no Station chooser of the panel's own then). Code: `SimulatorPanel.tsx`. The
     Playground keeps the full presentation (D34.1).
-  - [x] 30.4 Checkpoint: `pnpm test` from the root, `pnpm typecheck`, `pnpm lint`,
+  - [x] 30.4 The control within reach (2026-11-20, from the lead's look in a browser at 390 × 844:
+    after Start, Freeze was below the first screen). Tests first: `SightingScreen.layout.test.tsx`
+    (live: the bar directly after the readout, and the instruction, the Yaw status when it asks
+    nothing, the limits line and the known-azimuth form after it; frozen: the bar directly after
+    the image; Start still first; the image `clamp(200px, 28svh, 480px)`; the readout's and the Yaw
+    status's line height set), seen to fail on the committed screen; Vigia's
+    `sight-first-screen.test.tsx` (the heights the components set, summed, against 844 at 390 wide
+    and 667 at 375 wide). Code: `SightingScreen.tsx` (the order, `IMAGE_HEIGHT`), `Readout.tsx`,
+    `YawStatusBar.tsx` and the panel's labels (line height 1.25); Vigia's phone bar at 16 px. The
+    refusal stays directly above the bar, and the Yaw status with it while north must be set (Req
+    13.14). 667 px cannot hold it: the smallest height that does, at 375 wide, is 810 px.
+  - [x] 30.5 Checkpoint: `pnpm test` from the root, `pnpm typecheck`, `pnpm lint`,
     `pnpm format:check`, and `pnpm --filter @alidade/ui build:playground` once with the test of its
     output (the worker file). Mutation checks: the fit that holds the lines with a Fix, `MapView`
     dropping the fit's result, Start that does not play, the panel ignoring the given Station;
