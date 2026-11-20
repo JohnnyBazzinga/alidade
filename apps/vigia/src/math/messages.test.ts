@@ -14,6 +14,11 @@ import { MESSAGES, messageFor } from './messages';
  * "every row as written there"). A drift in the source fails here.
  */
 const ROWS: Record<VigiaOnlyReason, Message> = {
+  // Added by design §7.4a (2026-11-21), proposed there: a join that cannot be made.
+  incident_not_joinable: {
+    whatHappened: 'These two smokes cannot be joined into one.',
+    whatToDo: 'Open the new sighting as a separate smoke, or delete a smoke you no longer need.',
+  },
   code_damaged: {
     whatHappened: 'The code is damaged or cut off, so it was not used.',
     whatToDo: 'Ask the sender to send it again, and copy the whole link or the whole code.',
@@ -107,9 +112,9 @@ const ROWS: Record<VigiaOnlyReason, Message> = {
 };
 
 describe('MESSAGES (Req 2.3, design D2)', () => {
-  it('has exactly the keys of VIGIA_REASONS: 69 rows, none missing and none extra', () => {
+  it('has exactly the keys of VIGIA_REASONS: 70 rows, none missing and none extra', () => {
     expect(Object.keys(MESSAGES).sort()).toEqual([...VIGIA_REASONS].sort());
-    expect(Object.keys(MESSAGES)).toHaveLength(69);
+    expect(Object.keys(MESSAGES)).toHaveLength(70);
   });
 
   it('has, for each of the 47 UI reasons, the row UI\u2019s own messageFor gives', () => {
@@ -119,14 +124,14 @@ describe('MESSAGES (Req 2.3, design D2)', () => {
     }
   });
 
-  it('has the 22 rows of design D2 as written there', () => {
-    expect(Object.keys(ROWS)).toHaveLength(22);
+  it('has the 23 rows of design D2 and §7.4a as written there', () => {
+    expect(Object.keys(ROWS)).toHaveLength(23);
     for (const reason of VIGIA_ONLY_REASON_LIST) {
       expect(MESSAGES[reason], reason).toEqual(ROWS[reason]);
     }
   });
 
-  it('holds each of the 22 to the rules of UI: one sentence, 160 characters, no code (Req 2.3)', () => {
+  it('holds each of the 23 to the rules of UI: one sentence, 160 characters, no code (Req 2.3)', () => {
     for (const reason of VIGIA_ONLY_REASON_LIST) {
       for (const part of partsOf(MESSAGES[reason])) {
         expect(problemsOf(part, reason), `${reason}: ${part}`).toEqual([]);
@@ -134,7 +139,7 @@ describe('MESSAGES (Req 2.3, design D2)', () => {
     }
   });
 
-  it('holds all 69 rows to the same rules, so that a UI row cannot break them here either', () => {
+  it('holds all 70 rows to the same rules, so that a UI row cannot break them here either', () => {
     for (const reason of VIGIA_REASONS) {
       for (const part of partsOf(MESSAGES[reason])) {
         expect(problemsOf(part, reason), `${reason}: ${part}`).toEqual([]);
@@ -201,7 +206,7 @@ describe('messageFor (Req 2.3, 2.5)', () => {
     expect(partsOf(detailed).join(' ')).not.toContain('H4TN9RV6C');
   });
 
-  it('gives each of the 22 a Message that no other reason has', () => {
+  it('gives each of the 23 a Message that no other reason has', () => {
     const owners = new Map<string, VigiaReason[]>();
     for (const reason of VIGIA_REASONS) {
       const key = JSON.stringify(messageFor({ ok: false, reason }));

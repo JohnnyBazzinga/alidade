@@ -11,6 +11,7 @@ import {
   LONG_ELLIPSE_RATIO,
   MAX_CODE_LENGTH_CHARS,
   MAX_EMERGENCY_TEXT_CHARS,
+  MAX_FORMER_INCIDENT_IDS,
   MAX_INCIDENT_AGE_MS,
   MAX_LINK_LENGTH_CHARS,
   MAX_RESPONSE_BYTES,
@@ -43,6 +44,8 @@ export interface VigiaParameters {
   readonly simulationTapSigmaPx: number;
   readonly adviceMinDistanceM: number;
   readonly expiryCheckIntervalMs: number;
+  /** Design §7.4a, Req 4.9: the former ids one Incident keeps. */
+  readonly maxFormerIncidentIds: number;
 }
 
 /** The record of the constants of `defaults.ts`. */
@@ -65,6 +68,7 @@ export function defaultParameters(): VigiaParameters {
     simulationTapSigmaPx: SIMULATION_TAP_SIGMA_PX,
     adviceMinDistanceM: ADVICE_MIN_DISTANCE_M,
     expiryCheckIntervalMs: EXPIRY_CHECK_INTERVAL_MS,
+    maxFormerIncidentIds: MAX_FORMER_INCIDENT_IDS,
   });
 }
 
@@ -87,6 +91,7 @@ const FIELD_ORDER: readonly (keyof VigiaParameters)[] = [
   'simulationTapSigmaPx',
   'adviceMinDistanceM',
   'expiryCheckIntervalMs',
+  'maxFormerIncidentIds',
 ];
 
 /** The fields that are counts: an integer of at least 1. The others are positive numbers. */
@@ -96,6 +101,7 @@ const COUNT_FIELDS: readonly (keyof VigiaParameters)[] = [
   'maxLinkLengthChars',
   'maxEmergencyTextChars',
   'maxResponseBytes',
+  'maxFormerIncidentIds',
 ];
 
 /**

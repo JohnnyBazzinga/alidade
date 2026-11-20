@@ -10,6 +10,7 @@ import { createQrEncoder } from '../adapters/qr-encoder';
 import { createRandom } from '../adapters/random';
 import { SimulationShell } from '../components/simulation/SimulationShell';
 import type { VigiaMode } from '../components/environment';
+import { decodeSighting } from '../math/code/sighting-code';
 import { defaultParameters } from '../math/parameters';
 import { smokeScenes } from '../math/scenes/smoke-scenes';
 import { createFakeCrypto, createFakeNavigator } from './fake-browser';
@@ -204,6 +205,52 @@ export function mountSimulation(options: MountOptions = {}) {
     await click('Close');
   };
 
+  /**
+   * From the Smoke screen of the phone in hand: open the Inbox sheet and add every card the way a
+   * user does with a smoke open: "the same smoke" and its confirmation for a code of a smoke the
+   * phone does not have, Add for one it does; then back on the Smoke screen.
+   */
+  const addByJoining = async () => {
+    await click(/Add a sighting someone sent me/);
+    for (let guard = 0; guard < 10; guard += 1) {
+      const card = q.queryAllByTestId('inbox-card')[0];
+      if (card === undefined) break;
+      const same = within(card).queryByRole('button', {
+        name: 'It is the same smoke as the one I have open',
+      });
+      if (same !== null) {
+        await settle(() => fireEvent.click(same));
+        await settle(() =>
+          fireEvent.click(within(card).getByRole('button', { name: 'Join the two smokes' })),
+        );
+      } else {
+        await settle(() => fireEvent.click(within(card).getByRole('button', { name: 'Add' })));
+      }
+    }
+    await click('Close');
+  };
+
+  /**
+   * The Incident id the phone in hand gives its first sighting's code: the code of the Share
+   * sheet, decoded. From the Smoke screen, and back to it.
+   */
+  const incidentIdOfThisPhone = async (): Promise<string> => {
+    await tab('Sightings');
+    const row = q.getAllByTestId('sighting-row')[0];
+    if (row === undefined) throw new Error('no sighting to share');
+    await settle(() => fireEvent.click(within(row).getByRole('button', { name: 'Share' })));
+    const shown = [...q.getByTestId('share-text').querySelectorAll('p')].map(
+      (p) => p.textContent ?? '',
+    );
+    const grouped = shown.find((t) => /^[2-9A-HJKMNP-Z]{5}(-[2-9A-HJKMNP-Z]{5}){9}$/.test(t));
+    if (grouped === undefined) throw new Error('no text code in the Share sheet');
+    const decoded = decodeSighting(grouped, defaultParameters());
+    if (!decoded.ok) throw new Error(`the code does not decode: ${decoded.reason}`);
+    await click('Close');
+    await tab('Smoke');
+    return decoded.value.incidentId;
+  };
+
   const map = (): FakeMap => lib.last();
   const alerts = () => q.queryAllByRole('alert').map((a) => a.textContent ?? '');
   return {
@@ -231,6 +278,8 @@ export function mountSimulation(options: MountOptions = {}) {
     switchTo,
     shareOwnSightingTo,
     addEverythingWaiting,
+    addByJoining,
+    incidentIdOfThisPhone,
     map,
     alerts,
   };

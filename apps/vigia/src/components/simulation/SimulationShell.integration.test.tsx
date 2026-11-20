@@ -32,6 +32,12 @@ const outlierMessage = () => {
 
 interface SceneExpectation {
   readonly id: string;
+  /**
+   * `natural`: each post takes its sighting first, a code is sent and the answer is "the same
+   * smoke" (Req 4.8). `old`: the later posts first receive the earlier posts' codes, and then
+   * sight the same smoke (the order of the first form of the requirement).
+   */
+  readonly order: 'natural' | 'old';
   readonly stations: readonly string[];
   readonly used: number;
   readonly setAside: number;
@@ -47,6 +53,7 @@ const NOT_CHECKED = 'Two sightings cannot check each other.';
 const SCENES: readonly SceneExpectation[] = [
   {
     id: 'two-posts',
+    order: 'natural',
     stations: ['west', 'east'],
     used: 2,
     setAside: 0,
@@ -61,6 +68,7 @@ const SCENES: readonly SceneExpectation[] = [
   },
   {
     id: 'three-posts',
+    order: 'natural',
     stations: ['west', 'east', 'side'],
     used: 3,
     setAside: 0,
@@ -75,6 +83,7 @@ const SCENES: readonly SceneExpectation[] = [
   },
   {
     id: 'four-posts-one-wrong',
+    order: 'old',
     stations: ['west', 'east', 'side', 'southwest'],
     used: 3,
     setAside: 1,
@@ -89,6 +98,7 @@ const SCENES: readonly SceneExpectation[] = [
   },
   {
     id: 'almost-in-line',
+    order: 'old',
     stations: ['front', 'back'],
     used: 2,
     setAside: 0,
@@ -140,6 +150,73 @@ async function runFlow(m: Harness, scene: CatalogueScene, stations: readonly str
   return { advice };
 }
 
+/** What a phone's Smoke screen says of the Fix: its position, its area and what it rests on. */
+function fixOf(m: Harness): string {
+  const text = m.text('smoke-screen');
+  const start = text.indexOf('Probably here:');
+  const end = text.indexOf('Geometry:');
+  if (start < 0 || end < start) throw new Error('no Fix on the Smoke screen');
+  // "About D km north of where you took your last sighting" is the phone's own: left out.
+  return text.slice(start, end).replace(/About [^]*?\(at least 95 %\)\./, '');
+}
+
+/**
+ * The natural order (Req 4.8): every post takes its sighting first, so each phone has started its
+ * own smoke; then the first post sends its code to the second, which answers "the same smoke" and
+ * has the Fix; then the second sends its own back, and both phones show the same Fix and give a
+ * sighting the same Incident id; any other posts then exchange their own sightings with all.
+ */
+async function runNaturalFlow(m: Harness, scene: CatalogueScene, stations: readonly string[]) {
+  const [first, second] = stations;
+  if (first === undefined || second === undefined) throw new Error('two posts at least');
+  if (scene.scene.id !== 'two-posts') {
+    await m.openSight();
+    await m.chooseScene(scene.scene.id);
+    await m.click('Back');
+  }
+  for (const [k, station] of stations.entries()) {
+    await m.sight(station, k % 2 === 1 ? 'mark' : 'crosshair', 'new');
+  }
+  // Each phone has its own smoke, with an id of its own.
+  const idsBefore: Record<string, string> = {};
+  for (const station of stations) {
+    await m.switchTo(station);
+    idsBefore[station] = await m.incidentIdOfThisPhone();
+  }
+  const exchange = async (from: string, to: string) => {
+    await m.switchTo(from);
+    await m.shareOwnSightingTo(labelOf(to, scene));
+    await m.switchTo(to);
+    await m.addByJoining();
+  };
+
+  // One code, one answer: the second post has the Fix.
+  await m.switchTo(second);
+  const aloneText = m.text('smoke-screen');
+  expect(aloneText).not.toContain('Probably here');
+  await exchange(first, second);
+  const afterTheFirst = fixOf(m);
+  // The other direction: both phones show the same Fix and the same smoke.
+  await exchange(second, first);
+  const onTheFirst = fixOf(m);
+  const idOnTheFirst = await m.incidentIdOfThisPhone();
+  await m.switchTo(second);
+  const onTheSecond = fixOf(m);
+  const idOnTheSecond = await m.incidentIdOfThisPhone();
+
+  // The other posts: each receives every other post's own sighting and sends its own to them.
+  for (const station of stations.slice(2)) {
+    for (const other of stations.filter((s) => s !== station)) await exchange(other, station);
+    for (const other of stations.filter((s) => s !== station)) await exchange(station, other);
+  }
+  const final: Record<string, { fix: string; incidentId: string }> = {};
+  for (const station of stations) {
+    await m.switchTo(station);
+    final[station] = { fix: fixOf(m), incidentId: await m.incidentIdOfThisPhone() };
+  }
+  return { idsBefore, afterTheFirst, onTheFirst, onTheSecond, idOnTheFirst, idOnTheSecond, final };
+}
+
 /** Every captured Bearing a Session reported, once each, with the Station it was taken at. */
 function capturesOf(m: Harness) {
   const seen = new Set<object>();
@@ -185,7 +262,8 @@ describe('the reviewer’s path on each scene, noise 0 (Req 17.3, 17.6, 17.7)', 
       if (scene === undefined) throw new Error('scene');
       const m = mountSimulation({ scenes });
       await m.settle();
-      await runFlow(m, scene, expected.stations);
+      if (expected.order === 'natural') await runNaturalFlow(m, scene, expected.stations);
+      else await runFlow(m, scene, expected.stations);
 
       // Each captured Bearing is on the Target (the wrong post: 12° off), by crosshair and by Mark.
       const captures = capturesOf(m);
@@ -316,6 +394,45 @@ function insideRing(
   }
   return inside;
 }
+
+describe('the natural order: each post sights first, then a code is sent (Req 4.8, 4.9)', () => {
+  for (const [id, stations] of [
+    ['two-posts', ['west', 'east']],
+    ['three-posts', ['west', 'east', 'side']],
+  ] as const) {
+    it(`${id}: one code and the answer "the same smoke" give the Fix, and both ways give both phones the same Fix and the same smoke`, async () => {
+      const scenes = noiseFree(scenesOfTheApp());
+      const scene = scenes.find((s) => s.scene.id === id);
+      if (scene === undefined) throw new Error('scene');
+      const m = mountSimulation({ scenes });
+      await m.settle();
+      const run = await runNaturalFlow(m, scene, stations);
+
+      // Each phone started a smoke of its own: the ids differ.
+      const before = Object.values(run.idsBefore);
+      expect(new Set(before).size).toBe(stations.length);
+      const smallest = [...before].sort()[0];
+
+      // The first code and one answer: the receiving phone has a position.
+      expect(run.afterTheFirst).toContain('Probably here: 30.027° N, 40.000° W');
+      expect(run.afterTheFirst).toContain('2 sightings');
+      // The other direction: the same Fix and the same smoke on both phones.
+      expect(run.onTheFirst).toBe(run.afterTheFirst);
+      expect(run.onTheSecond).toBe(run.afterTheFirst);
+      expect(run.idOnTheFirst).toBe(run.idOnTheSecond);
+
+      // Every post ends with one smoke, the smallest of the first ids, and one Fix.
+      const ends = Object.values(run.final);
+      expect(new Set(ends.map((e) => e.incidentId))).toEqual(new Set([smallest]));
+      expect(new Set(ends.map((e) => e.fix)).size).toBe(1);
+      expect(ends[0]?.fix).toContain(`${stations.length} sightings`);
+
+      // Nothing went to the network, and nothing failed.
+      expect(m.gate.calls).toEqual([]);
+      expect(m.alerts()).toEqual([]);
+    });
+  }
+});
 
 describe('the scene with the catalogue’s noise (Req 17.7)', () => {
   it('three-posts: the smoke lies inside the 95 % ellipse the map draws', async () => {

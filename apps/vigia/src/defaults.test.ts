@@ -27,6 +27,7 @@ const EXPECTED = {
   MAX_EMERGENCY_TEXT_CHARS: { value: 900, unit: 'chars', basis: 'judgement' },
   ADVICE_MIN_DISTANCE_M: { value: 300, unit: 'm', basis: 'judgement' },
   EXPIRY_CHECK_INTERVAL_MS: { value: 60_000, unit: 'ms', basis: 'judgement' },
+  MAX_FORMER_INCIDENT_IDS: { value: 16, unit: 'count', basis: 'judgement' },
   WIND_GRID_DEG: { value: 0.1, unit: 'deg', basis: 'judgement' },
   MAX_WIND_AGE_MS: { value: 3 * 3_600_000, unit: 'ms', basis: 'judgement' },
   MAX_RESPONSE_BYTES: { value: 1_000_000, unit: 'bytes', basis: 'judgement' },
@@ -35,7 +36,7 @@ const EXPECTED = {
 } as const;
 
 describe('defaults (Req 19.1)', () => {
-  it('exports exactly the 17 constants of the first release, with the values of Req 19.1', () => {
+  it('exports exactly the 18 constants of the first release, with the values of Req 19.1', () => {
     expect(Object.keys(defaults).sort()).toEqual(Object.keys(EXPECTED).sort());
     for (const [name, { value }] of Object.entries(EXPECTED)) {
       expect(Reflect.get(defaults, name), name).toBe(value);

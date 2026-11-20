@@ -89,6 +89,7 @@ const SOURCES: readonly string[] = [
   'src/math/fix/geometry-class.ts',
   'src/math/fix/map-model.ts',
   'src/math/incident/ids.ts',
+  'src/math/incident/join.ts',
   'src/math/incident/apply-action.ts',
   'src/math/incident/incident-state.ts',
   'src/math/incident/merge.ts',

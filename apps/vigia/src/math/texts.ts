@@ -32,6 +32,15 @@ export const EMERGENCY_NOT_CALLING_TEXT =
 export const TWO_SMOKES_TEXT =
   'A second column of smoke seen from the same place needs a smoke of its own.';
 
+/**
+ * With the answer "it is the same smoke as the one I have open" (Req 4.8): what a join does, that
+ * two different columns must not be joined, and that a join is not taken back.
+ */
+export const JOIN_CROSSES_TEXT =
+  'Joining crosses all the sightings into one position, so two different columns of smoke must not be joined.';
+export const JOIN_NOT_TAKEN_BACK_TEXT =
+  'A join is not taken back: its sightings can still be hidden or deleted one by one.';
+
 /** How to sight smoke (Req 16.2); the last sentence only when a wind reading is shown (Req 13.5). */
 export function sightingGuidance(windShown: boolean): readonly string[] {
   const always = [

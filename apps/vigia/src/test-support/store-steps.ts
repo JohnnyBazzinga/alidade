@@ -4,7 +4,8 @@
 // Domain: 0 to 200 steps among `capture` (a Bearing of a pool of 12, the answer "same" or "new"),
 // `paste`, `link` (the page's fragment changes to a link) and `deliver` (the Transport delivers),
 // each with a code of a pool of 12 Sightings over the five Incidents of `INCIDENT_POOL`, damaged one
-// draw in six; `add` and `ignore` of an Inbox card; `hide`, `show`, `delete`; `share` by `link`,
+// draw in six; `add`, `ignore` and `joinSame` ("it is the same smoke as the one I have open",
+// Req 4.8) of an Inbox card; `hide`, `show`, `delete`; `share` by `link`,
 // `system_share`, `text`, `qr` or `transport` (the Share sheet's acts: a copy, the share sheet,
 // the QR drawn, the Transport's send); `copyEmergency` (the Emergency text, with the own-position
 // switch drawn); `deleteAll`; `expire` (the clock moves 0 to 3 hours); `reload` (a new store over the
@@ -26,6 +27,7 @@ export type StoreStep =
       readonly damaged: boolean;
     }
   | { readonly kind: 'add' | 'ignore'; readonly pick: number; readonly join: boolean }
+  | { readonly kind: 'joinSame'; readonly pick: number }
   | { readonly kind: 'hide' | 'show' | 'delete'; readonly pick: number }
   | { readonly kind: 'share'; readonly pick: number; readonly how: ShareKind }
   | { readonly kind: 'copyEmergency'; readonly includeOwnPosition: boolean }
@@ -76,6 +78,10 @@ export function storeSteps(): fc.Arbitrary<StoreStep[]> {
         pick,
         join: fc.boolean(),
       }),
+    },
+    {
+      weight: 3,
+      arbitrary: fc.record({ kind: fc.constant('joinSame' as const), pick }),
     },
     {
       weight: 2,

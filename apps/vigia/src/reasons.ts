@@ -1,7 +1,8 @@
 // The closed set of failure reasons of Vigia (Req 2.2, design D2).
 //
 // `VigiaReason` is every `UiReason` (which includes every reason of Sensors and of Core)
-// unchanged in meaning, plus the 22 of `VIGIA_ONLY_REASONS`. The list of UI's reasons is UI's own
+// unchanged in meaning, plus the 23 of `VIGIA_ONLY_REASONS` (the 22 of Req 2.2 and
+// `incident_not_joinable`, proposed in design §7.4a). The list of UI's reasons is UI's own
 // export (`UI_REASONS`); this file repeats none of it. The three reasons of the hotspot Overlay
 // (`overlay_needs_key`, `overlay_area_too_large`, `hotspot_footprint_unknown`) are the second
 // release's and are not here.
@@ -15,8 +16,9 @@ import { UI_REASONS, type UiReason } from '@alidade/ui';
  *   alphabet), `code_too_long`, `code_version_unsupported` (an unknown version or kind),
  *   `code_not_a_sighting` (empty text, or a pasted message that has no link and is not a code),
  *   `link_too_long` (the page address leaves no room for a link of at most 160 characters).
- * - Incident and merge: `incident_unknown`, `incident_full`, `sighting_conflict` (the same id
- *   with different content), `simulation_not_shareable`.
+ * - Incident and merge: `incident_unknown`, `incident_full`, `incident_not_joinable` (a join that
+ *   cannot be made: a simulation and a real smoke, or too many former ids; design §7.4a),
+ *   `sighting_conflict` (the same id with different content), `simulation_not_shareable`.
  * - the four set-aside causes that Req 5.2 shows through `messageFor`: `sighting_too_old`,
  *   `sighting_time_implausible`, `outlier`, `hidden_by_user`.
  * - storage and clipboard: `storage_unavailable`, `storage_corrupt`,
@@ -33,6 +35,7 @@ export const VIGIA_ONLY_REASONS = {
   link_too_long: true,
   incident_unknown: true,
   incident_full: true,
+  incident_not_joinable: true,
   sighting_conflict: true,
   simulation_not_shareable: true,
   sighting_too_old: true,
@@ -58,6 +61,7 @@ export type VigiaOnlyReason =
   | 'link_too_long'
   | 'incident_unknown'
   | 'incident_full'
+  | 'incident_not_joinable'
   | 'sighting_conflict'
   | 'simulation_not_shareable'
   | 'sighting_too_old'
@@ -81,7 +85,7 @@ export const VIGIA_ONLY_REASON_LIST: readonly VigiaOnlyReason[] = Object.freeze(
   Object.keys(VIGIA_ONLY_REASONS) as VigiaOnlyReason[],
 );
 
-/** Every member of `VigiaReason`: UI's list first, then Vigia's 22 (69 in all). */
+/** Every member of `VigiaReason`: UI's list first, then Vigia's 23 (70 in all). */
 export const VIGIA_REASONS: readonly VigiaReason[] = Object.freeze([
   ...UI_REASONS,
   ...VIGIA_ONLY_REASON_LIST,

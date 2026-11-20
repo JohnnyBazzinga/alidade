@@ -6,8 +6,10 @@
 import { err, ok, type VigiaResult } from '../../result';
 import { checkParameters, type VigiaParameters } from '../parameters';
 import { isIncidentId } from './ids';
+import { joinIncident, relabelItem } from './join';
 import {
   hasOnlyFiniteNumbers,
+  incidentHolding,
   MAX_SHARE_RECORDS,
   newestTimeUtcMs,
   SHARE_CHANNELS,
@@ -39,6 +41,11 @@ export type VigiaAction =
       readonly nowUtcMs: number;
       readonly joinIfUnknown: boolean;
     }
+  /**
+   * "It is the same smoke as the one I have open" (Req 4.8, design §7.4a): joins the open Incident
+   * with the Incident of a code whose id is not held.
+   */
+  | { readonly kind: 'joinIncident'; readonly item: InboxItem; readonly nowUtcMs: number }
   | { readonly kind: 'hide'; readonly sightingId: string }
   | { readonly kind: 'show'; readonly sightingId: string }
   | { readonly kind: 'deleteSighting'; readonly sightingId: string }
@@ -95,7 +102,7 @@ function newIncident(
   createdUtcMs: number,
   creation: 'created' | 'joined',
 ): Incident {
-  return { incidentId, createdUtcMs, creation, entries: [], conflicts: [] };
+  return { incidentId, createdUtcMs, creation, formerIds: [], entries: [], conflicts: [] };
 }
 
 /**
@@ -124,7 +131,7 @@ export function applyAction(
   switch (action.kind) {
     case 'createIncident': {
       if (!finite(action.nowUtcMs)) return err('invalid_number', { field: 'nowUtcMs' });
-      const exists = state.incidents.some((i) => i.incidentId === action.incidentId);
+      const exists = incidentHolding(state, action.incidentId) !== undefined;
       if (!isIncidentId(action.incidentId) || exists)
         return err('invalid_number', { field: 'incidentId' });
       return changed({
@@ -160,13 +167,16 @@ export function applyAction(
     case 'addReceived': {
       if (!finite(action.nowUtcMs)) return err('invalid_number', { field: 'nowUtcMs' });
       const { item } = action;
-      const known = state.incidents.find((i) => i.incidentId === item.sighting.incidentId);
+      // A code made under a former id is a code of the Incident that holds it (design §7.4a).
+      const known = incidentHolding(state, item.sighting.incidentId);
       if (known === undefined && !action.joinIfUnknown) return err('incident_unknown');
       const target = known ?? newIncident(item.sighting.incidentId, action.nowUtcMs, 'joined');
+      const labelled = relabelItem(item, target.incidentId, parameters);
+      if (!labelled.ok) return labelled;
       const merged = mergeSighting(
         target,
-        { ...item.sighting, origin: 'received' },
-        item.code,
+        { ...labelled.value.sighting, origin: 'received' },
+        labelled.value.code,
         action.nowUtcMs,
         parameters,
       );
@@ -182,6 +192,12 @@ export function applyAction(
       }
       if (merged.value.incident === known) return changed(state, merged.value.notices);
       return changed(withIncident(state, merged.value.incident), merged.value.notices);
+    }
+
+    case 'joinIncident': {
+      const joined = joinIncident(state, action.item, action.nowUtcMs, parameters);
+      if (!joined.ok) return joined;
+      return changed(joined.value.state, joined.value.notices);
     }
 
     case 'hide':

@@ -1,5 +1,5 @@
-// P-4.7 (Req 4.7): any sequence of 0 to 200 actions on the Incident store keeps the invariants
-// I1 to I7, holds exactly the Sightings a reference model of the actions says, and survives a
+// P-4.7 (Req 4.7): any sequence of 0 to 200 actions on the Incident store (the join of Req 4.8
+// among them) keeps the invariants I1 to I8, holds exactly the Sightings a reference model of the actions says, and survives a
 // reload through the stored format.
 //
 // The reference model below is written here from the actions' definitions (design §7.4) and
@@ -17,6 +17,7 @@ import {
 import { invariants } from '../../test-support/incident-invariants';
 import { NOW_UTC_MS, PARAMETERS } from '../../test-support/incident-fixtures';
 import { checkProperty, ErrorTracker } from '../../test-support/property-report';
+import { decodeSighting, encodeSighting } from '../code/sighting-code';
 import { applyAction, type VigiaAction } from './apply-action';
 import { incidentMode, isIncidentId } from './ids';
 import { emptyState, type ShareRecord, type VigiaState } from './incident-state';
@@ -37,6 +38,8 @@ interface ModelIncident {
   id: string;
   createdUtcMs: number;
   creation: 'created' | 'joined';
+  /** The former ids (design §7.4a): the ids merged into this Incident by a join. */
+  former: Set<string>;
   entries: Map<string, ModelEntry>;
   conflicts: { sightingId: string; heldCode: string; otherCode: string }[];
 }
@@ -51,6 +54,7 @@ const cloneModel = (m: Model): Model => ({
   open: m.open,
   incidents: m.incidents.map((i) => ({
     ...i,
+    former: new Set(i.former),
     entries: new Map([...i.entries].map(([k, e]) => [k, { ...e, shared: [...e.shared] }])),
     conflicts: [...i.conflicts],
   })),
@@ -93,16 +97,19 @@ function modelApply(model: Model, action: VigiaAction): { model: Model; verdict:
   const fail = (reason: string) => ({ model, verdict: { ok: false, reason } as Verdict });
   const ok = () => ({ model: next, verdict: { ok: true } as Verdict });
   const incidentOf = (id: string) => next.incidents.find((i) => i.id === id);
+  /** The Incident whose id or a former id is `id` (design §7.4a). */
+  const holding = (id: string) => next.incidents.find((i) => i.id === id || i.former.has(id));
   const holder = (sightingId: string) => next.incidents.find((i) => i.entries.has(sightingId));
   switch (action.kind) {
     case 'createIncident': {
-      if (!isIncidentId(action.incidentId) || incidentOf(action.incidentId) !== undefined) {
+      if (!isIncidentId(action.incidentId) || holding(action.incidentId) !== undefined) {
         return fail('invalid_number');
       }
       next.incidents.push({
         id: action.incidentId,
         createdUtcMs: action.nowUtcMs,
         creation: 'created',
+        former: new Set(),
         entries: new Map(),
         conflicts: [],
       });
@@ -128,13 +135,14 @@ function modelApply(model: Model, action: VigiaAction): { model: Model; verdict:
       return verdict.ok ? ok() : fail(verdict.reason);
     }
     case 'addReceived': {
-      let incident = incidentOf(action.item.sighting.incidentId);
+      let incident = holding(action.item.sighting.incidentId);
       if (incident === undefined) {
         if (!action.joinIfUnknown) return fail('incident_unknown');
         incident = {
           id: action.item.sighting.incidentId,
           createdUtcMs: action.nowUtcMs,
           creation: 'joined',
+          former: new Set(),
           entries: new Map(),
           conflicts: [],
         };
@@ -144,12 +152,50 @@ function modelApply(model: Model, action: VigiaAction): { model: Model; verdict:
       const verdict = modelMerge(
         incident,
         action.item.sighting.sightingId,
-        action.item.code,
+        relabelCode(action.item.code, incident.id),
         'received',
         action.nowUtcMs,
         action.item.sighting.bearing.timeUtcMs,
       );
       return verdict.ok ? ok() : fail(verdict.reason);
+    }
+    case 'joinIncident': {
+      if (!Number.isFinite(action.nowUtcMs)) return fail('invalid_number');
+      const open = next.open === null ? undefined : incidentOf(next.open);
+      if (open === undefined) return fail('incident_unknown');
+      const other = action.item.sighting.incidentId;
+      if (holding(other) !== undefined) return fail('invalid_number');
+      if (incidentMode(open.id) !== incidentMode(other)) return fail('incident_not_joinable');
+      const survivor = open.id < other ? open.id : other;
+      const former = new Set([...open.former, open.id, other]);
+      former.delete(survivor);
+      if (former.size > PARAMETERS.maxFormerIncidentIds) return fail('incident_not_joinable');
+      const joined: ModelIncident = {
+        id: survivor,
+        createdUtcMs: Math.min(open.createdUtcMs, action.nowUtcMs),
+        creation: survivor === open.id ? open.creation : 'joined',
+        former,
+        entries: new Map(
+          [...open.entries].map(([k, e]) => [k, { ...e, code: relabelCode(e.code, survivor) }]),
+        ),
+        conflicts: open.conflicts.map((c) => ({
+          sightingId: c.sightingId,
+          heldCode: relabelCode(c.heldCode, survivor),
+          otherCode: relabelCode(c.otherCode, survivor),
+        })),
+      };
+      const verdict = modelMerge(
+        joined,
+        action.item.sighting.sightingId,
+        relabelCode(action.item.code, survivor),
+        'received',
+        action.nowUtcMs,
+        action.item.sighting.bearing.timeUtcMs,
+      );
+      if (!verdict.ok) return fail(verdict.reason);
+      next.incidents = next.incidents.map((i) => (i.id === open.id ? joined : i));
+      next.open = survivor;
+      return ok();
     }
     case 'hide':
     case 'show':
@@ -190,6 +236,18 @@ function modelApply(model: Model, action: VigiaAction): { model: Model; verdict:
   }
 }
 
+/**
+ * The code of a Sighting under another Incident id: decoded, the id replaced, encoded again. The
+ * model's own copy of the relabelling of design §7.4a, written from its definition.
+ */
+function relabelCode(code: string, incidentId: string): string {
+  const decoded = decodeSighting(code, PARAMETERS);
+  if (!decoded.ok) throw new Error(`model: a code that does not decode (${decoded.reason})`);
+  const encoded = encodeSighting({ ...decoded.value, incidentId });
+  if (!encoded.ok) throw new Error(`model: a code that does not encode (${encoded.reason})`);
+  return encoded.value;
+}
+
 /** The model after a reload: the Simulation Incidents are not written (design D4). */
 function modelReload(model: Model): Model {
   const next = cloneModel(model);
@@ -206,6 +264,7 @@ function projection(state: VigiaState): unknown {
       id: i.incidentId,
       createdUtcMs: i.createdUtcMs,
       creation: i.creation,
+      formerIds: i.formerIds,
       entries: i.entries.map((e) => ({
         id: e.sighting.sightingId,
         code: e.code,
@@ -225,6 +284,7 @@ function modelProjection(model: Model): unknown {
       id: i.id,
       createdUtcMs: i.createdUtcMs,
       creation: i.creation,
+      formerIds: [...i.former].sort(),
       entries: [...i.entries]
         .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
         .map(([id, e]) => ({
@@ -241,7 +301,8 @@ function modelProjection(model: Model): unknown {
 }
 
 describe('P-4.7: the Incident store (Req 4.7)', () => {
-  // Generator: `storageActions`: 0 to 200 steps among create, join, capture, receive (the same
+  // Generator: `storageActions`: 0 to 200 steps among create, join, joinSame (the action
+  // `joinIncident`, design §7.4a), capture, receive (the same
   // code again, and a different code under the same id, among them), hide, show, delete,
   // share, deleteIncident, deleteAll, expire (the clock moves 0 to 40 hours) and reload, over a
   // pool of 4 device Incident ids and one Simulation id and 40 Sighting numbers. Excludes what
@@ -313,6 +374,7 @@ describe('P-4.7: the Incident store (Req 4.7)', () => {
           for (const incident of state.incidents) {
             tracker.record('largest Incident (entries)', incident.entries.length, '32');
             tracker.record('conflicts of one Incident', incident.conflicts.length, 'none');
+            tracker.record('former ids of one Incident', incident.formerIds.length, '16');
             for (const entry of incident.entries) {
               tracker.record('share records of one entry', entry.shared.length, '20');
             }

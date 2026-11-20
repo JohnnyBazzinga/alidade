@@ -7,10 +7,13 @@
 // arrival. I3 at most `maxSightingsPerIncident` entries. I4 an entry's Sighting names its
 // Incident. I5 an entry's `code` is `encodeSighting` of its Sighting. I6 `openIncidentId` is null
 // or an Incident's id. I7 a Conflict names a held Sighting and a code different from the held one.
+// I8 the former ids of an Incident (design §7.4a) are valid ids of its mode, in code-unit order,
+// none its own and none the id or a former id of another Incident, at most `maxFormerIncidentIds`;
+// the ids and former ids of all Incidents are pairwise different (I1).
 
 import { encodeSighting } from '../code/sighting-code';
 import type { VigiaParameters } from '../parameters';
-import { isIncidentId } from './ids';
+import { incidentMode, isIncidentId } from './ids';
 import type { Sighting } from './sighting';
 
 export type ShareChannel = 'link' | 'qr' | 'text' | 'system_share' | 'memory';
@@ -47,6 +50,11 @@ export interface Incident {
   readonly incidentId: string;
   readonly createdUtcMs: number;
   readonly creation: 'created' | 'joined';
+  /**
+   * The ids this Incident had, or that were merged into it by a join (design §7.4a): a code made
+   * under one of them is a code of this Incident. In code-unit order, none twice.
+   */
+  readonly formerIds: readonly string[];
   readonly entries: readonly SightingEntry[];
   readonly conflicts: readonly Conflict[];
 }
@@ -74,6 +82,16 @@ export interface Notice {
 
 export function emptyState(): VigiaState {
   return { incidents: [], openIncidentId: null };
+}
+
+/**
+ * The Incident whose id, or one of whose former ids, is `incidentId` (design §7.4a), or
+ * `undefined`. A code made under either is a code of that Incident.
+ */
+export function incidentHolding(state: VigiaState, incidentId: string): Incident | undefined {
+  return state.incidents.find(
+    (i) => i.incidentId === incidentId || (i.formerIds ?? []).includes(incidentId),
+  );
 }
 
 /** Code-unit order of two strings: the order of the entries of an Incident (I2). */
@@ -144,6 +162,7 @@ export function sanitiseState(
   let dropped = 0;
   const incidents: Incident[] = [];
   const seenIncidents = new Set<string>();
+  const formerOf = new Map<string, unknown>();
   for (const incident of state.incidents) {
     const heldEntries = Array.isArray(incident.entries) ? incident.entries : [];
     const headerHolds =
@@ -200,10 +219,47 @@ export function sanitiseState(
       incidentId: incident.incidentId,
       createdUtcMs: incident.createdUtcMs,
       creation: incident.creation,
+      formerIds: [],
       entries,
       conflicts,
     });
+    formerOf.set(incident.incidentId, incident.formerIds);
   }
+  // I8, once every current id is known: a current id wins over a former id, and between former
+  // ids the earlier Incident wins. A missing list is an empty one (a value saved before the join).
+  const currentIds = new Set(incidents.map((i) => i.incidentId));
+  const claimed = new Set<string>();
+  const withFormer = incidents.map((incident): Incident => {
+    const raw: unknown = formerOf.get(incident.incidentId);
+    if (raw === undefined) return incident;
+    if (!Array.isArray(raw)) {
+      dropped += 1;
+      return incident;
+    }
+    const kept: string[] = [];
+    for (const id of raw as unknown[]) {
+      const usable =
+        typeof id === 'string' &&
+        isIncidentId(id) &&
+        incidentMode(id) === incidentMode(incident.incidentId) &&
+        !currentIds.has(id) &&
+        !claimed.has(id);
+      if (!usable) {
+        dropped += 1;
+        continue;
+      }
+      claimed.add(id);
+      kept.push(id);
+    }
+    kept.sort(compareIds);
+    const former = kept.slice(0, parameters.maxFormerIncidentIds);
+    for (const id of kept.slice(parameters.maxFormerIncidentIds)) claimed.delete(id);
+    dropped += kept.length - former.length;
+    return { ...incident, formerIds: former };
+  });
   const openHeld = incidents.some((i) => i.incidentId === state.openIncidentId);
-  return { state: { incidents, openIncidentId: openHeld ? state.openIncidentId : null }, dropped };
+  return {
+    state: { incidents: withFormer, openIncidentId: openHeld ? state.openIncidentId : null },
+    dropped,
+  };
 }

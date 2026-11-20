@@ -28,6 +28,7 @@ const FIELDS = [
   'simulationTapSigmaPx',
   'adviceMinDistanceM',
   'expiryCheckIntervalMs',
+  'maxFormerIncidentIds',
 ] as const satisfies readonly (keyof VigiaParameters)[];
 
 /** The fields that are counts: an integer of at least 1 (design §7.20). */
@@ -37,6 +38,7 @@ const COUNTS = [
   'maxLinkLengthChars',
   'maxEmergencyTextChars',
   'maxResponseBytes',
+  'maxFormerIncidentIds',
 ] as const;
 
 const DEFAULTS = defaultParameters();
@@ -66,6 +68,7 @@ describe('defaultParameters (Req 19.1, 19.2)', () => {
       simulationTapSigmaPx: defaults.SIMULATION_TAP_SIGMA_PX,
       adviceMinDistanceM: defaults.ADVICE_MIN_DISTANCE_M,
       expiryCheckIntervalMs: defaults.EXPIRY_CHECK_INTERVAL_MS,
+      maxFormerIncidentIds: defaults.MAX_FORMER_INCIDENT_IDS,
     });
     expect(Object.keys(DEFAULTS)).toEqual([...FIELDS]);
   });

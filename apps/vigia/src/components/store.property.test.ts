@@ -187,6 +187,12 @@ async function run(steps: readonly StoreStep[]) {
         else store.ignore(item.code);
         break;
       }
+      case 'joinSame': {
+        const inbox = store.getSnapshot().inbox;
+        const item = inbox[step.pick % Math.max(1, inbox.length)];
+        if (item !== undefined) store.joinFromInbox(item.code);
+        break;
+      }
       case 'hide':
       case 'show':
       case 'delete': {

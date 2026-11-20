@@ -93,6 +93,7 @@ interface StoredIncident {
   incidentId?: unknown;
   createdUtcMs?: unknown;
   creation?: unknown;
+  formerIds?: unknown;
   entries?: unknown;
   conflicts?: unknown;
 }
@@ -122,7 +123,7 @@ describe('serialiseState: the JSON of design §7.5, exactly', () => {
     const other = canonicalOf(1, INCIDENT_ID, { azimuthRad: 2.5 }, 'received', NOW_UTC_MS + 9);
     const expected =
       `{"format":"vigia-state","version":1,"savedUtcMs":${SAVED},"openIncidentId":"${INCIDENT_ID}",` +
-      `"incidents":[{"incidentId":"${INCIDENT_ID}","createdUtcMs":${NOW_UTC_MS},"creation":"created",` +
+      `"incidents":[{"incidentId":"${INCIDENT_ID}","createdUtcMs":${NOW_UTC_MS},"creation":"created","formerIds":[],` +
       `"entries":[` +
       `{"code":"${a.code}","origin":"local","receivedUtcMs":null,"hidden":false,` +
       `"shared":[{"channel":"link","atUtcMs":${NOW_UTC_MS + 200_000}}]},` +
@@ -384,6 +385,155 @@ describe('parseStoredState: what is salvaged and counted (step 4)', () => {
 
   it('ignores the keys it does not know', () => {
     expect(loaded(mutated((s) => (s.extra = { a: 1 }))).dropped).toBe(0);
+  });
+});
+
+describe('the former ids of a join (design §7.4a, Req 4.9)', () => {
+  const SMALL = 'C222222222';
+  const MIDDLE = 'D4N8RTY5CM';
+  const LARGE = 'K7PQ3MWXA2';
+
+  /** A phone that started `LARGE`, then joined `SMALL` and `MIDDLE`: one Incident, two former ids. */
+  function joinedState(): VigiaState {
+    let state = ran(emptyState(), {
+      kind: 'createIncident',
+      incidentId: LARGE,
+      nowUtcMs: NOW_UTC_MS,
+    });
+    const own = canonicalOf(1, LARGE);
+    state = ran(state, {
+      kind: 'addLocal',
+      sighting: own.sighting,
+      code: own.code,
+      nowUtcMs: NOW_UTC_MS,
+    });
+    for (const [n, id] of [
+      [2, MIDDLE],
+      [3, SMALL],
+    ] as const) {
+      const other = canonicalOf(n, id, {}, 'received');
+      state = ran(state, {
+        kind: 'joinIncident',
+        item: {
+          code: other.code,
+          sighting: { ...other.sighting, receivedUtcMs: null },
+          arrivedUtcMs: 0,
+        },
+        nowUtcMs: NOW_UTC_MS + n,
+      });
+    }
+    return state;
+  }
+
+  it('are written after the creation, in order, and read back with nothing dropped', () => {
+    const state = joinedState();
+    const text = serialiseState(state, SAVED);
+    expect(text).toContain(`"creation":"joined","formerIds":["${MIDDLE}","${LARGE}"],"entries":`);
+    const back = loaded(text);
+    expect(back.dropped).toBe(0);
+    expect(back.state).toEqual(state);
+    expect(back.state.incidents[0]?.formerIds).toEqual([MIDDLE, LARGE]);
+    expect(invariants(back.state, PARAMETERS)).toEqual([]);
+  });
+
+  it('are a list of no ids for a value saved before this change, which loads with nothing dropped', () => {
+    const old = mutated((s) => {
+      for (const incident of incidentsOf(s)) Reflect.deleteProperty(incident, 'formerIds');
+    });
+    expect(old).not.toContain('formerIds');
+    const back = loaded(old);
+    expect(back.dropped).toBe(0);
+    expect(back.state.incidents[0]?.formerIds).toEqual([]);
+    expect(back.state).toEqual(fixedState());
+  });
+
+  it('drop an element that is not an id of the Incident’s mode, and count it', () => {
+    const state = joinedState();
+    const text = JSON.stringify(
+      Object.assign(JSON.parse(serialiseState(state, SAVED)) as Stored, {}),
+      (key, value: unknown) =>
+        key === 'formerIds' ? [MIDDLE, 'k7pq3mwxa2', 7, null, 'ZB4N8RTY5C', LARGE] : value,
+    );
+    const back = loaded(text);
+    expect(back.state.incidents[0]?.formerIds).toEqual([MIDDLE, LARGE]);
+    expect(back.dropped).toBe(4);
+  });
+
+  it('are an empty list, with one thing dropped, when the key is not a list', () => {
+    for (const bad of ['text', 5, { a: 1 }, null]) {
+      const back = loaded(mutated((s) => void (firstOf(s).formerIds = bad)));
+      expect(back.state.incidents[0]?.formerIds, JSON.stringify(bad)).toEqual([]);
+      expect(back.dropped, JSON.stringify(bad)).toBe(1);
+    }
+  });
+
+  it('drop a repeat, the Incident’s own id, and an id that another Incident holds', () => {
+    const state = joinedState();
+    const text = JSON.stringify(
+      JSON.parse(serialiseState(state, SAVED)) as Stored,
+      (key, value: unknown) => (key === 'formerIds' ? [MIDDLE, MIDDLE, SMALL, LARGE] : value),
+    );
+    const back = loaded(text);
+    expect(back.state.incidents[0]?.formerIds).toEqual([MIDDLE, LARGE]);
+    expect(back.dropped).toBe(2);
+    expect(invariants(back.state, PARAMETERS)).toEqual([]);
+  });
+
+  it('keep the first sixteen, in order, of seventeen, and count the rest', () => {
+    const ids = Array.from({ length: 17 }, (_, k) => `D${sightingIdOf(k + 1)}`).sort();
+    const text = JSON.stringify(
+      JSON.parse(serialiseState(joinedState(), SAVED)) as Stored,
+      (key, value: unknown) => (key === 'formerIds' ? ids : value),
+    );
+    const back = loaded(text);
+    expect(back.state.incidents[0]?.formerIds).toEqual(ids.slice(0, 16));
+    expect(back.dropped).toBe(1);
+  });
+
+  it('give way to an id that is another Incident’s own: current ids win, and each loss is counted', () => {
+    // Two stored Incidents: the second is `MIDDLE`, which the first lists as a former id, and
+    // lists `SMALL`, which is the first one's own id, as a former id.
+    const second = canonicalOf(5, MIDDLE);
+    const base = JSON.parse(serialiseState(joinedState(), SAVED)) as Stored;
+    const claim = {
+      incidentId: MIDDLE,
+      createdUtcMs: NOW_UTC_MS,
+      creation: 'created',
+      formerIds: [SMALL],
+      entries: [
+        { code: second.code, origin: 'local', receivedUtcMs: null, hidden: false, shared: [] },
+      ],
+      conflicts: [],
+    };
+    const text = JSON.stringify({ ...base, incidents: [...incidentsOf(base), claim] });
+    const back = loaded(text);
+    expect(back.state.incidents.map((i) => [i.incidentId, i.formerIds])).toEqual([
+      [SMALL, [LARGE]],
+      [MIDDLE, []],
+    ]);
+    expect(back.dropped).toBe(2);
+    expect(invariants(back.state, PARAMETERS)).toEqual([]);
+  });
+
+  it('leave a former id that two Incidents list to the first of them', () => {
+    const second = canonicalOf(5, 'H7PQ3MWXAB');
+    const base = JSON.parse(serialiseState(joinedState(), SAVED)) as Stored;
+    const claim = {
+      incidentId: 'H7PQ3MWXAB',
+      createdUtcMs: NOW_UTC_MS,
+      creation: 'created',
+      formerIds: [LARGE],
+      entries: [
+        { code: second.code, origin: 'local', receivedUtcMs: null, hidden: false, shared: [] },
+      ],
+      conflicts: [],
+    };
+    const back = loaded(JSON.stringify({ ...base, incidents: [...incidentsOf(base), claim] }));
+    expect(back.state.incidents.map((i) => [i.incidentId, i.formerIds])).toEqual([
+      [SMALL, [MIDDLE, LARGE]],
+      ['H7PQ3MWXAB', []],
+    ]);
+    expect(back.dropped).toBe(1);
   });
 });
 

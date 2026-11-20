@@ -34,7 +34,8 @@ export type StoredParse =
 
 /**
  * The JSON text of `state`, keys in the order of design §7.5. Only Incidents made on a device are
- * written, with each entry's `code`, `origin`, `receivedUtcMs`, `hidden` and `shared`. A saved
+ * written, with the former ids of each (design §7.4a) and each entry's `code`, `origin`,
+ * `receivedUtcMs`, `hidden` and `shared`. A saved
  * time that is not finite is written as 0.
  */
 export function serialiseState(state: VigiaState, savedUtcMs: number): string {
@@ -44,6 +45,7 @@ export function serialiseState(state: VigiaState, savedUtcMs: number): string {
       incidentId: i.incidentId,
       createdUtcMs: i.createdUtcMs,
       creation: i.creation,
+      formerIds: [...i.formerIds],
       entries: i.entries.map((e) => ({
         code: e.code,
         origin: e.sighting.origin,
@@ -199,7 +201,19 @@ export function parseStoredState(
       if (conflict === null) dropped += 1;
       else conflicts.push(conflict);
     }
-    incidents.push({ incidentId, createdUtcMs, creation, entries, conflicts });
+    // The former ids (design §7.4a): a value saved before the join has none and loads as if the
+    // list were empty; what is not an id is dropped and counted here and by `sanitiseState`.
+    const rawFormer: unknown = raw['formerIds'];
+    const formerIds: string[] = [];
+    if (Array.isArray(rawFormer)) {
+      for (const id of rawFormer as unknown[]) {
+        if (typeof id === 'string') formerIds.push(id);
+        else dropped += 1;
+      }
+    } else if (rawFormer !== undefined) {
+      dropped += 1;
+    }
+    incidents.push({ incidentId, createdUtcMs, creation, formerIds, entries, conflicts });
   }
   const open = typeof value['openIncidentId'] === 'string' ? value['openIncidentId'] : null;
   const sane = sanitiseState({ incidents, openIncidentId: open }, parameters);

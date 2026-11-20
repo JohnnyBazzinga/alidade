@@ -705,3 +705,30 @@ three hotspot reasons wait for the lead's word after the wind checkpoint).
   - [x] 19.3 P-14.8, P-14.9, P-16.4 at 5 000 cases; mutation checks: the position line, the count line,
     the legend and the headline each ignoring the disagreement fail a test.
   - _Requirements: 6.11, 14.11, 19.1_
+
+- [x] 20. Joining two smokes (2026-11-21; Req 4.7 to 4.10; design §7.4a, §7.5, §9 Inbox, §11 P-4.10)
+  - The working rules of this file apply (tests first and seen to fail, a failing property stops and is classified, `timeout` on
+    every run, outputs under /tmp/vigia/, one run at a time, no commit, nothing under `skeleton/`, `requirements.md` untouched).
+  - [x] 20.1 Design: §7.4a of `design.md` (the state and its former ids, the action `joinIncident` and its refusals, the
+    matching of a code by an id or a former id, the stored format, the code after a join, the Inbox's answers), the rows of P-4.7
+    and P-4.10 in §11. Shown in the report, not a stop.
+  - [x] 20.2 Tests first, then code, in the Math layer: `math/incident/join.test.ts` and `apply-action.test.ts` (the join with
+    each refusal; a code of a former id added with no question and relabelled; a duplicate under two ids is one entry; the
+    smaller id; the creation time; the former ids kept and bounded; conflicts relabelled), `storage-format.test.ts` (the key
+    written, a value saved before this change loads with nothing dropped, damaged former ids counted), `incident-state.test.ts` (I8
+    in `sanitiseState`), the new parameter `maxFormerIncidentIds` (`MAX_FORMER_INCIDENT_IDS`, 16) in `defaults.ts`,
+    `parameters.ts` and their tests, the new reason `incident_not_joinable` with its Message (its test, the hostile lists). Code:
+    `math/incident/join.ts`, `incident-state.ts`, `apply-action.ts`, `storage-format.ts`.
+  - [x] 20.3 **P-4.7** gains `joinSame` among its steps and the former ids in its reference model and in the reload.
+    **P-4.10** (new, `math/incident/join.property.test.ts`): the generator `joinGroups` of §11, its domain stated in the file,
+    **delivering the own Sightings of every phone to every other** (the premise of the convergence). 200 cases in `pnpm test`,
+    5 000 in `test:deep`. Mutation checks: the larger id taken instead of the smaller; former ids not kept; each to be failed
+    by a named test.
+  - [x] 20.4 Tests first, then code, in the components: `store.joinFromInbox`; the Inbox sheet (two answers of equal weight,
+    none preselected, and Ignore; the sentences of Req 4.8; the confirmation; the refusal through `messageFor`; with none open,
+    as before; a card of a former id says "for the smoke you have open" and adds with no question).
+  - [x] 20.5 The reviewer's integration test: for `two-posts` and `three-posts` the natural order (each post takes its
+    sighting first; one code is sent; the receiving phone answers "the same smoke" and has the Fix; then the other direction;
+    both phones show the same Fix and the same Incident id); `four-posts-one-wrong` and `almost-in-line` keep the old order.
+  - [x] 20.6 The hostile list (`joinIncident`, `incidentHolding` and the generators), the purity list, P-15.9 (the join is an
+    action of its sequences), the privacy table if it lists what a code holds. Then the root checks.

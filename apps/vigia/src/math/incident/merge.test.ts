@@ -13,6 +13,7 @@ const EMPTY: Incident = {
   incidentId: INCIDENT_ID,
   createdUtcMs: NOW_UTC_MS,
   creation: 'created',
+  formerIds: [],
   entries: [],
   conflicts: [],
 };

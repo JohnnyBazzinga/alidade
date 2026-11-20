@@ -1,9 +1,9 @@
-// The invariants I1 to I7 of design §7.4, written here as a list of violations (empty when the
+// The invariants I1 to I8 of design §7.4 and §7.4a, written here as a list of violations (empty when the
 // state holds them), independently of the code that keeps them (test support, not exported).
 // Used by the example tests of the reducer and by P-4.7.
 
 import { encodeSighting } from '../math/code/sighting-code';
-import { isIncidentId } from '../math/incident/ids';
+import { incidentMode, isIncidentId } from '../math/incident/ids';
 import type { VigiaState } from '../math/incident/incident-state';
 import type { Sighting } from '../math/incident/sighting';
 import type { VigiaParameters } from '../math/parameters';
@@ -22,10 +22,32 @@ function encodedCode(sighting: Sighting): string | null {
 export function invariants(state: VigiaState, parameters: VigiaParameters): string[] {
   const problems: string[] = [];
   const ids = new Set<string>();
+  // I1: the ids and the former ids of all Incidents are pairwise different (checked with I8).
   for (const incident of state.incidents) {
-    // I1
-    if (ids.has(incident.incidentId)) problems.push(`I1: ${incident.incidentId} twice`);
-    ids.add(incident.incidentId);
+    const former: readonly unknown[] = Array.isArray(incident.formerIds) ? incident.formerIds : [];
+    if (!Array.isArray(incident.formerIds)) problems.push(`I8: no list of former ids`);
+    for (const id of [incident.incidentId, ...former]) {
+      if (ids.has(String(id)))
+        problems.push(`I1: ${String(id)} is the id or a former id of two Incidents, or twice`);
+      ids.add(String(id));
+    }
+    // I8
+    if (former.length > parameters.maxFormerIncidentIds) {
+      problems.push(`I8: ${former.length} former ids`);
+    }
+    former.forEach((id, k) => {
+      if (
+        typeof id !== 'string' ||
+        !isIncidentId(id) ||
+        incidentMode(id) !== incidentMode(incident.incidentId)
+      ) {
+        problems.push(`I8: former id ${String(id)} of ${incident.incidentId}`);
+      } else if (k > 0 && !(String(former[k - 1]) < id)) {
+        problems.push(`I8: former ids of ${incident.incidentId} are not in order`);
+      }
+    });
+  }
+  for (const incident of state.incidents) {
     if (!isIncidentId(incident.incidentId))
       problems.push(`I1: ${incident.incidentId} is not an id`);
     // I3
@@ -64,7 +86,10 @@ export function invariants(state: VigiaState, parameters: VigiaParameters): stri
     }
   }
   // I6
-  if (state.openIncidentId !== null && !ids.has(state.openIncidentId)) {
+  if (
+    state.openIncidentId !== null &&
+    !state.incidents.some((i) => i.incidentId === state.openIncidentId)
+  ) {
     problems.push(`I6: open ${state.openIncidentId} is not held`);
   }
   return problems;

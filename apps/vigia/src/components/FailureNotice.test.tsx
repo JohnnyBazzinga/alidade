@@ -8,8 +8,8 @@ import { VIGIA_REASONS } from '../reasons';
 import { FailureNotice } from './FailureNotice';
 
 describe('FailureNotice (Req 2.3, 21.4)', () => {
-  it('knows the 69 reasons of the closed set', () => {
-    expect(VIGIA_REASONS).toHaveLength(69);
+  it('knows the 70 reasons of the closed set', () => {
+    expect(VIGIA_REASONS).toHaveLength(70);
   });
 
   for (const reason of VIGIA_REASONS) {

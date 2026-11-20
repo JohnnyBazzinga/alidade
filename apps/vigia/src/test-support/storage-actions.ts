@@ -4,7 +4,9 @@
 //
 // Domain. A step is one of: `create` (an Incident id from a pool of four device ids and one
 // Simulation id), `join` (a code of an Incident the phone does not hold, added with
-// `joinIfUnknown`), `capture` (a local Sighting in the open Incident), `receive` (a received
+// `joinIfUnknown`), `joinSame` (the answer "the same smoke" to a code of a pool Incident: the
+// action `joinIncident`, refused when the id is held, when none is open, and for a Simulation id
+// against a real one), `capture` (a local Sighting in the open Incident), `receive` (a received
 // Sighting of a pool Incident, the same code again one draw in four, a different code under the
 // same Sighting id one draw in six), `hide`, `show`, `delete` (a Sighting held, or an id of the
 // pool when none is), `deleteIncident`, `deleteAll`, `expire` (the clock moves 0 to 40 hours),
@@ -46,6 +48,8 @@ export const SIGHTING_POOL_SIZE = 40;
 export type Step =
   | { readonly kind: 'create'; readonly incident: number }
   | { readonly kind: 'join'; readonly incident: number; readonly sighting: number }
+  /** "It is the same smoke as the one I have open" (Req 4.8): `joinIncident`. */
+  | { readonly kind: 'joinSame'; readonly incident: number; readonly sighting: number }
   | { readonly kind: 'capture'; readonly sighting: number }
   | {
       readonly kind: 'receive';
@@ -77,6 +81,12 @@ export function storageActions(): fc.Arbitrary<Step[]> {
       arbitrary: fc
         .tuple(incident, sighting)
         .map(([i, s]): Step => ({ kind: 'join', incident: i, sighting: s })),
+    },
+    {
+      weight: 4,
+      arbitrary: fc
+        .tuple(incident, sighting)
+        .map(([i, s]): Step => ({ kind: 'joinSame', incident: i, sighting: s })),
     },
     { weight: 6, arbitrary: sighting.map((s): Step => ({ kind: 'capture', sighting: s })) },
     {
@@ -217,6 +227,21 @@ function actionOf(step: Step, state: VigiaState, nowUtcMs: number): VigiaAction 
         arrivedUtcMs: nowUtcMs,
       };
       return { kind: 'addReceived', item, nowUtcMs, joinIfUnknown: true };
+    }
+    case 'joinSame': {
+      const { sighting, code } = poolSighting(
+        step.sighting,
+        id(step.incident),
+        0,
+        'received',
+        null,
+      );
+      const item: InboxItem = {
+        code,
+        sighting: { ...sighting, receivedUtcMs: null },
+        arrivedUtcMs: nowUtcMs,
+      };
+      return { kind: 'joinIncident', item, nowUtcMs };
     }
     case 'capture': {
       const open = state.openIncidentId ?? INCIDENT_ID;

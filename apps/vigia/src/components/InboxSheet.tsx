@@ -9,10 +9,12 @@ import { useState } from 'react';
 import { ageText } from '../math/civil-time';
 import { accuracyText, directionText } from '../math/fix/format';
 import { incidentMode } from '../math/incident/ids';
-import type { InboxItem, VigiaState } from '../math/incident/incident-state';
-import { NO_PROOF_TEXT } from '../math/texts';
+import { incidentHolding, type InboxItem, type VigiaState } from '../math/incident/incident-state';
+import { relabelItem } from '../math/incident/join';
+import { JOIN_CROSSES_TEXT, JOIN_NOT_TAKEN_BACK_TEXT, NO_PROOF_TEXT } from '../math/texts';
 import type { VigiaFailure } from '../result';
 import { FailureNotice } from './FailureNotice';
+import { useEnvironment } from './environment';
 import { LOOK } from './look';
 import { useStore, useVigia } from './store';
 
@@ -26,9 +28,12 @@ const SIMULATED_TEXT = 'This code comes from a simulation, not from a real place
 
 function smokeText(item: InboxItem, state: VigiaState, inbox: readonly InboxItem[]): string {
   const incidentId = item.sighting.incidentId;
-  if (incidentId === state.openIncidentId) return 'For the smoke you have open';
-  if (state.incidents.some((i) => i.incidentId === incidentId)) {
-    return 'For another smoke on this phone';
+  // A smoke is held under its id or a former id (design §7.4a).
+  const holder = incidentHolding(state, incidentId);
+  if (holder !== undefined) {
+    return holder.incidentId === state.openIncidentId
+      ? 'For the smoke you have open'
+      : 'For another smoke on this phone';
   }
   const waiting = inbox.filter((i) => i.sighting.incidentId === incidentId).length;
   return `For a smoke this phone does not have (${waiting} sighting${waiting === 1 ? '' : 's'} waiting)`;
@@ -37,15 +42,26 @@ function smokeText(item: InboxItem, state: VigiaState, inbox: readonly InboxItem
 function Card({ item }: { readonly item: InboxItem }) {
   const store = useStore();
   const { state, inbox, nowUtcMs } = useVigia();
+  const { parameters } = useEnvironment();
   const [confirmingOpen, setConfirmingOpen] = useState(false);
+  const [confirmingJoin, setConfirmingJoin] = useState(false);
   const [failure, setFailure] = useState<VigiaFailure | null>(null);
   const { bearing, incidentId, sightingId } = item.sighting;
-  const known = state.incidents.find((i) => i.incidentId === incidentId);
+  const known = incidentHolding(state, incidentId);
   const held = known?.entries.find((e) => e.sighting.sightingId === sightingId);
+  // The same sighting under the id the smoke has now, to tell a duplicate from a different one.
+  const asHeld = known === undefined ? null : relabelItem(item, known.incidentId, parameters);
+  const heldCode = asHeld !== null && asHeld.ok ? asHeld.value.code : item.code;
+  // An Incident is open: the code of a smoke this phone does not have may be of the same smoke.
+  const asksSameSmoke = known === undefined && state.openIncidentId !== null;
   const direction = directionText(bearing.azimuthRad, bearing.azimuthSigmaRad);
   const accuracy = accuracyText(bearing.positionAccuracyM);
   const add = (joinIfUnknown: boolean) => {
     const result = store.addFromInbox(item.code, joinIfUnknown);
+    if (!result.ok) setFailure(result);
+  };
+  const join = () => {
+    const result = store.joinFromInbox(item.code);
     if (!result.ok) setFailure(result);
   };
   return (
@@ -56,14 +72,27 @@ function Card({ item }: { readonly item: InboxItem }) {
       <p style={{ ...LOOK.text, fontWeight: 700 }}>{smokeText(item, state, inbox)}</p>
       {held !== undefined && (
         <p style={LOOK.dim}>
-          {held.code === item.code
+          {held.code === heldCode
             ? 'Already on this phone: adding it changes nothing.'
             : 'This phone holds a different sighting under the same identifier.'}
         </p>
       )}
       {incidentMode(incidentId) === 'simulation' && <p style={LOOK.alertText}>{SIMULATED_TEXT}</p>}
       {failure !== null && <FailureNotice failure={failure} />}
-      {confirmingOpen ? (
+      {confirmingJoin ? (
+        <div role="group" style={LOOK.alertPanel}>
+          <p style={LOOK.text}>{JOIN_CROSSES_TEXT}</p>
+          <p style={LOOK.text}>{JOIN_NOT_TAKEN_BACK_TEXT}</p>
+          <div style={LOOK.controls}>
+            <button type="button" onClick={join} style={LOOK.button}>
+              Join the two smokes
+            </button>
+            <button type="button" onClick={() => setConfirmingJoin(false)} style={LOOK.button}>
+              Not now
+            </button>
+          </div>
+        </div>
+      ) : confirmingOpen ? (
         <div role="group" style={LOOK.alertPanel}>
           <p style={LOOK.text}>
             Open this as a new smoke on this phone? Its sightings will be listed with where they
@@ -80,7 +109,16 @@ function Card({ item }: { readonly item: InboxItem }) {
         </div>
       ) : (
         <div style={LOOK.controls}>
-          {known === undefined ? (
+          {asksSameSmoke ? (
+            <>
+              <button type="button" onClick={() => setConfirmingJoin(true)} style={LOOK.button}>
+                It is the same smoke as the one I have open
+              </button>
+              <button type="button" onClick={() => setConfirmingOpen(true)} style={LOOK.button}>
+                It is a different smoke
+              </button>
+            </>
+          ) : known === undefined ? (
             <button type="button" onClick={() => setConfirmingOpen(true)} style={LOOK.button}>
               Open it as a new smoke on this phone
             </button>

@@ -32,13 +32,14 @@ export function reachedState(parameters: VigiaParameters = PARAMETERS): fc.Arbit
  * hostile double for an Incident's creation time, a hostile double for an entry's receive time, a
  * hostile string for an Incident id, an empty or hostile open Incident id, an entry's `hidden`
  * flipped, an entry's code replaced by a hostile string, an entry copied twice, and an entry
- * moved to another Incident. Numbers that are not finite occur.
+ * moved to another Incident, and a list of former ids with a hostile string, the Incident's own id
+ * and a repeat in it. Numbers that are not finite occur.
  */
 export function hostileState(): fc.Arbitrary<VigiaState> {
   return fc
     .tuple(
       reachedState(),
-      fc.array(uniformInteger(0, 7), { maxLength: 4 }),
+      fc.array(uniformInteger(0, 8), { maxLength: 4 }),
       hostileNumber(),
       hostileString(),
     )
@@ -72,6 +73,10 @@ export function hostileState(): fc.Arbitrary<VigiaState> {
           });
         } else if (mutation === 6 && entry !== undefined) {
           current = replaceFirst({ entries: [entry, ...incident.entries] });
+        } else if (mutation === 8) {
+          // A list of former ids with something wrong in it: a hostile string, the Incident's own
+          // id, and the same id twice (design §7.4a, I8).
+          current = replaceFirst({ formerIds: [text, incident.incidentId, text] });
         } else if (mutation === 7 && entry !== undefined && current.incidents.length > 1) {
           const other = current.incidents[1];
           if (other !== undefined) {
@@ -91,6 +96,31 @@ export function hostileState(): fc.Arbitrary<VigiaState> {
 }
 
 const CHANNELS: readonly ShareChannel[] = ['link', 'qr', 'text', 'system_share', 'memory'];
+
+/**
+ * An Inbox item with hostile fields. Domain: a Sighting of `sightingArb` received, with its own
+ * code (one draw in two), a code of 50 symbols that is not its (one in four) or a hostile string
+ * (one in four), and a hostile arrival time.
+ */
+export function hostileItem(): fc.Arbitrary<InboxItem> {
+  return fc
+    .tuple(
+      sightingArb(),
+      fc.constantFrom('own', 'own', 'wrong', 'hostile'),
+      symbols(50),
+      hostileString(),
+      hostileNumber(),
+    )
+    .map(([sighting, which, wrong, hostile, arrivedUtcMs]) => {
+      const own = encodeSighting(sighting);
+      const code = which === 'own' && own.ok ? own.value : which === 'wrong' ? wrong : hostile;
+      return {
+        sighting: { ...sighting, origin: 'received' as const, receivedUtcMs: null },
+        code,
+        arrivedUtcMs,
+      };
+    });
+}
 
 /**
  * An action with hostile fields. Domain: each kind of action; Incident ids from the pool, ten
@@ -131,6 +161,11 @@ export function hostileAction(): fc.Arbitrary<VigiaAction> {
       kind: 'addLocal',
       sighting,
       code,
+      nowUtcMs,
+    })),
+    fc.tuple(item, time).map(([i, nowUtcMs]): VigiaAction => ({
+      kind: 'joinIncident',
+      item: i,
       nowUtcMs,
     })),
     fc.tuple(item, time, fc.boolean()).map(([i, nowUtcMs, joinIfUnknown]): VigiaAction => ({
@@ -194,6 +229,7 @@ export function hostileIncident(): fc.Arbitrary<Incident> {
     incidentId: 'K7PQ3MWXA2',
     createdUtcMs: 1_790_000_000_000,
     creation: 'created',
+    formerIds: [],
     entries: [],
     conflicts: [],
   };

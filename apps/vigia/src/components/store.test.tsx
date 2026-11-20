@@ -39,6 +39,7 @@ function storedIncident(agesMs: readonly number[], hidden = false): string {
     incidentId: INCIDENT_ID,
     createdUtcMs: newest - 60_000,
     creation: 'created',
+    formerIds: [],
     entries,
     conflicts: [],
   };
@@ -395,6 +396,80 @@ describe('the Inbox (D7, Req 9.4)', () => {
     expect(store.getSnapshot().inbox).toHaveLength(1);
     expect(store.addFromInbox(a.code, true).ok).toBe(true);
     expect(store.getSnapshot().open?.incident.creation).toBe('joined');
+  });
+
+  describe('joinFromInbox (Req 4.8, 4.9, design §7.4a)', () => {
+    const SMALL = 'C222222222';
+    const SIMULATED = 'ZB4N8RTY5C';
+
+    /** A phone that started its own smoke `INCIDENT_ID` and took one sighting. */
+    function ownSmoke() {
+      const phone = storeOf();
+      phone.store.dispatch({
+        kind: 'createIncident',
+        incidentId: INCIDENT_ID,
+        nowUtcMs: START_UTC_MS,
+      });
+      phone.store.capture(bearingOf(1, { id: 'b', timeUtcMs: START_UTC_MS - 1000 }), 'same');
+      return phone;
+    }
+
+    it('joins the open smoke with the smoke of a waiting code: the smaller id, the other a former id', () => {
+      const { store, storage } = ownSmoke();
+      const a = received(3, SMALL);
+      store.paste(a.code);
+      expect(store.joinFromInbox(a.code)).toEqual({ ok: true, value: undefined });
+      const s = store.getSnapshot();
+      expect(s.inbox).toEqual([]);
+      expect(s.state.incidents).toHaveLength(1);
+      expect(s.state.openIncidentId).toBe(SMALL);
+      expect(s.open?.incident.formerIds).toEqual([INCIDENT_ID]);
+      expect(s.open?.incident.entries).toHaveLength(2);
+      expect(s.open?.incident.entries.every((e) => e.sighting.incidentId === SMALL)).toBe(true);
+      expect(storage.items.get(STATE_KEY)).toContain(`"formerIds":["${INCIDENT_ID}"]`);
+    });
+
+    it('takes the code out of the Inbox only when the join is made, and gives the refusal back', () => {
+      const { store, storage } = ownSmoke();
+      const sim = received(3, SIMULATED);
+      store.paste(sim.code);
+      const writes = storage.calls.filter((c) => c.startsWith('setItem')).length;
+      expect(store.joinFromInbox(sim.code)).toMatchObject({
+        ok: false,
+        reason: 'incident_not_joinable',
+      });
+      const s = store.getSnapshot();
+      expect(s.inbox.map((i) => i.code)).toEqual([sim.code]);
+      expect(s.state.incidents.map((i) => i.incidentId)).toEqual([INCIDENT_ID]);
+      expect(storage.calls.filter((c) => c.startsWith('setItem'))).toHaveLength(writes);
+    });
+
+    it('fails with code_not_a_sighting for a code that is not waiting, and incident_unknown with no smoke open', () => {
+      const { store } = ownSmoke();
+      expect(store.joinFromInbox(received(3, SMALL).code)).toMatchObject({
+        ok: false,
+        reason: 'code_not_a_sighting',
+      });
+      const bare = storeOf().store;
+      const a = received(3, SMALL);
+      bare.paste(a.code);
+      expect(bare.joinFromInbox(a.code)).toMatchObject({ ok: false, reason: 'incident_unknown' });
+    });
+
+    it('then takes a code of the former id with no question, as a sighting of the joined smoke', () => {
+      const { store } = ownSmoke();
+      const first = received(3, SMALL);
+      store.paste(first.code);
+      store.joinFromInbox(first.code);
+      const old = received(4, INCIDENT_ID);
+      store.paste(old.code);
+      expect(store.addFromInbox(old.code, false).ok).toBe(true);
+      const incident = store.getSnapshot().open?.incident;
+      expect(incident?.entries).toHaveLength(3);
+      expect(incident?.entries.find((e) => e.sighting.sightingId === sightingIdOf(4))?.code).toBe(
+        received(4, SMALL).code,
+      );
+    });
   });
 
   it('shows a different sighting under a held id as sighting_conflict, keeping the held one', () => {

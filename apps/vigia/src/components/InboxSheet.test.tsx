@@ -100,16 +100,15 @@ describe('a smoke this phone does not have (Req 4.2)', () => {
       'For a smoke this phone does not have (2 sightings waiting)',
     );
     expect(within(card).queryByRole('button', { name: 'Add' })).toBeNull();
-    fireEvent.click(
-      within(card).getByRole('button', { name: 'Open it as a new smoke on this phone' }),
-    );
+    expect(
+      within(card).queryByRole('button', { name: 'Open it as a new smoke on this phone' }),
+    ).toBeNull();
+    fireEvent.click(within(card).getByRole('button', { name: 'It is a different smoke' }));
     expect(s.store.getSnapshot().state.incidents).toHaveLength(1);
     const confirm = within(card).getByRole('group');
     fireEvent.click(within(confirm).getByRole('button', { name: 'Not now' }));
     expect(s.store.getSnapshot().state.incidents).toHaveLength(1);
-    fireEvent.click(
-      within(card).getByRole('button', { name: 'Open it as a new smoke on this phone' }),
-    );
+    fireEvent.click(within(card).getByRole('button', { name: 'It is a different smoke' }));
     fireEvent.click(
       within(within(card).getByRole('group')).getByRole('button', {
         name: 'Open it as a new smoke',
@@ -126,9 +125,7 @@ describe('a smoke this phone does not have (Req 4.2)', () => {
     await s.paste(received(5, OTHER_INCIDENT).code);
     const card = s.cards()[0];
     if (card === undefined) throw new Error('no card');
-    fireEvent.click(
-      within(card).getByRole('button', { name: 'Open it as a new smoke on this phone' }),
-    );
+    fireEvent.click(within(card).getByRole('button', { name: 'It is a different smoke' }));
     fireEvent.click(
       within(within(card).getByRole('group')).getByRole('button', {
         name: 'Open it as a new smoke',
@@ -144,6 +141,150 @@ describe('a smoke this phone does not have (Req 4.2)', () => {
       .getSnapshot()
       .state.incidents.find((i) => i.incidentId === OTHER_INCIDENT);
     expect(other?.entries).toHaveLength(2);
+  });
+});
+
+describe('a smoke this phone does not have, with another open (Req 4.8, 4.9)', () => {
+  const SAME = 'It is the same smoke as the one I have open';
+  const DIFFERENT = 'It is a different smoke';
+
+  async function withCard(code: string) {
+    const s = show();
+    await s.paste(code);
+    const card = s.cards()[0];
+    if (card === undefined) throw new Error('no card');
+    return { ...s, card };
+  }
+
+  it('offers the two answers and Ignore, and not Add, with neither preselected', async () => {
+    const { card } = await withCard(received(5, OTHER_INCIDENT).code);
+    const same = within(card).getByRole('button', { name: SAME });
+    const different = within(card).getByRole('button', { name: DIFFERENT });
+    within(card).getByRole('button', { name: 'Ignore' });
+    expect(within(card).queryByRole('button', { name: 'Add' })).toBeNull();
+    // Equal weight: one style, no mark of a preselected answer on either.
+    expect(same.getAttribute('style')).toBe(different.getAttribute('style'));
+    for (const button of [same, different]) {
+      expect(button.getAttribute('data-preselected')).toBeNull();
+      expect(button.getAttribute('aria-pressed')).toBeNull();
+    }
+    expect(card.querySelector('[data-preselected="true"]')).toBeNull();
+  });
+
+  it('joins nothing until the confirmation, which says what a join does and that it is not taken back', async () => {
+    const s = await withCard(received(5, OTHER_INCIDENT).code);
+    fireEvent.click(within(s.card).getByRole('button', { name: SAME }));
+    expect(s.store.getSnapshot().state.incidents).toHaveLength(1);
+    expect(s.store.getSnapshot().state.incidents[0]?.formerIds).toEqual([]);
+    const confirm = within(s.card).getByRole('group');
+    const said = confirm.textContent ?? '';
+    expect(said).toContain('crosses all the sightings into one position');
+    expect(said).toContain('two different columns of smoke must not be joined');
+    expect(said).toContain('not taken back');
+    expect(said).toContain('hidden or deleted one by one');
+    fireEvent.click(within(confirm).getByRole('button', { name: 'Not now' }));
+    expect(s.store.getSnapshot().state.incidents[0]?.formerIds).toEqual([]);
+    expect(s.cards()).toHaveLength(1);
+  });
+
+  it('Join the two smokes makes one smoke with the smaller id and takes the card away', async () => {
+    const s = await withCard(received(5, OTHER_INCIDENT).code);
+    fireEvent.click(within(s.card).getByRole('button', { name: SAME }));
+    fireEvent.click(
+      within(within(s.card).getByRole('group')).getByRole('button', {
+        name: 'Join the two smokes',
+      }),
+    );
+    const state = s.store.getSnapshot().state;
+    expect(state.incidents).toHaveLength(1);
+    // `K7PQ3MWXA2` is smaller than `M7PQ3MWXA2`: the open smoke's id stays.
+    expect(state.incidents[0]?.incidentId).toBe(INCIDENT_ID);
+    expect(state.incidents[0]?.formerIds).toEqual([OTHER_INCIDENT]);
+    expect(state.incidents[0]?.entries).toHaveLength(3);
+    expect(s.cards()).toHaveLength(0);
+  });
+
+  it('the cards of the joined smoke that still wait are then for the smoke you have open, added with no question', async () => {
+    const s = await withCard(received(5, OTHER_INCIDENT).code);
+    await s.paste(received(6, OTHER_INCIDENT).code);
+    expect(s.cards()).toHaveLength(2);
+    const [first] = s.cards();
+    if (first === undefined) throw new Error('no card');
+    fireEvent.click(within(first).getByRole('button', { name: SAME }));
+    fireEvent.click(
+      within(within(first).getByRole('group')).getByRole('button', { name: 'Join the two smokes' }),
+    );
+    const [second] = s.cards();
+    expect(second?.textContent).toContain('For the smoke you have open');
+    expect(within(second ?? first).queryByRole('button', { name: SAME })).toBeNull();
+    fireEvent.click(within(second ?? first).getByRole('button', { name: 'Add' }));
+    expect(s.store.getSnapshot().state.incidents).toHaveLength(1);
+    expect(s.store.getSnapshot().state.incidents[0]?.entries).toHaveLength(4);
+  });
+
+  it('the answer "a different smoke" asks once, and opens it as a new smoke', async () => {
+    const s = await withCard(received(5, OTHER_INCIDENT).code);
+    fireEvent.click(within(s.card).getByRole('button', { name: DIFFERENT }));
+    expect(s.store.getSnapshot().state.incidents).toHaveLength(1);
+    fireEvent.click(
+      within(within(s.card).getByRole('group')).getByRole('button', {
+        name: 'Open it as a new smoke',
+      }),
+    );
+    expect(s.store.getSnapshot().state.incidents.map((i) => i.incidentId)).toEqual([
+      INCIDENT_ID,
+      OTHER_INCIDENT,
+    ]);
+    expect(s.store.getSnapshot().state.incidents[0]?.formerIds).toEqual([]);
+  });
+
+  it('Ignore drops the card and changes nothing', async () => {
+    const s = await withCard(received(5, OTHER_INCIDENT).code);
+    fireEvent.click(within(s.card).getByRole('button', { name: 'Ignore' }));
+    expect(s.cards()).toHaveLength(0);
+    expect(s.store.getSnapshot().state.incidents).toHaveLength(1);
+  });
+
+  it('shows the refusal through its Message beside the answers, and joins nothing', async () => {
+    const s = await withCard(received(5, 'ZB4N8RTY5C').code);
+    fireEvent.click(within(s.card).getByRole('button', { name: SAME }));
+    fireEvent.click(
+      within(within(s.card).getByRole('group')).getByRole('button', {
+        name: 'Join the two smokes',
+      }),
+    );
+    const m = messageFor({ ok: false, reason: 'incident_not_joinable' });
+    expect(
+      within(s.card)
+        .getAllByRole('alert')
+        .map((a) => a.textContent),
+    ).toContain(`${m.whatHappened} ${m.whatToDo}`);
+    expect(s.store.getSnapshot().state.incidents).toHaveLength(1);
+    expect(s.cards()).toHaveLength(1);
+  });
+});
+
+describe('a smoke this phone does not have, with none open: as before (Req 4.2)', () => {
+  it('offers the one button and its confirmation, and no answer about the same smoke', async () => {
+    const s = show();
+    s.store.dispatch({ kind: 'deleteIncident', incidentId: INCIDENT_ID });
+    expect(s.store.getSnapshot().state.openIncidentId).toBeNull();
+    await s.paste(received(5, OTHER_INCIDENT).code);
+    const card = s.cards()[0];
+    if (card === undefined) throw new Error('no card');
+    expect(
+      within(card).queryByRole('button', { name: 'It is the same smoke as the one I have open' }),
+    ).toBeNull();
+    expect(within(card).queryByRole('button', { name: 'It is a different smoke' })).toBeNull();
+    fireEvent.click(
+      within(card).getByRole('button', { name: 'Open it as a new smoke on this phone' }),
+    );
+    fireEvent.click(
+      within(within(card).getByRole('group')).getByRole('button', {
+        name: 'Open it as a new smoke',
+      }),
+    );
+    expect(s.store.getSnapshot().state.openIncidentId).toBe(OTHER_INCIDENT);
   });
 });
 

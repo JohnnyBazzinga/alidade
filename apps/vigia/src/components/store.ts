@@ -88,6 +88,11 @@ export interface VigiaStore {
   paste(text: string): VigiaResult<InboxItem>;
   /** "Add" on an Inbox card; `joinIfUnknown` is "Open it as a new smoke on this phone". */
   addFromInbox(code: string, joinIfUnknown: boolean): VigiaResult<void>;
+  /**
+   * "It is the same smoke as the one I have open" on an Inbox card (Req 4.8, design §7.4a): joins
+   * the open smoke with the smoke of the code. The card goes only when the join is made.
+   */
+  joinFromInbox(code: string): VigiaResult<void>;
   /** "Ignore" on an Inbox card. */
   ignore(code: string): void;
   /** Records a share by one channel (Req 15.5), after the user's act succeeded. */
@@ -474,6 +479,20 @@ export function createVigiaStore(environment: VigiaEnvironment): VigiaStore {
       const changed = result.value.state !== state;
       state = result.value.state;
       if (changed) write();
+      refreshOpen(false);
+      notify();
+      return ok(undefined);
+    },
+    joinFromInbox(code) {
+      const item = inbox.find((i) => i.code === code);
+      if (item === undefined) return err('code_not_a_sighting');
+      nowUtcMs = clock();
+      const result = applyAction(state, { kind: 'joinIncident', item, nowUtcMs }, parameters);
+      if (!result.ok) return result;
+      inbox = inbox.filter((i) => i !== item);
+      for (const notice of result.value.notices) addNotice({ reason: notice.reason });
+      state = result.value.state;
+      write();
       refreshOpen(false);
       notify();
       return ok(undefined);

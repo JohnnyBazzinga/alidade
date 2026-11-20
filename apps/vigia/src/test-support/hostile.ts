@@ -36,6 +36,7 @@ export const LIMITS: readonly number[] = [
   50, // CODE_LENGTH
   300, // adviceMinDistanceM
   60_000, // expiryCheckIntervalMs
+  16, // maxFormerIncidentIds
   0.1, // windGridDeg
   10_800_000, // maxWindAgeMs, 3 h
   1_000_000, // maxResponseBytes

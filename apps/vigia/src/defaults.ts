@@ -94,6 +94,14 @@ export const ADVICE_MIN_DISTANCE_M = 300;
 export const EXPIRY_CHECK_INTERVAL_MS = 60_000;
 
 /**
+ * The most former ids one Incident keeps (design §7.4a, Req 4.9): the ids merged into it by joins,
+ * which let a code made under an old id still reach it. Two to four phones make at most three; a
+ * bound keeps a stored Incident small and refuses a join of very many Incidents.
+ * Unit: count. Basis: judgement (16).
+ */
+export const MAX_FORMER_INCIDENT_IDS = 16;
+
+/**
  * The grid to which the point of a wind request is rounded, so that the request does not reveal
  * a position more finely than the data needs: the wind model's own resolution is about this.
  * Unit: deg. Basis: judgement (0.1 degree, about 11 km).

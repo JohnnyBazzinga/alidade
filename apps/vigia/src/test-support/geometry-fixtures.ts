@@ -76,6 +76,7 @@ export function incidentOfEntries(
     incidentId: INCIDENT_ID,
     createdUtcMs,
     creation: 'created',
+    formerIds: [],
     entries: sorted,
     conflicts: [],
   };

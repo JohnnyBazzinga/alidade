@@ -54,10 +54,12 @@ import {
   compareIds,
   emptyState,
   hasOnlyFiniteNumbers,
+  incidentHolding,
   newestTimeUtcMs,
   sanitiseState,
   type VigiaState,
 } from './math/incident/incident-state';
+import { joinIncident, relabelCode, relabelItem } from './math/incident/join';
 import { mergeSighting } from './math/incident/merge';
 import { parseStoredState, serialiseState } from './math/incident/storage-format';
 import { adviceWords, nextSightingAdvice, type Advice } from './math/fix/advice';
@@ -92,6 +94,7 @@ import { initialMode, simulatorRequested } from './math/start-mode';
 import { sightingGuidance } from './math/texts';
 import { toDeg, fromDeg } from './math/degrees';
 import { checkParameters, defaultParameters, type VigiaParameters } from './math/parameters';
+import type { Incident } from './math/incident/incident-state';
 import { VIGIA_REASONS, type VigiaReason } from './reasons';
 import { closed, pageAddress, sightingArb, symbols } from './test-support/generators';
 import { createFakeFetch, type FakeBehaviour } from './test-support/fake-fetch';
@@ -101,6 +104,7 @@ import { cappedRuns } from './test-support/fast-check-setup';
 import {
   hostileAction,
   hostileAssessment,
+  hostileItem,
   hostileFix,
   hostileIncident,
   hostileState,
@@ -108,6 +112,7 @@ import {
   reachedState,
 } from './test-support/hostile-incident';
 import { invariants } from './test-support/incident-invariants';
+import { INCIDENT_POOL } from './test-support/storage-actions';
 import { allFinite, hostileNumber, hostileString, isTotalResult } from './test-support/hostile';
 import {
   canonicalise,
@@ -202,7 +207,7 @@ function hostileAsyncEntry<Args extends unknown[]>(
 // --- the arguments ---------------------------------------------------------------------------
 
 /**
- * A failure as `messageFor` takes it. Domain: any reason of the closed set (69), and each detail
+ * A failure as `messageFor` takes it. Domain: any reason of the closed set (70), and each detail
  * absent or hostile: `field`, `id` and `errorName` strings of 0 to 10 000 characters of the full
  * BMP, `reportedAccuracyM` any hostile double.
  */
@@ -296,6 +301,7 @@ const reachedIncident = reachedState().map(
       incidentId: 'K7PQ3MWXA2',
       createdUtcMs: 1_790_000_000_000,
       creation: 'created' as const,
+      formerIds: [],
       entries: [],
       conflicts: [],
     },
@@ -304,7 +310,7 @@ const reachedIncident = reachedState().map(
 const FIELDS = Object.keys(defaultParameters()) as (keyof VigiaParameters)[];
 
 /**
- * A parameters record. Domain: each of the 17 fields is the default three times in four and a
+ * A parameters record. Domain: each of the 18 fields is the default three times in four and a
  * hostile double the fourth time (so about four fields are hostile in a draw, and a draw with
  * none is the default, which is valid): the doubles are `NaN`, infinities, -0, subnormals, huge
  * values, small integers and the doubles either side of every limit.
@@ -335,6 +341,7 @@ const COUNTS: ReadonlySet<string> = new Set([
   'maxLinkLengthChars',
   'maxEmergencyTextChars',
   'maxResponseBytes',
+  'maxFormerIncidentIds',
 ]);
 
 /**
@@ -610,6 +617,96 @@ export const HOSTILE_LIST: readonly HostileEntry[] = [
       const invalidField = firstInvalidField(p);
       if (invalidField !== null) {
         expect(result).toEqual({ ok: false, reason: 'invalid_number', field: invalidField });
+      }
+    },
+  ),
+  hostileEntry(
+    'incidentHolding',
+    fc.tuple(
+      fc.oneof(reachedState(), hostileState()),
+      fc.oneof(hostileString(), fc.constantFrom(...INCIDENT_POOL)),
+    ),
+    incidentHolding,
+    ([, id], result) => {
+      if (result !== undefined) {
+        const held = result as Incident;
+        expect(held.incidentId === id || (held.formerIds ?? []).includes(id)).toBe(true);
+      }
+    },
+  ),
+  hostileEntry(
+    'relabelCode',
+    fc.tuple(
+      fc.oneof(
+        hostileString(),
+        sightingArb().map((s) => {
+          const encoded = encodeSighting(s);
+          return encoded.ok ? encoded.value : '';
+        }),
+      ),
+      fc.oneof(hostileString(), symbols(10), fc.constantFrom(...INCIDENT_POOL)),
+      hostileParameters,
+    ),
+    relabelCode,
+    ([code, id, p], result) => {
+      const invalidField = firstInvalidField(p);
+      if (invalidField !== null) {
+        expect(result).toEqual({ ok: false, reason: 'invalid_number', field: invalidField });
+      } else if (Reflect.get(result as object, 'ok') === true) {
+        // The same Sighting under the new id: only the id differs.
+        const was = decodeSighting(code, p);
+        const now = decodeSighting(Reflect.get(result as object, 'value') as string, p);
+        expect(was.ok && now.ok).toBe(true);
+        if (was.ok && now.ok) {
+          expect(now.value.incidentId).toBe(id);
+          expect(now.value.bearing).toEqual(was.value.bearing);
+          expect(now.value.sightingId).toBe(was.value.sightingId);
+        }
+      }
+    },
+  ),
+  hostileEntry(
+    'relabelItem',
+    fc.tuple(
+      hostileItem(),
+      fc.oneof(hostileString(), symbols(10), fc.constantFrom(...INCIDENT_POOL)),
+      hostileParameters,
+    ),
+    relabelItem,
+    ([item, id, p], result) => {
+      const invalidField = firstInvalidField(p);
+      if (invalidField !== null && item.sighting.incidentId !== id) {
+        expect(result).toEqual({ ok: false, reason: 'invalid_number', field: invalidField });
+      }
+      if (Reflect.get(result as object, 'ok') === true) {
+        const value = Reflect.get(result as object, 'value') as {
+          sighting: { incidentId: string };
+        };
+        expect(value.sighting.incidentId).toBe(id);
+      }
+    },
+  ),
+  hostileEntry(
+    'joinIncident',
+    fc.tuple(
+      fc.oneof(reachedState(), hostileState()),
+      hostileItem(),
+      fc.oneof(hostileNumber(), fc.constant(1_790_000_000_000)),
+      hostileParameters,
+    ),
+    joinIncident,
+    ([state, , , p], result) => {
+      const invalidField = firstInvalidField(p);
+      if (invalidField !== null) {
+        expect(result).toEqual({ ok: false, reason: 'invalid_number', field: invalidField });
+        return;
+      }
+      // A state that held the invariants still holds them after a join that is accepted, and a
+      // join never leaves two Incidents: one replaces the open one.
+      if (Reflect.get(result as object, 'ok') === true) {
+        const next = (Reflect.get(result as object, 'value') as { state: VigiaState }).state;
+        expect(next.incidents).toHaveLength(state.incidents.length);
+        if (invariants(state, p).length === 0) expect(invariants(next, p)).toEqual([]);
       }
     },
   ),

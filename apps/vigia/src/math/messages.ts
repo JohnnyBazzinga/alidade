@@ -15,7 +15,7 @@ import { messageFor as uiMessageFor, UI_REASONS, type Message, type UiReason } f
 import type { VigiaFailure } from '../result';
 import type { VigiaOnlyReason, VigiaReason } from '../reasons';
 
-/** The rows of Vigia's 22 reasons, as written in design D2. */
+/** The rows of Vigia's 23 reasons, as written in design D2 and §7.4a. */
 const ONLY_ROWS: Record<VigiaOnlyReason, Message> = {
   code_damaged: {
     whatHappened: 'The code is damaged or cut off, so it was not used.',
@@ -44,6 +44,10 @@ const ONLY_ROWS: Record<VigiaOnlyReason, Message> = {
   incident_full: {
     whatHappened: 'This smoke already holds as many sightings as it can.',
     whatToDo: 'Delete a sighting you do not need, or start another smoke.',
+  },
+  incident_not_joinable: {
+    whatHappened: 'These two smokes cannot be joined into one.',
+    whatToDo: 'Open the new sighting as a separate smoke, or delete a smoke you no longer need.',
   },
   sighting_conflict: {
     whatHappened: 'Two different sightings carry the same identifier, so the first one was kept.',

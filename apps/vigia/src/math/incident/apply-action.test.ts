@@ -51,6 +51,7 @@ describe('createIncident (design §7.4)', () => {
         incidentId: INCIDENT_ID,
         createdUtcMs: NOW_UTC_MS,
         creation: 'created',
+        formerIds: [],
         entries: [],
         conflicts: [],
       },
