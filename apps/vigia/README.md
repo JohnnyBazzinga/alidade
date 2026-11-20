@@ -67,8 +67,11 @@ on, and the host of the tile provider only when the build names one; nothing els
 no analytics, font or script from anywhere. Serve it over HTTPS (the camera and the sensors need
 it), as static files.
 
-The host should send `Referrer-Policy: no-referrer` first (the page also sets it in a `meta`
-element), a short cache lifetime for `index.html` so that a new build reaches users quickly (the
+The host should send `Referrer-Policy: strict-origin` first (the page also sets it in a `meta`
+element, which is what counts on a host that sets no headers of ours, such as GitHub Pages): the
+page's requests then carry its origin and nothing else, never a path, a query or the fragment, and
+the tile provider, which blocks pages that withhold a referrer, gets the origin it asks for. The wind
+request is sent by the app's Network gate with no referrer at all. Then a short cache lifetime for `index.html` so that a new build reaches users quickly (the
 files under `assets/` have hashed names and can be cached for long), and should keep no log of the
 full request address beyond what it needs. A sighting link carries its code after `#`, which a
 browser never sends to the host.

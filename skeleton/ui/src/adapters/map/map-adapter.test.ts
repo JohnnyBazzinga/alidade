@@ -69,14 +69,27 @@ describe('creating the map (Req 15.1, 15.2, 15.3)', () => {
     });
   });
 
-  it('passes the container and the style, interactive, and leaves the attribution control to its default', () => {
+  // Req 15.2 as amended on 2026-11-20 (task 31): the attribution is shown in full at all times. The
+  // library's default is compact on a map under 640 px wide, a toggle that collapses when the map is
+  // moved; `compact: false` keeps it open (maplibre-gl 6.16's `AttributionControl._updateCompact`).
+  it('passes the container and the style, interactive, and an attribution control that is never compact', () => {
     const { map } = setUp(TILES);
     expect(map.options.container).toBe('map');
     expect(map.options.interactive).toBe(true);
-    expect('attributionControl' in map.options).toBe(false);
+    expect(map.options.attributionControl).toEqual({ compact: false });
     expect((map.options.style.sources.tiles as { attribution: string }).attribution).toBe(
       'Synthetic tiles',
     );
+  });
+
+  it('creates the attribution control the same way with no Tile source, and with every Tile source', () => {
+    expect(setUp(null).map.options.attributionControl).toEqual({ compact: false });
+    expect(
+      setUp({ ...TILES, attribution: 'Map data by a synthetic provider' }).map.options
+        .attributionControl,
+    ).toEqual({
+      compact: false,
+    });
   });
 
   it('with no Tile source: no raster source, nothing that could make a request', () => {

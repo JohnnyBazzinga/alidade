@@ -98,10 +98,14 @@ describe('the built page works from a sub-path and carries the map library’s w
     expect(sources.some((s) => s.endsWith('.css'))).toBe(true);
   });
 
-  it('keeps the no-referrer policy in the page', () => {
-    expect(plain.get('index.html') ?? '').toMatch(
-      /<meta name="referrer" content="no-referrer"\s*\/?>/,
-    );
+  // Req 10.2 as amended on 2026-11-20 (the tile provider's policy, Open question O7): the page
+  // sends its origin and nothing else as the referrer; the Network gate's own requests keep
+  // `no-referrer` (adapters/network-gate.test.ts).
+  it('gives the page the strict-origin referrer policy, once, and no other', () => {
+    const page = plain.get('index.html') ?? '';
+    expect(page).toMatch(/<meta name="referrer" content="strict-origin"\s*\/?>/);
+    expect(page.match(/<meta name="referrer"/g)).toHaveLength(1);
+    expect(page).not.toContain('no-referrer');
   });
 });
 

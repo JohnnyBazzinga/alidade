@@ -85,8 +85,15 @@ describe('apps/vigia/README.md', () => {
     const [hosts = '', headers = ''] = body.map((p) => p.replace(/\s+/g, ' '));
     for (const entry of HOST_LIST) expect(hosts).toContain(entry.host);
     expect(hosts).toMatch(/tile provider/);
-    expect(headers.indexOf('Referrer-Policy: no-referrer')).toBeGreaterThanOrEqual(0);
-    expect(headers.indexOf('Referrer-Policy: no-referrer')).toBeLessThan(headers.indexOf('cache'));
+    // Req 10.2 and O2 as amended on 2026-11-20: the page's policy is strict-origin, first.
+    expect(headers.indexOf('Referrer-Policy: strict-origin')).toBeGreaterThanOrEqual(0);
+    expect(headers.indexOf('Referrer-Policy: strict-origin')).toBeLessThan(
+      headers.indexOf('cache'),
+    );
+    expect(headers).not.toContain('Referrer-Policy: no-referrer');
+    expect(headers).toMatch(/origin[^.]*nothing else|nothing else[^.]*origin/);
+    expect(headers).toMatch(/fragment/);
+    expect(headers).toMatch(/wind[^.]*no referrer|no referrer[^.]*wind/);
     expect(headers).toMatch(/short cache lifetime for `index\.html`/);
     expect(headers).toMatch(/full request address/);
   });

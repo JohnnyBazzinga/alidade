@@ -8,6 +8,11 @@
 //   `style?: StyleSpecification | string`; `interactive?: boolean` (default true);
 //   `attributionControl?: false | AttributionControlOptions`. It is NOT a boolean `true`: leave it
 //   out (the default adds the attribution control) or pass an options object.
+// - Task 31 (2026-11-20, Req 15.2): `AttributionControlOptions.compact` is `true` (always a toggle
+//   that collapses when the map is moved), `false` (always expanded) or absent (a toggle on a map
+//   under 640 px wide). Read in `src/ui/control/attribution_control.ts`, `_updateCompact`: with
+//   `false` the class `maplibregl-compact` is never added and the control is kept open, and
+//   `_updateCompactMinimize` (on `drag`) acts only on that class.
 // - `getSource<TSource extends Source>(id): TSource | undefined`. `Source` itself has no
 //   `setData`; the GeoJSON source does: `setData(data: GeoJSON | string): Promise<void>`. The
 //   promise can reject, so the adapter must catch it; our `GeoJsonSourceLike.setData` returns it.
@@ -23,11 +28,15 @@
 
 import type { MapLayer, MapStyle } from '../../math/map/map-style';
 
-/** What the adapter passes to the constructor. `attributionControl` is left out (its default). */
+/**
+ * What the adapter passes to the constructor. The attribution control is created explicitly and
+ * never compact, so that the Tile source's attribution is shown in full at all times (Req 15.2).
+ */
 export interface MapOptionsLike {
   readonly container: HTMLElement | string;
   readonly style: MapStyle;
   readonly interactive: boolean;
+  readonly attributionControl: { readonly compact: false };
 }
 
 /** The GeoJSON source's one operation; in `maplibre-gl` 6.x it returns a promise. */

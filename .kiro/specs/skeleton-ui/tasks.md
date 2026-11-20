@@ -621,3 +621,18 @@ into the skeleton-sensors requirements.
     output (the worker file). Mutation checks: the fit that holds the lines with a Fix, `MapView`
     dropping the fit's result, Start that does not play, the panel ignoring the given Station;
     each fails a named test.
+
+- [x] 31. The attribution in full (2026-11-20; Req 15.2 as amended; Vigia task 22, its Open question O7)
+  - [x] 31.1 Tests first, seen to fail: `map-adapter.test.ts` (the map is created with
+    `attributionControl: { compact: false }`, with and without a Tile source),
+    `Playground.integration.test.tsx` (the Playground's map the same). `maplibre-loader-adapt.test.ts`
+    (the option reaches the library's constructor unchanged) passed before the change: the loader
+    passes every option through, and the test guards that.
+  - [x] 31.2 Code: `maplibre-types.ts` (`MapOptionsLike.attributionControl`, required, and what was
+    read in maplibre-gl 6.16's `AttributionControl`: with `compact: false` the control is never
+    compact and stays open, also after a drag), `map-adapter.ts`. The Playground uses `MapView`, so it
+    has the same control.
+  - [x] 31.3 Only a picture can confirm that the text is shown in full on a phone 360 to 390 px wide,
+    that it does not wrap over the map's content in a way that hides the Fix, and that it stays open
+    after the map is moved: jsdom has no layout and the fake map library creates no control. Then
+    the root checks.

@@ -2,7 +2,9 @@
 // D20). The table is data: the Share sheet and the privacy page render it, and `docs/privacy.md`
 // holds the same table, kept equal to this one by a test (task 16). The rows are the
 // requirement's own words, in its order, document references included. The Hotspots row is
-// marked "second release": the hotspot Overlay is not built in the first release.
+// marked "second release": the hotspot Overlay is not built in the first release. The Tiles row
+// names the site's origin, sent as the referrer since the page's policy became `strict-origin`
+// (Req 10.2 as amended on 2026-11-20); Req 15.3's own table does not say it yet.
 
 export interface PrivacyRow {
   readonly channel: string;
@@ -54,7 +56,7 @@ export const PRIVACY_TABLE: readonly PrivacyRow[] = Object.freeze([
   ),
   row(
     'Tiles',
-    "the tile addresses of the area on the screen, and the phone's network address",
+    "the tile addresses of the area on the screen, the site's origin as the referrer (no path, no query, no fragment), and the phone's network address",
     'while the map is shown and a Tile source is set',
     'the tile Source',
   ),

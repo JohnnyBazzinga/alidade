@@ -756,3 +756,16 @@ three hotspot reasons wait for the lead's word after the wind checkpoint).
   - [x] 21.7 The counts: `reasons.test.ts` (the 23 of Req 2.2 typed out), `messages.test.ts` and `reasons.ts` comments, design D2
     (23 reasons, 70 in all, the row of `incident_not_joinable`).
   - [x] 21.8 The new files join the purity list; mutation checks M1 to M9 (each fails a named test); then the root checks.
+
+- [x] 22. The tile provider's policy: the page's referrer (2026-11-20; Req 10.2, Open questions O2 and O7 as amended; skeleton-ui task 31)
+  - The working rules of this file apply (tests first and seen to fail, `timeout` on every run, outputs under /tmp/vigia/,
+    one run at a time, no commit, `requirements.md` untouched).
+  - [x] 22.1 Tests first, seen to fail on the old value: `build-output.test.ts` (the built page has one referrer `meta`,
+    `strict-origin`, and no `no-referrer`), `readme.test.ts` (the hosting paragraph names `Referrer-Policy: strict-origin`
+    first, the origin and nothing else, never the fragment, and the wind request with no referrer),
+    `math/privacy-table.test.ts` (the Tiles row names the site's origin as the referrer; the Tiles paragraph of
+    `docs/privacy.md` says `strict-origin` and never the fragment).
+  - [x] 22.2 Code and documents: `index.html` (`strict-origin`), `math/privacy-table.ts` (the Tiles row), `README.md`
+    (hosting), `docs/privacy.md` (the Tiles row and paragraph), design D14, §5 and §13. The Network gate keeps
+    `no-referrer`, unchanged, with its tests. Req 15.3's own table still has the old Tiles row: the lead's to amend.
+  - [x] 22.3 The root checks.

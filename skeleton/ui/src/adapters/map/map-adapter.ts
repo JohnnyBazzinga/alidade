@@ -125,7 +125,13 @@ export function createMapAdapter(
   }
   let map: MapLike;
   try {
-    map = lib.createMap({ container, style: buildMapStyle(tiles), interactive: true });
+    // The attribution is shown in full at all times, never behind a toggle (Req 15.2, task 31).
+    map = lib.createMap({
+      container,
+      style: buildMapStyle(tiles),
+      interactive: true,
+      attributionControl: { compact: false },
+    });
   } catch (error) {
     const name = nameOf(error);
     return err('map_unavailable', name === undefined ? {} : { errorName: name });

@@ -200,7 +200,7 @@ This requirement describes the lean option of Open question O1 and applies where
 #### Acceptance Criteria
 
 1. THE app SHALL offer, for a Sighting, a Sighting link to share through the phone's share sheet when `navigator.share` exists (through the Clipboard adapter) and to copy; a Sighting QR to show, which holds the Sighting link; and the Sighting code as text to copy. THE three SHALL carry the same code.
-2. THE Sighting link SHALL be built from the page's own address, with the code only in the fragment: everything after `#`, and nothing in the path or the query string, so that no server that serves or logs the page receives it (Requirement 15.3). THE app SHALL set `Referrer-Policy: no-referrer` for every request it makes through the Network gate, and SHALL document the same for the hosting (Open question O2).
+2. THE Sighting link SHALL be built from the page's own address, with the code only in the fragment: everything after `#`, and nothing in the path or the query string, so that no server that serves or logs the page receives it (Requirement 15.3). THE app SHALL set `Referrer-Policy: no-referrer` for every request it makes through the Network gate. *(Amended 2026-11-20, when the tile provider's policy was read, Open question O7.)* THE page itself SHALL carry the referrer policy `strict-origin` (a `meta` of the page, and the same header from the hosting where the host allows headers, Open question O2), so that the map's tile requests, which the map library makes and not the gate, carry the site's origin and nothing else: no path, no query and never the fragment, where the code is. The first form of this criterion asked for `no-referrer` on the page too; the tile provider requires a referrer and blocks pages that withhold it, and the origin of the site tells it nothing about a sighting.
 3. WHEN the page opens with a fragment that holds a Sighting code, THE app SHALL decode it (Requirement 8.5) and hold it in the Inbox (Requirement 4.2, 9.4), SHALL replace the address with the address without the fragment (`history.replaceState`) so that the code does not stay in the address bar, in a bookmark or in a screenshot, and SHALL never send the fragment anywhere.
 4. THE user SHALL be able to paste a Sighting code, or a whole Sighting link, in a text field; THE app SHALL extract the code from a link and SHALL handle a message in which the link is surrounded by text.
 5. THE app SHALL NOT scan QR codes and SHALL contain no QR decoder, no `BarcodeDetector` and no use of the camera for this purpose. THE Sighting QR SHALL encode the Sighting link and nothing else, so that the receiving phone's own camera application reads it and opens the link in the browser, where Requirement 10.3 applies. THE QR SHALL be made by the one QR encoder dependency of Requirement 20.4.
@@ -296,7 +296,7 @@ This requirement describes the lean option of Open question O1 and applies where
    | Relay (if chosen, Open question O1) | the same code, to the relay, with the phone's network address | on the user's Share action | the relay's operator and everyone holding the Incident id |
    | Hotspots (second release) | an area, snapped to the hotspot grid, and the phone's network address | when the user switches the Overlay on, and on refresh | the hotspot Source |
    | Wind | one point, rounded to the wind grid, and the phone's network address | when the user switches the Overlay on, and on refresh | the wind Source |
-   | Tiles | the tile addresses of the area on the screen, and the phone's network address | while the map is shown and a Tile source is set | the tile Source |
+   | Tiles | the tile addresses of the area on the screen, the site's origin as the referrer (no path, no query, no fragment), and the phone's network address | while the map is shown and a Tile source is set | the tile Source |
    | The page itself | a request for the page's files, with the phone's network address | on opening | the host of the app |
    | Clipboard and share sheet | the text the user chooses | on the user's act | wherever the user pastes or sends it |
 
@@ -488,7 +488,9 @@ Assumed until the owner answers (lead's decision of 2026-11-18): A, B and C with
 
 **O2. Where the app is served from.** A static host over HTTPS (required for the camera and the sensors), its domain, and its response headers: `Referrer-Policy: no-referrer`, a Content-Security-Policy whose `connect-src` and `img-src` list the hosts of the Host list (a second line of defence beside Requirement 11), `Cache-Control` for the page, and no access logs of the full request URL longer than needed. Proposal: any static host that lets the owner set these headers; the app builds its links from the page's own address, so no domain is in the code.
 
-Open, with the owner. Decided (design review): there is no Content-Security-Policy generator and no `docs/hosting.md`; two paragraphs of the package's README say which hosts the page contacts and which headers the host should send (`Referrer-Policy: no-referrer` first).
+Open, with the owner. Decided (design review): there is no Content-Security-Policy generator and no `docs/hosting.md`; two paragraphs of the package's README say which hosts the page contacts and which headers the host should send (`Referrer-Policy: strict-origin` first, as amended on 2026-11-20 with Requirement 10.2).
+
+Decided by the owner's choices so far (2026-11-20): the trial builds are served as built files from GitHub Pages (a static host over HTTPS that sets no headers of ours, so the page's `meta` carries the referrer policy). The host of the final apps is the same unless the owner says otherwise at submission.
 
 **O3. Accounts, relay operation and data protection.** If a relay is ever chosen: who operates it, how long it keeps a Sighting, whether the owner accepts the legal duties of holding positions of private persons, how abuse is handled, and who pays. Proposal: decide only if O1 chooses D; until then the privacy table of Requirement 15.3 is the whole answer.
 
@@ -506,9 +508,13 @@ Assumed until the owner answers: as in O4, the Overlay is off without a build-ti
 
 Assumed until the owner answers: Open-Meteo. As checked by the lead on 2026-11-18: no key; cross-origin requests allowed; attribution required under CC BY 4.0; free use is non-commercial only and limited to under 10 000 calls a day. These terms are to be accepted by the owner before a public link; the draft records them as the lead found them and does not verify them.
 
+Decided (owner, 2026-11-20): Open-Meteo, under those terms (a hackathon entry is non-commercial use). The lead made one request on 2026-11-20 for the synthetic point 30° N, 40° W: the response has the fields, the units (`m/s`, `unixtime`) and the shape of the hand-written sample, and the service sends `access-control-allow-origin: *` (device check V9, but for a real phone).
+
 **O7. The Tile source and its terms.** As UI's Open question 4: which tile provider, its usage policy and its cost at demo scale, and which one loads from China. A public demo link is not published before the terms are read.
 
-Open, with the owner.
+Read by the lead on 2026-11-20 (the OpenStreetMap Foundation's tile usage policy, for `tile.openstreetmap.org`, which the owner chose for the trial builds on 2026-11-19): the attribution is shown clearly on the map and is not hidden behind a toggle; the browser sends a valid referrer, and a page must not set a referrer policy that withholds it (such traffic may be blocked without notice); only the tiles a user is looking at are fetched (no prefetching, no offline store); caches are not bypassed; the HTTPS address is used; the service is best effort with no guarantee, and heavy use may be blocked. What follows for the app: Requirement 10.2's page policy is `strict-origin`; the map's attribution is always shown in full (skeleton-ui Requirement 15); the app never fetches tiles ahead and has no offline map. A hackathon entry opened by a few judges is light use. A release to many users needs a provider with an agreement, or its own tiles: the provider stays a build-time choice for that reason.
+
+Recommended to the owner for the submission: OpenStreetMap's tiles under that policy. Open until the owner confirms.
 
 **O8. Wording that carries liability.** The statements that the app does not call anyone, is not certified, is not a replacement for the emergency number, and its limits (`product.md`, non-goals). Proposal: the owner approves the text of those statements, the privacy table of Requirement 15.3, and a short privacy note for `docs/`, before the demo link is public.
 

@@ -291,6 +291,13 @@ describe('the Playground through the Simulator (Req 18.9)', () => {
     expect(insideRing(local(tower.position), ring ?? [])).toBe(true);
   });
 
+  // Task 31 (Req 15.2): the Playground's map shows its attribution in full, as every app's does.
+  it('creates its map with an attribution control that is never compact', async () => {
+    const m = mount();
+    await m.settle();
+    expect(m.map().options.attributionControl).toEqual({ compact: false });
+  });
+
   it('with one capture the map has its observer and Wedge and no Fix', async () => {
     const m = mount();
     await m.settle();

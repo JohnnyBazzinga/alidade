@@ -59,10 +59,29 @@ describe('loadMapLibre adapts the module (Req 15.1)', () => {
       container: 'c',
       style: { version: 8, sources: {}, layers: [] },
       interactive: true,
+      attributionControl: { compact: false },
     });
     expect(created).toHaveLength(1);
     expect(map.getSource('fix')).toBeDefined();
     expect(map.getSource('tiles')).toBeUndefined();
+  });
+
+  // Task 31 (Req 15.2): the option of the attribution control reaches the library's constructor.
+  it("passes the attribution control's options to the library's Map unchanged", async () => {
+    const { loadMapLibre } = await import('./maplibre-loader');
+    const lib = await loadMapLibre();
+    if (!lib.ok) throw new Error(lib.reason);
+    created.length = 0;
+    lib.value.createMap({
+      container: 'c',
+      style: { version: 8, sources: {}, layers: [] },
+      interactive: true,
+      attributionControl: { compact: false },
+    });
+    expect(created).toHaveLength(1);
+    expect((created[0] as { attributionControl?: unknown }).attributionControl).toEqual({
+      compact: false,
+    });
   });
 
   // D31.6: the four calls an application layer needs reach the library with the same arguments.
@@ -74,6 +93,7 @@ describe('loadMapLibre adapts the module (Req 15.1)', () => {
       container: 'c',
       style: { version: 8, sources: {}, layers: [] },
       interactive: true,
+      attributionControl: { compact: false },
     });
     const source = { type: 'geojson' as const, data: { type: 'FeatureCollection', features: [] } };
     const layer = { id: 'app-a', type: 'circle' as const, source: 'app-a', paint: {} };
@@ -101,6 +121,7 @@ describe('loadMapLibre adapts the module (Req 15.1)', () => {
       container: 'c',
       style: { version: 8, sources: {}, layers: [] },
       interactive: true,
+      attributionControl: { compact: false },
     });
     expect(order).toEqual([
       'setWorkerUrl https://example.test/assets/maplibre-gl-worker-abc.mjs',
@@ -119,6 +140,7 @@ describe('loadMapLibre adapts the module (Req 15.1)', () => {
       container: 'c',
       style: { version: 8, sources: {}, layers: [] },
       interactive: true,
+      attributionControl: { compact: false },
     });
     const seen: string[] = [];
     map.on('error', () => seen.push('error'));

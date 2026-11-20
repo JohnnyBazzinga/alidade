@@ -57,7 +57,10 @@ const REQ_15_3 = [
   },
   {
     channel: 'Tiles',
-    whatLeaves: "the tile addresses of the area on the screen, and the phone's network address",
+    // Amended 2026-11-20 with Req 10.2: the page's referrer policy is strict-origin, so each tile
+    // request carries the site's origin (the tile provider's policy requires a referrer).
+    whatLeaves:
+      "the tile addresses of the area on the screen, the site's origin as the referrer (no path, no query, no fragment), and the phone's network address",
     when: 'while the map is shown and a Tile source is set',
     whoSees: 'the tile Source',
   },
@@ -162,6 +165,15 @@ describe('docs/privacy.md (Req 15.3, design D20)', () => {
     const named = [...text.matchAll(/https?:\/\/([^/\s)`>]+)/g)].map((m) => m[1] ?? '');
     for (const host of named) expect(allowed.has(host), host).toBe(true);
     expect(text).toContain(WIND_ENTRY.host);
+  });
+
+  it('says in the tiles paragraph that each tile request carries the site\u2019s origin and nothing more of the page', () => {
+    const at = text.indexOf('### Tiles\n');
+    const tiles = text.slice(at, text.indexOf('### The page itself\n')).replace(/\s+/g, ' ');
+    expect(tiles).toMatch(/origin/);
+    expect(tiles).toMatch(/strict-origin/);
+    expect(tiles).toMatch(/never the fragment/);
+    expect(text).not.toMatch(/no-referrer[^.]*page|page[^.]*no-referrer/);
   });
 
   it('says what the code says about the wind: off at start, one rounded point, only on the user\u2019s act', () => {
