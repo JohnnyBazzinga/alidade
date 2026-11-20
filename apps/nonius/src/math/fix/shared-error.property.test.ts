@@ -26,7 +26,10 @@ const ORIGIN: Position = { latRad: 10 * D, lonRad: 20 * D };
  * counted: sets whose normal matrix is badly conditioned (`det / trace² < 1e-3`, nearly parallel
  * rows), where the solver's own rounding, not the method, would be measured, and sets with a row
  * shorter than 0.1 (a row of 1e-75 gave a solution of 1e75 m and an overflow in the solver: found
- * by the first run, seed -706094599; the example test below keeps that counterexample).
+ * by the first run, seed -706094599; the example test below keeps that counterexample). The
+ * narrowing was made before stopping, and accepted by the lead after the fact at checkpoint 7
+ * (2026-11-20): rows of 1e-75 are not the Jacobian of any sight (an altitude moves by about
+ * 1 / EARTH_RADIUS_M per metre), and Core refuses the overflow with a failure, not a number.
  */
 const uniform = (min: number, max: number): fc.Arbitrary<number> =>
   fc.integer({ min: 0, max: 100_000 }).map((k) => min + ((max - min) * k) / 100_000);

@@ -24,6 +24,45 @@ describe('generators (test support)', () => {
     expect(high).toBeGreaterThan(50);
   });
 
+  it('draws latitude, longitude and the place of a time in its spread uniformly (checkpoint 7: fc.double drew |lat| < 20° in 94 % of 30 000 cases)', () => {
+    const latBands = [0, 0, 0, 0];
+    const lonBands = [0, 0, 0, 0];
+    fc.assert(
+      fc.property(truthArb(80), (p) => {
+        latBands[Math.min(3, Math.floor(Math.abs(p.latRad / D) / 20))] += 1;
+        lonBands[Math.min(3, Math.floor((p.lonRad / D + 180) / 90))] += 1;
+      }),
+      { numRuns: 8000, seed: 21 },
+    );
+    // Uniform: 2 000 a band; four sigma of a binomial of 8 000 at 1/4 is about 155.
+    for (const n of [...latBands, ...lonBands]) {
+      expect(n).toBeGreaterThan(1800);
+      expect(n).toBeLessThan(2200);
+    }
+    const quarters = [0, 0, 0, 0];
+    fc.assert(
+      fc.property(rawTimesArb(6, 6, 8, 8), (times) => {
+        const spreadMs = 8 * 3_600_000;
+        const first = times[0] ?? 0;
+        const last = times[times.length - 1] ?? 0;
+        // The offsets of the middle sights from the first are uniform up to the spread; their
+        // gaps, as a share of the spread, fill the quarters evenly over many draws.
+        for (const t of times.slice(1, -1)) {
+          const share = (t - first) / Math.max(last - first, 1);
+          quarters[Math.min(3, Math.floor(share * 4))] += 1;
+        }
+        expect(last - first).toBeLessThanOrEqual(spreadMs);
+      }),
+      { numRuns: 4000, seed: 23 },
+    );
+    // The order statistics between the first and last of six uniform draws are uniform in that
+    // span: 4 000 sets × 4 inner sights = 16 000, so 4 000 a quarter.
+    for (const n of quarters) {
+      expect(n).toBeGreaterThan(3700);
+      expect(n).toBeLessThan(4300);
+    }
+  });
+
   it('timeArb stays inside the years', () => {
     fc.assert(
       fc.property(timeArb(2026, 2029), (t) => {

@@ -87,19 +87,13 @@ describe('P-5.8: the partial derivatives of the altitude model (Req 5.8)', () =>
       fc.property(
         placeAndTime,
         fc.double({ min: 0, max: 2 * Math.PI, noNaN: true }),
-        fc.double({ min: 0, max: params.planeLimitM * 0.99, noNaN: true }),
-        ([place, t], bearing, offsetM) => {
+        fc.double({ min: 0, max: 1, noNaN: true }),
+        ([place, t], bearing, fraction) => {
           const sun = sunAt(place, t, params);
           fc.pre(sun.ok);
           if (!sun.ok) return;
           fc.pre(sun.value.apparentAltitudeRad >= 5 * D && sun.value.apparentAltitudeRad <= 80 * D);
-          const origin = must(
-            unprojectToLocalPlane(place, {
-              eastM: offsetM * Math.sin(bearing),
-              northM: offsetM * Math.cos(bearing),
-            }),
-            'origin',
-          );
+          const origin = supportedOrigin(place, bearing, fraction);
           const candidate = must(projectToLocalPlane(origin, place), 'candidate');
           const prepared = preparedOf(
             noiseFreeSights(place, [t], 0, false, params),
@@ -143,6 +137,60 @@ describe('P-5.8: the partial derivatives of the altitude model (Req 5.8)', () =>
       tracker,
       { numRuns: propertyRuns() },
     );
+  });
+});
+
+/** Core supports latitudes up to 1° from a pole; the origin stays 0.1° inside that (margin). */
+const ORIGIN_LATITUDE_LIMIT_RAD = (89 - 0.1) * D;
+/** The ray from the candidate is sampled every 1/200 of 0.99 × PLANE_LIMIT_M (4.95 km). */
+const RAY_SAMPLES = 200;
+
+/**
+ * The origin of the second half of P-5.8, inside Core's supported domain by construction (the
+ * lead's decision of checkpoint 7): along the ray from `place` at `bearing` on its Local plane, out
+ * to 0.99 × PLANE_LIMIT_M, the distances whose point has |latitude| ≤ 88.9° form a union of
+ * intervals (found on a grid of 200 cells, a cell counting when both its ends are inside); the
+ * origin is at the fraction `fraction` of that union's length. Within one cell of 4.95 km the
+ * latitude moves at most 0.045°, so every origin is within 88.945°, inside Core's 89°. Origins
+ * beyond the pole (the ray crosses it and comes down the other side) are kept: only the cap of
+ * 1.1° around the pole is left out, and it is not a supported origin.
+ */
+function supportedOrigin(place: Position, bearing: number, fraction: number): Position {
+  const reach = params.planeLimitM * 0.99;
+  const step = reach / RAY_SAMPLES;
+  const at = (d: number) =>
+    unprojectToLocalPlane(place, { eastM: d * Math.sin(bearing), northM: d * Math.cos(bearing) });
+  const inside = (d: number): boolean => {
+    const p = at(d);
+    return p.ok && Math.abs(p.value.latRad) <= ORIGIN_LATITUDE_LIMIT_RAD;
+  };
+  const cells: number[] = [];
+  for (let i = 0; i < RAY_SAMPLES; i += 1) {
+    if (inside(i * step) && inside((i + 1) * step)) cells.push(i);
+  }
+  // The candidate is within 85° and the first cell is 4.95 km long, so there is always a cell.
+  if (cells.length === 0) throw new Error('no supported origin on the ray');
+  const position = fraction * cells.length;
+  const index = Math.min(cells.length - 1, Math.floor(position));
+  const d = ((cells[index] as number) + (position - index)) * step;
+  return must(at(Math.min(d, reach)), 'origin');
+}
+
+describe('P-5.8: the model refuses an unsupported start (counterexample of the deep run, seed -1823413573)', () => {
+  it('refuses the origin 547 152 m due north of 84.08° N, which lies within 1° of the pole', () => {
+    const place: Position = { latRad: 1.4674614263435763, lonRad: 0 };
+    const origin = unprojectToLocalPlane(place, { eastM: 0, northM: 547152.4798889542 });
+    expect(origin.ok).toBe(false);
+    // The same place a little short of the pole, through the plane's own unprojection, is
+    // refused by the model as a start, which is what the generator now never draws.
+    expect(createAltitudeModel({ latRad: 89.5 * D, lonRad: 0 }, params)).toMatchObject({
+      ok: false,
+      reason: 'unsupported_position',
+    });
+    // The generator's origin for that case is supported.
+    const drawn = supportedOrigin(place, 0, 0.5);
+    expect(Math.abs(drawn.latRad)).toBeLessThan(89 * D);
+    expect(createAltitudeModel(drawn, params).ok).toBe(true);
   });
 });
 

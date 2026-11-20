@@ -151,3 +151,31 @@ describe('prepareSights (D5, Req 4.4, 4.5, 4.8)', () => {
     ).toMatchObject({ ok: false, reason: 'invalid_number', field: 'aimSigmaRad' });
   });
 });
+
+describe('prepareSights, hostile counterexample of P-2.6 (task 4, seed 189033487)', () => {
+  it('refuses a Sight with non-finite fields that the limits would have set aside, instead of returning it', () => {
+    // As shrunk: the raw altitude 1e6 rad less an Index error of 1.5 is above 80°, so the Sight was
+    // set aside with its NaN time, sample sd and Sun side carried into the result.
+    const sight = {
+      id: '\u0000'.repeat(5000),
+      timeUtcMs: Number.NaN,
+      rawApparentAltitudeRad: 1_000_000,
+      sampleStdDevRad: Number.NaN,
+      markSigmaRad: 0,
+      sunSide: { azimuthRad: Number.NaN, northReference: 'magnetic' as const },
+      simulated: false,
+    };
+    const calibration = calibrationInUse({
+      valueRad: 1.5,
+      sigmaRad: 1_789_999_900_000,
+      sightCount: 2_147_483_648,
+      measuredUtcMs: Number.NaN,
+      simulated: false,
+    });
+    expect(prepareSights([sight], calibration, params)).toMatchObject({
+      ok: false,
+      reason: 'invalid_observation',
+      field: 'timeUtcMs',
+    });
+  });
+});

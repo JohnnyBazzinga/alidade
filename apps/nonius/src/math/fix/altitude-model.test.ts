@@ -1,5 +1,7 @@
 import {
+  angularDifference,
   destinationPosition,
+  initialAzimuthRad,
   POOR_GEOMETRY_CROSSING_RAD,
   projectToLocalPlane,
   type Position,
@@ -8,6 +10,7 @@ import { describe, expect, it } from 'vitest';
 import { noiseFreeSights, offsetPosition, preparedOf } from '../../test-support/noise-free';
 import { DEG_TO_RAD } from '../degrees';
 import { calibrationInUse } from '../sight/index-error';
+import type { PreparedSight } from '../sight/prepare';
 import { defaultParameters } from '../parameters';
 import { createAltitudeModel, observationsOf, type AltitudeObservation } from './altitude-model';
 
@@ -192,6 +195,35 @@ describe('the altitude model, geometryCheck (Req 5.6)', () => {
     });
   });
 
+  it('at exactly 0.5° and exactly 20° decides by the Angle of cut it computes, below the limit failing or warning (the standing rule\u2019s example)', () => {
+    const m = model();
+    for (const limit of [0.5 * D, POOR_GEOMETRY_CROSSING_RAD]) {
+      const pair = pairCutting(limit);
+      const [p, q] = pair as [AltitudeObservation, AltitudeObservation];
+      const delta = Math.abs(
+        value(
+          angularDifference(
+            value(initialAzimuthRad(TRUTH, p.subsolar)),
+            value(initialAzimuthRad(TRUTH, q.subsolar)),
+          ),
+        ),
+      );
+      const cut = Math.min(delta, Math.PI - delta);
+      expect(Math.abs(cut - limit)).toBeLessThan(1e-9);
+      const r = m.geometryCheck(pair);
+      if (limit === POOR_GEOMETRY_CROSSING_RAD) {
+        expect(r).toEqual({
+          ok: true,
+          value: { warnings: cut < limit ? ['poor_geometry'] : [] },
+        });
+      } else if (cut < limit) {
+        expect(r).toMatchObject({ ok: false, reason: 'singular_geometry' });
+      } else {
+        expect(r).toEqual({ ok: true, value: { warnings: ['poor_geometry'] } });
+      }
+    }
+  });
+
   it('measures the Angle of cut as acute: azimuths 170° apart cut at 10°', () => {
     expect(model().geometryCheck(pairCutting(170 * D))).toEqual({
       ok: true,
@@ -293,6 +325,35 @@ describe('the altitude model, evaluate (Req 5.2, 5.3, 5.11)', () => {
     expect(model().evaluate(first, { eastM: Number.NaN, northM: 0 }, TRUTH)).toMatchObject({
       ok: false,
       reason: 'invalid_number',
+    });
+  });
+});
+
+describe('observationsOf, hostile counterexample of P-2.6 (task 5)', () => {
+  it('refuses a prepared Sight whose corrected altitude and Subsolar longitude are not finite', () => {
+    // As shrunk: the sigma (2^31) and the observed altitude (0) were finite, so the NaN corrected
+    // altitude and Subsolar longitude went into the observation.
+    const prepared: PreparedSight = {
+      sight: {
+        id: '\u0000'.repeat(5000),
+        timeUtcMs: 2_524_607_999_995,
+        rawApparentAltitudeRad: 0,
+        sampleStdDevRad: Number.NaN,
+        markSigmaRad: Number.NaN,
+        sunSide: null,
+        simulated: false,
+      },
+      correctedApparentAltitudeRad: Number.NaN,
+      observedGeometricAltitudeRad: 0,
+      independentSigmaRad: 2_147_483_648,
+      commonSigmaRad: Number.NaN,
+      subsolar: { latRad: 0, lonRad: Number.NaN },
+      sunDeclinationRad: 0,
+    };
+    expect(observationsOf([prepared], 'independent', 2_147_483_648)).toMatchObject({
+      ok: false,
+      reason: 'invalid_observation',
+      field: 'correctedApparentAltitudeRad',
     });
   });
 });

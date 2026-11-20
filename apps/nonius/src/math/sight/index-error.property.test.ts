@@ -1,7 +1,7 @@
 import { greatCircleDistanceM, type Position } from '@alidade/core';
 import type { PositionFix } from '@alidade/sensors';
 import fc from 'fast-check';
-import { describe, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { sightOf } from '../../test-support/captures';
 import { cappedRuns } from '../../test-support/fast-check-setup';
 import { rawTimesArb, truthArb, usableTimes } from '../../test-support/generators';
@@ -153,3 +153,36 @@ function distanceM(a: Position, b: Position): number {
   if (!r.ok) throw new Error(r.reason);
   return r.value;
 }
+
+describe('P-15.8 at the exact limit of its bias (the standing rule\u2019s example)', () => {
+  it('with b exactly ±10°: the Index error equals b within 1e-9 when saved, and the corrected Fix lies within 0.1 m', () => {
+    const truth: Position = { latRad: 30 * D, lonRad: -40 * D };
+    // 2026-03-20 at 30° N, 40° W: the Sun from about 33° to 60°, so b = ±10° keeps every raw
+    // altitude inside [5°, 80°].
+    const times = [11, 13, 15, 17].map((h) => Date.UTC(2026, 2, 20, h));
+    for (const b of [params.maxIndexErrorRad, -params.maxIndexErrorRad]) {
+      const sights = noiseFreeSights(truth, times, b, true, params);
+      const first = sights[0];
+      if (first === undefined) throw new Error('no sight');
+      const place: PositionFix = {
+        position: truth,
+        reportedAccuracyM: 5,
+        sigmaM: 5,
+        timeUtcMs: first.timeUtcMs,
+      };
+      const sun = sunAt(truth, first.timeUtcMs, params);
+      if (!sun.ok) throw new Error(sun.reason);
+      const mean = first.rawApparentAltitudeRad - sun.value.apparentAltitudeRad;
+      const ie = indexErrorFromSights([first], place, false, params);
+      if (Math.abs(mean) > params.maxIndexErrorRad) {
+        expect(ie).toMatchObject({ ok: false, reason: 'index_error_implausible' });
+        continue;
+      }
+      if (!ie.ok) throw new Error(ie.reason);
+      expect(Math.abs(ie.value.valueRad - b)).toBeLessThanOrEqual(1e-9);
+      const a = assess(sights, ie.value, null, params);
+      if (!a.ok || a.value.kind !== 'fix') throw new Error('no Shown Fix');
+      expect(distanceM(a.value.fix.position, truth)).toBeLessThanOrEqual(0.1);
+    }
+  });
+});

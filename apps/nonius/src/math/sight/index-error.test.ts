@@ -136,6 +136,22 @@ describe('indexErrorFromSights (Req 15.3, 15.4)', () => {
     });
   });
 
+  it('at exactly ±10° saves the Index error when its computed mean is within the limit and refuses it otherwise (the standing rule\u2019s example)', () => {
+    for (const b of [params.maxIndexErrorRad, -params.maxIndexErrorRad]) {
+      const sight = sightWithBias('a', T0, b);
+      const sun = value(sunAt(PLACE, T0, params));
+      const mean = sight.rawApparentAltitudeRad - sun.apparentAltitudeRad;
+      expect(Math.abs(mean - b)).toBeLessThan(1e-9);
+      const r = indexErrorFromSights([sight], fix(), false, params);
+      if (Math.abs(mean) > params.maxIndexErrorRad) {
+        expect(r).toMatchObject({ ok: false, reason: 'index_error_implausible' });
+      } else {
+        expect(r.ok).toBe(true);
+        if (r.ok) expect(r.value.valueRad).toBe(mean);
+      }
+    }
+  });
+
   it('applies the limits of the sights to the raw altitude', () => {
     const low = sightOf({ id: 'low', rawApparentAltitudeRad: 4 * D, timeUtcMs: T0 });
     const high = sightOf({ id: 'high', rawApparentAltitudeRad: 81 * D, timeUtcMs: T0 });
