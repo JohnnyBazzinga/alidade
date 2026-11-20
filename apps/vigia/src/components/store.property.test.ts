@@ -4,6 +4,7 @@
 // Network gate, a URL, the console or the title, and a code reaches the Transport or the Clipboard
 // only by a Share or a Copy of the sequence, and only the code of the Sighting shared.
 
+import type { Position } from '@alidade/core';
 import fc from 'fast-check';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { groupCode, stripCode } from '../math/code/alphabet';
@@ -12,6 +13,9 @@ import { decodeSighting, encodeSighting } from '../math/code/sighting-code';
 import { toDeg } from '../math/degrees';
 import { emergencyText } from '../math/fix/emergency-text';
 import { incidentMode } from '../math/incident/ids';
+import { OVERLAYS } from '../overlays';
+import { contextOf } from '../overlays/shared/components/OverlayPanel';
+import { windRequestUrl } from '../math/network/request-boxes';
 import { cappedRuns } from '../test-support/fast-check-setup';
 import { createFakeEnvironment } from '../test-support/fake-environment';
 import { pageAddress, sightingArb } from '../test-support/generators';
@@ -141,9 +145,28 @@ interface Allowed {
   readonly written: (string | null)[];
   readonly shared: string[];
   readonly sent: string[];
+  /** The URL of each request the user's acts on the Overlay switches may have made, in order. */
+  readonly requests: string[];
 }
 
 const ADDRESS = 'https://app.example.test/';
+
+/**
+ * The place a wind request is for: the Fix, or with none the middle of the observers (the sum of
+ * their unit vectors, written here again so that the test does not rest on the code it checks).
+ */
+function windAnchor(context: { fix: Position | null; observers: readonly Position[] }): Position {
+  if (context.fix !== null) return context.fix;
+  let x = 0;
+  let y = 0;
+  let z = 0;
+  for (const p of context.observers) {
+    x += Math.cos(p.latRad) * Math.cos(p.lonRad);
+    y += Math.cos(p.latRad) * Math.sin(p.lonRad);
+    z += Math.sin(p.latRad);
+  }
+  return { latRad: Math.atan2(z, Math.hypot(x, y)), lonRad: Math.atan2(y, x) };
+}
 
 async function run(steps: readonly StoreStep[]) {
   const fake = createFakeEnvironment({ href: ADDRESS });
@@ -153,7 +176,17 @@ async function run(steps: readonly StoreStep[]) {
   store.start();
   const known = new Set<string>();
   for (let n = 0; n < CODE_POOL_SIZE; n += 1) known.add(poolCode(n));
-  const allowed: Allowed = { written: [], shared: [], sent: [] };
+  const allowed: Allowed = { written: [], shared: [], sent: [], requests: [] };
+  // The Overlays of the registry (none in the cut project), told of the open smoke after every step
+  // as the Map screen tells them: only a switch or a Refresh may ask for data.
+  const overlayDeps = {
+    gate: environment.gate,
+    clock: environment.clock,
+    parameters: environment.parameters,
+    mode: environment.mode,
+  };
+  const overlays = OVERLAYS.map((definition) => definition.create(overlayDeps));
+  const overlayContext = () => contextOf(store.getSnapshot().open, overlayDeps);
   const entries = () => store.getSnapshot().state.incidents.flatMap((i) => i.entries);
 
   for (const step of steps) {
@@ -258,6 +291,24 @@ async function run(steps: readonly StoreStep[]) {
         await environment.clipboard.copyText(text.value);
         break;
       }
+      case 'wind': {
+        const context = overlayContext();
+        for (const overlay of overlays) {
+          overlay.update(context);
+          const wasOn = overlay.getState().enabled;
+          if (step.how === 'off') overlay.setEnabled(false);
+          else if (step.how === 'on') overlay.setEnabled(true);
+          else overlay.refresh();
+          // A request is expected for a switch that turns the Overlay on and for a Refresh while
+          // it is on, when there is a smoke to ask about.
+          const asks = step.how === 'on' ? !wasOn : step.how === 'refresh' && wasOn;
+          if (asks && context.observers.length > 0) {
+            const url = windRequestUrl(windAnchor(context), environment.parameters);
+            if (url.ok) allowed.requests.push(url.value);
+          }
+        }
+        break;
+      }
       case 'deleteAll':
         store.dispatch({ kind: 'deleteAll' });
         break;
@@ -272,6 +323,8 @@ async function run(steps: readonly StoreStep[]) {
     }
     for (const entry of entries()) known.add(entry.code);
     for (const item of store.getSnapshot().inbox) known.add(item.code);
+    // Whatever the step was, the Overlays are told the new smoke: and that asks for nothing.
+    for (const overlay of overlays) overlay.update(overlayContext());
   }
   store.stop();
   return { fake, allowed, known, titleBefore };
@@ -286,6 +339,7 @@ async function run(steps: readonly StoreStep[]) {
 describe('P-15.9: what leaves through which channel (Req 15.1, 15.4, 15.9)', () => {
   it('no code, position or azimuth in the gate, a URL, the console or the title; codes only by a Share or a Copy', async () => {
     const tracker = new ErrorTracker();
+    let sequencesThatAsked = 0;
     await checkPropertyAsync(
       'P-15.9',
       fc.asyncProperty(storeSteps(), async (steps) => {
@@ -297,10 +351,18 @@ describe('P-15.9: what leaves through which channel (Req 15.1, 15.4, 15.9)', () 
           const urls = fake.page.history.calls.map((c) => c.url ?? '');
           for (const text of [...fake.gate.calls, ...urls, ...console.calls, document.title]) {
             for (const code of codes) expect(holdsRun(text, code)).toBe(false);
+          }
+          // The one position that may be in a request is the rounded point of the wind request: each
+          // gate call is exactly the Host list's URL for it (below), so the observers' own numbers
+          // are looked for everywhere else.
+          for (const text of [...urls, ...console.calls, document.title]) {
             for (const form of forms) expect(text.includes(form)).toBe(false);
           }
           expect(document.title).toBe(titleBefore);
-          expect(fake.gate.calls).toEqual([]);
+          // The gate was asked for the wind exactly by the sequence's switches and Refreshes, each
+          // with the one rounded point and nothing else (Req 13.2, 13.7, 15.9).
+          expect(fake.gate.calls).toEqual(allowed.requests);
+          if (allowed.requests.length > 0) sequencesThatAsked += 1;
           // The Transport carried exactly the codes of the sequence's Shares through it.
           expect(fake.sent).toEqual(allowed.sent);
           // The Clipboard: each record of a Share holds the code of its Sighting and no other
@@ -330,6 +392,10 @@ describe('P-15.9: what leaves through which channel (Req 15.1, 15.4, 15.9)', () 
       tracker,
       { numRuns: cappedRuns(1000) },
     );
+    // The generator reaches the Overlay's requests (it would be vacuous otherwise); in the cut
+    // project there is no Overlay and none is asked.
+    if (OVERLAYS.length > 0) expect(sequencesThatAsked).toBeGreaterThan(0);
+    else expect(sequencesThatAsked).toBe(0);
   });
 });
 

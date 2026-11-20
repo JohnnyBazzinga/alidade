@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
+import { HOST_LIST, WIND_ENTRY } from './network/host-list';
 import { PRIVACY_TABLE } from './privacy-table';
+
+/** `docs/privacy.md` at the repository root, read as text (task 16.1). */
+const PRIVACY_MD = Object.values(
+  import.meta.glob<string>('../../../../docs/privacy.md', {
+    query: '?raw',
+    import: 'default',
+    eager: true,
+  }),
+)[0];
 
 /**
  * The nine rows of the table of Req 15.3, typed out on purpose and in the requirement's order:
@@ -89,5 +99,77 @@ describe('PRIVACY_TABLE (Req 15.3, design D20)', () => {
   it('is frozen, rows included, so that no screen can change what it says leaves the phone', () => {
     expect(Object.isFrozen(PRIVACY_TABLE)).toBe(true);
     for (const row of PRIVACY_TABLE) expect(Object.isFrozen(row)).toBe(true);
+  });
+});
+
+// --- docs/privacy.md (task 16.1, Req 15.3, design D20) --------------------------------------------
+
+/** The rows of the first Markdown table of `text`: each line that starts with `|`, minus the header and the rule. */
+function markdownRows(text: string): string[][] {
+  const lines = text.split('\n').filter((l) => l.trimStart().startsWith('|'));
+  return lines
+    .filter((l) => !/^\s*\|[\s:|-]+\|\s*$/.test(l))
+    .map((l) =>
+      l
+        .trim()
+        .replace(/^\||\|$/g, '')
+        .split('|')
+        .map((cell) => cell.trim()),
+    );
+}
+
+describe('docs/privacy.md (Req 15.3, design D20)', () => {
+  it('exists', () => {
+    expect(PRIVACY_MD).toBeTypeOf('string');
+  });
+
+  const text = PRIVACY_MD ?? '';
+
+  it('has a table whose header names the four columns and whose nine rows equal PRIVACY_TABLE, cell by cell', () => {
+    const rows = markdownRows(text);
+    expect(rows[0]).toEqual(['Channel', 'What leaves the phone', 'When', 'Who sees it']);
+    const body = rows.slice(1);
+    expect(body).toHaveLength(PRIVACY_TABLE.length);
+    expect(body).toEqual(PRIVACY_TABLE.map((r) => [r.channel, r.whatLeaves, r.when, r.whoSees]));
+  });
+
+  it('fails when one cell of the document or of the data is changed (the comparison bites)', () => {
+    const changed = text.replace(
+      'whoever the user pastes it to',
+      'whoever the user pastes it to, or not',
+    );
+    expect(changed).not.toBe(text);
+    const body = markdownRows(changed).slice(1);
+    expect(body).not.toEqual(
+      PRIVACY_TABLE.map((r) => [r.channel, r.whatLeaves, r.when, r.whoSees]),
+    );
+  });
+
+  it('has a heading and a paragraph for each row', () => {
+    for (const row of PRIVACY_TABLE) {
+      const at = text.indexOf(`### ${row.channel}\n`);
+      expect(at, row.channel).toBeGreaterThan(0);
+      const after = text.slice(at + `### ${row.channel}\n`.length);
+      const next = after.search(/^#{1,3} /m);
+      const paragraph = (next < 0 ? after : after.slice(0, next)).trim();
+      expect(paragraph.length, row.channel).toBeGreaterThan(80);
+    }
+  });
+
+  it('names no host but the Host list\u2019s and the addresses of their terms', () => {
+    const allowed = new Set<string>(HOST_LIST.map((e) => e.host));
+    for (const entry of HOST_LIST) allowed.add(new URL(entry.termsUrl).hostname);
+    const named = [...text.matchAll(/https?:\/\/([^/\s)`>]+)/g)].map((m) => m[1] ?? '');
+    for (const host of named) expect(allowed.has(host), host).toBe(true);
+    expect(text).toContain(WIND_ENTRY.host);
+  });
+
+  it('says what the code says about the wind: off at start, one rounded point, only on the user\u2019s act', () => {
+    const at = text.indexOf('### Wind\n');
+    const wind = text.slice(at, text.indexOf('### Tiles\n'));
+    expect(wind).toContain('off');
+    expect(wind).toContain('0.1');
+    expect(wind).toContain('no identifier');
+    expect(wind).toMatch(/never[^.]*on a timer/);
   });
 });

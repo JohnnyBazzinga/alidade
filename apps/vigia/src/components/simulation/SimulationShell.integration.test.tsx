@@ -7,7 +7,13 @@
 // that each captured Bearing equals the Target's true azimuth to 1e-8 rad; the one wrong post is
 // the one that is 12° off. The gate is never called.
 
-import { initialAzimuthRad, projectToLocalPlane, wrapPi, type Position } from '@alidade/core';
+import {
+  greatCircleDistanceM,
+  initialAzimuthRad,
+  projectToLocalPlane,
+  wrapPi,
+  type Position,
+} from '@alidade/core';
 import type { CatalogueScene, Session } from '@alidade/ui';
 import { fireEvent, within } from '@testing-library/react';
 import { describe, expect, inject, it } from 'vitest';
@@ -517,7 +523,7 @@ describe('while the browser reports offline (Req 17.6, 10.7)', () => {
 });
 
 describe('with the Overlays module as this project has it (Req 1.10)', () => {
-  it('runs the flow with no Overlays panel on the Map screen; in the cut project the module is the empty one', async () => {
+  it('runs the flow: with the Overlays cut there is no panel; with them registered the Wind switch is off and nothing is asked', async () => {
     if (inject('overlaysCut')) expect(OVERLAYS).toBe(CUT);
     const scenes = noiseFree(scenesOfTheApp());
     const scene = scenes.find((s) => s.scene.id === 'two-posts');
@@ -526,7 +532,137 @@ describe('with the Overlays module as this project has it (Req 1.10)', () => {
     await m.settle();
     await runFlow(m, scene, ['west', 'east']);
     await loadMap(m);
-    expect(m.queryByTestId('overlay-panel')).toBeNull();
+    if (inject('overlaysCut')) {
+      expect(m.queryByTestId('overlay-panel')).toBeNull();
+    } else {
+      const panel = within(m.getByTestId('overlay-panel'));
+      expect(panel.getByRole('switch', { name: 'Wind' }).getAttribute('aria-checked')).toBe(
+        'false',
+      );
+      expect(m.map().data.get('app-wind')).toBeUndefined();
+    }
     expect(m.gate.calls).toEqual([]);
   });
 });
+
+/** `[lonDeg, latDeg]` pairs of every feature of a source of the fake map. */
+function coordinatesOf(m: Harness, sourceId: string): Position[] {
+  const data = m.map().data.get(sourceId) as
+    { features?: { geometry: { coordinates: unknown } }[] } | undefined;
+  const out: Position[] = [];
+  for (const f of data?.features ?? []) {
+    const c = f.geometry.coordinates as unknown[];
+    const list = (Array.isArray(c[0]) ? c : [c]) as [number, number][];
+    for (const [lonDeg, latDeg] of list) out.push({ latRad: rad(latDeg), lonRad: rad(lonDeg) });
+  }
+  return out;
+}
+
+const distanceM = (a: Position, b: Position): number => {
+  const d = greatCircleDistanceM(a, b);
+  if (!d.ok) throw new Error('distance');
+  return d.value;
+};
+
+// The wind Overlay in the reviewer's path (task 17.5, Req 13, 17.4, the lead's decision of
+// 2026-11-22): the fixture is read, no network is touched, the arrow stands beside the ellipse and
+// the map is fitted as it was. It runs only where the Overlays are registered.
+describe.skipIf(inject('overlaysCut'))('the wind Overlay in the Simulation flow', () => {
+  async function twoPostsWithWind() {
+    const scenes = noiseFree(scenesOfTheApp());
+    const scene = scenes.find((s) => s.scene.id === 'two-posts');
+    if (scene === undefined) throw new Error('scene');
+    const m = mountSimulation({ scenes });
+    await m.settle();
+    await runFlow(m, scene, ['west', 'east']);
+    await loadMap(m);
+    return m;
+  }
+  const windSwitch = (m: Harness) =>
+    within(m.getByTestId('overlay-panel')).getByRole('switch', { name: 'Wind' });
+
+  it('switched on, reads the fixture and draws the arrow outside the 95 % ellipse, with the gate never called', async () => {
+    const m = await twoPostsWithWind();
+    const fixFeatures = featuresOf(m.map(), 'fix') as unknown as {
+      geometry: { coordinates: unknown };
+      properties: { kind: string };
+    }[];
+    const point = fixFeatures.find((f) => f.properties.kind === 'fix');
+    const [fixLon, fixLat] = point?.geometry.coordinates as [number, number];
+    const fix: Position = { latRad: rad(fixLat), lonRad: rad(fixLon) };
+    const ring = coordinatesOfFeature(
+      fixFeatures.find((f) => f.properties.kind === 'fix-ellipse-95'),
+    );
+    const ellipseRadiusM = Math.max(...ring.map((v) => distanceM(fix, v)));
+    expect(ellipseRadiusM).toBeGreaterThan(500);
+
+    await m.settle(() => fireEvent.click(windSwitch(m)));
+    expect(windSwitch(m).getAttribute('aria-checked')).toBe('true');
+
+    const shaft = coordinatesOf(m, 'app-wind');
+    const head = coordinatesOf(m, 'app-wind-head');
+    expect(shaft).toHaveLength(2);
+    expect(head).toHaveLength(3);
+    for (const v of [...shaft, ...head]) {
+      expect(distanceM(fix, v), 'the arrow is outside the ellipse').toBeGreaterThan(ellipseRadiusM);
+    }
+    // 15 % of the map's lines (lines of 3 953 m or so), and not more than a line.
+    const lengthM = distanceM(shaft[0] as Position, shaft[1] as Position);
+    expect(lengthM).toBeGreaterThan(500);
+    expect(lengthM).toBeLessThan(700);
+    // The Fix and its ellipse are still the map's own, untouched.
+    expect(featuresOf(m.map(), 'fix').length).toBe(fixFeatures.length);
+
+    const panel = m.getByTestId('overlay-panel').textContent ?? '';
+    expect(panel).toContain('Wind from the south-west (225°) at 4.2 m/s, valid 14:13 UTC');
+    expect(panel).toContain('CC BY 4.0');
+    expect(m.getByTestId('map-legend').textContent).toContain('Wind arrow');
+    expect(m.gate.calls).toEqual([]);
+    expect(m.alerts()).toEqual([]);
+  });
+
+  it('does not change what the map is fitted to', async () => {
+    const m = await twoPostsWithWind();
+    // UI's MapView fits again whenever its layers change (it did when the set-aside layers
+    // came), so a switch makes one more call; what matters is that every call has the bounds of
+    // the observers and the ellipse alone.
+    const first = JSON.stringify(m.map().fitBoundsCalls.at(-1));
+    expect(m.map().fitBoundsCalls.length).toBeGreaterThan(0);
+    await m.settle(() => fireEvent.click(windSwitch(m)));
+    expect(m.map().data.get('app-wind')).toBeDefined();
+    await m.settle(() =>
+      fireEvent.click(
+        within(m.getByTestId('overlay-panel')).getByRole('button', { name: 'Refresh Wind' }),
+      ),
+    );
+    for (const call of m.map().fitBoundsCalls) expect(JSON.stringify(call)).toBe(first);
+  });
+
+  it('switched off, takes the arrow away, and the sighting guidance says that smoke drifts downwind only while it is shown', async () => {
+    const m = await twoPostsWithWind();
+    const leans = 'The smoke leans downwind, so aim lower down the column, at its base.';
+    await m.tab('Smoke');
+    await m.openSight();
+    expect(m.getByTestId('guidance').textContent).not.toContain(leans);
+    await m.click('Back');
+    await m.tab('Map');
+    await m.settle(() => fireEvent.click(windSwitch(m)));
+    await m.tab('Smoke');
+    await m.openSight();
+    expect(m.getByTestId('guidance').textContent).toContain(leans);
+    await m.click('Back');
+    await m.tab('Map');
+    await m.settle(() => fireEvent.click(windSwitch(m)));
+    expect(windSwitch(m).getAttribute('aria-checked')).toBe('false');
+    expect(coordinatesOf(m, 'app-wind')).toEqual([]);
+    expect(m.gate.calls).toEqual([]);
+  });
+});
+
+/** The positions of one feature of the fake map's data. */
+function coordinatesOfFeature(
+  feature: { geometry: { coordinates: unknown } } | undefined,
+): Position[] {
+  const c = feature?.geometry.coordinates as [number, number][][] | undefined;
+  return (c?.[0] ?? []).map(([lonDeg, latDeg]) => ({ latRad: rad(latDeg), lonRad: rad(lonDeg) }));
+}

@@ -144,6 +144,7 @@ function Shell({
   if (route.kind === 'sight') {
     content = (
       <SightScreen
+        windShown={slot?.windShown ?? false}
         onBack={() => toTab('smoke')}
         onAdded={() => toTab('smoke')}
         {...(hasDeviceOrientation && onModeChange !== undefined

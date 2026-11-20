@@ -9,7 +9,8 @@
 // `system_share`, `text`, `qr` or `transport` (the Share sheet's acts: a copy, the share sheet,
 // the QR drawn, the Transport's send); `copyEmergency` (the Emergency text, with the own-position
 // switch drawn); `deleteAll`; `expire` (the clock moves 0 to 3 hours); `reload` (a new store over the
-// same storage). An Overlay switch joins in task 17.5. Excludes everything else.
+// same storage); `wind` (the Overlays' switch: on, off or Refresh, the only acts that may ask for
+// data; in the cut project there is no Overlay and the step does nothing). Excludes everything else.
 
 import fc from 'fast-check';
 import { uniformInteger } from './generators';
@@ -31,6 +32,7 @@ export type StoreStep =
   | { readonly kind: 'hide' | 'show' | 'delete'; readonly pick: number }
   | { readonly kind: 'share'; readonly pick: number; readonly how: ShareKind }
   | { readonly kind: 'copyEmergency'; readonly includeOwnPosition: boolean }
+  | { readonly kind: 'wind'; readonly how: 'on' | 'off' | 'refresh' }
   | { readonly kind: 'deleteAll' }
   | { readonly kind: 'expire'; readonly jumpMs: number }
   | { readonly kind: 'reload' };
@@ -103,6 +105,13 @@ export function storeSteps(): fc.Arbitrary<StoreStep[]> {
       arbitrary: fc.record({
         kind: fc.constant('copyEmergency' as const),
         includeOwnPosition: fc.boolean(),
+      }),
+    },
+    {
+      weight: 3,
+      arbitrary: fc.record({
+        kind: fc.constant('wind' as const),
+        how: fc.constantFrom('on' as const, 'off' as const, 'refresh' as const),
       }),
     },
     { weight: 1, arbitrary: fc.constant({ kind: 'deleteAll' as const }) },

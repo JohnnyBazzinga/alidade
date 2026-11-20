@@ -20,6 +20,8 @@ export interface OverlaySlot {
   readonly layers: readonly AppLayer[];
   readonly legend: ReactNode;
   readonly panel: ReactNode;
+  /** A wind reading is on the map: the sighting guidance says that smoke drifts downwind (Req 13.5). */
+  readonly windShown: boolean;
 }
 
 const NOTHING: readonly never[] = [];

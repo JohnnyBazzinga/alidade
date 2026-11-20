@@ -13,6 +13,7 @@ import {
 } from '../../test-support/incident-fixtures';
 import { invariants } from '../../test-support/incident-invariants';
 import { applyAction, type VigiaAction } from './apply-action';
+import { relabelItem } from './join';
 import {
   emptyState,
   incidentHolding,
@@ -395,5 +396,104 @@ describe('replace holds I8 for a state that comes from outside', () => {
     if (!result.ok) throw new Error(result.reason);
     expect(result.value.state.incidents[0]?.formerIds).toEqual([]);
     expect(result.value.notices).toEqual([]);
+  });
+});
+
+// The shrunk counterexample of P-2.6 (`relabelItem`, root `pnpm test` of the final checkpoint,
+// seed 456561989, path 196:0:…:63:64): an Inbox item whose arrival time is -Infinity, relabelled
+// to another id, came back as a success that held -Infinity (Req 2.1). Kept as the property found it.
+describe('relabelItem refuses an item that holds a number that is not finite (P-2.6 counterexample)', () => {
+  const counterexample: InboxItem = {
+    sighting: {
+      sightingId: '222222222',
+      incidentId: '2222222222',
+      bearing: {
+        id: '222222222',
+        observer: { latRad: -1.5533430342749535, lonRad: -3.1415926535897922 },
+        positionAccuracyM: 0,
+        timeUtcMs: 1767225600000,
+        azimuthRad: 0,
+        azimuthSigmaRad: 0.00017453292519943296,
+      },
+      origin: 'received',
+      receivedUtcMs: null,
+    },
+    code: '3222222222222222222222222222222222222222222222M48K',
+    arrivedUtcMs: Number.NEGATIVE_INFINITY,
+  };
+  const parameters = {
+    ...PARAMETERS,
+    plausibleRangeM: 1.5707963267948966,
+    expiryCheckIntervalMs: 1789999900000,
+  };
+
+  it('the counterexample, relabelled to K7PQ3MWXA2, is invalid_number naming item', () => {
+    expect(relabelItem(counterexample, 'K7PQ3MWXA2', parameters)).toEqual({
+      ok: false,
+      reason: 'invalid_number',
+      field: 'item',
+    });
+  });
+
+  it('every non-finite number of an item is refused in the relabel branch as in the other', () => {
+    const good = itemOf(2, SMALL);
+    const bads: InboxItem[] = [
+      { ...good, arrivedUtcMs: Number.NaN },
+      { ...good, sighting: { ...good.sighting, receivedUtcMs: Number.POSITIVE_INFINITY } },
+      {
+        ...good,
+        sighting: {
+          ...good.sighting,
+          bearing: { ...good.sighting.bearing, azimuthRad: Number.NaN },
+        },
+      },
+    ];
+    for (const bad of bads) {
+      for (const target of [SMALL, LARGE]) {
+        expect(relabelItem(bad, target, PARAMETERS), target).toEqual({
+          ok: false,
+          reason: 'invalid_number',
+          field: 'item',
+        });
+      }
+    }
+    expect(relabelItem(good, LARGE, PARAMETERS).ok).toBe(true);
+  });
+
+  // The shrunk counterexample of P-2.6 after the first fix (seed 679858833, path 11:0:…:63): with a
+  // parameter that is not valid and an item that is not finite, the parameter is named first.
+  it('names a parameter that is not valid before the item (Req 19.3)', () => {
+    const item: InboxItem = {
+      ...counterexample,
+      code: '32222222222222222222222222JZMRRUD35ZGQNCEHREEHXS96',
+      arrivedUtcMs: Number.NaN,
+      sighting: {
+        ...counterexample.sighting,
+        bearing: {
+          ...counterexample.sighting.bearing,
+          observer: { latRad: -1.5533430342749535, lonRad: 3.141592653589793 },
+        },
+      },
+    };
+    expect(
+      relabelItem(item, 'K7PQ3MWXA2', { ...PARAMETERS, maxLinkLengthChars: Number.NaN }),
+    ).toEqual({ ok: false, reason: 'invalid_number', field: 'maxLinkLengthChars' });
+  });
+
+  it('joinIncident with such an item fails, whichever id survives', () => {
+    // The code's id survives (it is the smaller): the item keeps its id.
+    const bad = { ...itemOf(2, SMALL), arrivedUtcMs: Number.NEGATIVE_INFINITY };
+    expect(failure(phone(LARGE, 1), join(bad))).toEqual({
+      ok: false,
+      reason: 'invalid_number',
+      field: 'item',
+    });
+    // The open id survives: the item is relabelled, the branch of the counterexample.
+    const relabelled = { ...itemOf(2, LARGE), arrivedUtcMs: Number.NEGATIVE_INFINITY };
+    expect(failure(phone(SMALL, 1), join(relabelled))).toEqual({
+      ok: false,
+      reason: 'invalid_number',
+      field: 'item',
+    });
   });
 });

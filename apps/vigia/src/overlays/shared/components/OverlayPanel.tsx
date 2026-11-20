@@ -4,6 +4,7 @@
 // Refresh ask for data), and gives the Map screen their layers, their legend and this panel. With
 // no definition there is no panel.
 
+import { ellipse95 } from '@alidade/core';
 import { COLOURS, SIZES } from '@alidade/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { ageText, clockTextUtc } from '../../../math/civil-time';
@@ -28,15 +29,19 @@ interface Item {
   readonly state: OverlayState;
 }
 
-const NO_CONTEXT: OverlayContext = { observers: [], fix: null, lineLengthM: 5000 };
+const NO_CONTEXT: OverlayContext = { observers: [], fix: null, clearRadiusM: 0, lineLengthM: 5000 };
 
-function contextOf(open: OpenView | null, deps: OverlayDeps): OverlayContext {
+/** What an Overlay is told of the open smoke: its observers, its Fix, the clear circle and the lines. */
+export function contextOf(open: OpenView | null, deps: OverlayDeps): OverlayContext {
   if (open === null || !open.assessment.ok) return NO_CONTEXT;
   const model = mapModel(open.assessment.value, deps.parameters);
   if (!model.ok) return NO_CONTEXT;
+  // What an Overlay must keep clear of: the circle that holds the Fix's 95 % ellipse.
+  const ellipse = model.value.fix === null ? null : ellipse95(model.value.fix.ellipse);
   return {
     observers: open.assessment.value.used.map((e) => e.sighting.bearing.observer),
     fix: model.value.fix?.position ?? null,
+    clearRadiusM: ellipse !== null && ellipse.ok ? ellipse.value.semiMajorM : 0,
     lineLengthM: model.value.lineLengthM,
   };
 }
@@ -148,6 +153,10 @@ export function useOverlaySlot(
       layers: items.flatMap((i) => i.state.layers),
       legend: <Legend entries={items.flatMap((i) => i.state.legend)} />,
       panel: <OverlayPanel items={items} nowUtcMs={clock()} />,
+      // Req 13.5: the sighting guidance reminds that smoke drifts downwind while a reading is shown.
+      windShown: items.some(
+        (i) => i.definition.id === 'wind' && i.state.enabled && i.state.layers.length > 0,
+      ),
     };
   }, [controllers, version, clock]);
 }

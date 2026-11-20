@@ -88,6 +88,18 @@ import {
   type TileProvider,
 } from './math/network/host-list';
 import { windPoint, windRequestUrl } from './math/network/request-boxes';
+import {
+  observersMidpoint,
+  windArrow,
+  windLayers,
+  type WindDrawing,
+} from './overlays/wind/math/wind-features';
+import {
+  parseWindResponse,
+  windPointPosition,
+  type WindReading,
+} from './overlays/wind/math/wind-parse';
+import { windTiming, windWords } from './overlays/wind/math/wind-words';
 import { tileSetupFromEnvironment } from './math/network/tile-setup';
 import { smokeScenes } from './math/scenes/smoke-scenes';
 import { initialMode, simulatorRequested } from './math/start-mode';
@@ -390,6 +402,36 @@ const hostilePosition = fc.oneof(
   fc.record({ latRad: hostileNumber(), lonRad: hostileNumber() }),
   fc.record({ latRad: closed(-1.55, 1.55), lonRad: closed(-3.14, 3.14) }),
 );
+
+/**
+ * A wind reading with hostile numbers (domain: every field a hostile number or the position of
+ * `hostilePosition`; a speed or direction that is valid one draw in two comes from `hostileNumber`'s
+ * own finite draws).
+ */
+const hostileWindReading: fc.Arbitrary<WindReading> = fc.record({
+  point: hostilePosition,
+  directionFromRad: hostileNumber(),
+  speedMs: hostileNumber(),
+  validUtcMs: hostileNumber(),
+});
+
+/** A drawing of the wind arrow with hostile numbers and 0 to 4 hostile observers. */
+const hostileWindDrawing: fc.Arbitrary<WindDrawing> = fc.record({
+  anchor: hostilePosition,
+  clearRadiusM: hostileNumber(),
+  lineLengthM: hostileNumber(),
+  observers: fc.array(hostilePosition, { minLength: 0, maxLength: 4 }),
+});
+
+/** A wind response text in the documented shape, with hostile numbers in its three fields. */
+const windResponseText: fc.Arbitrary<string> = fc
+  .tuple(hostileNumber(), hostileNumber(), hostileNumber(), fc.boolean())
+  .map(([time, speed, direction, metres]) =>
+    JSON.stringify({
+      current_units: { wind_speed_10m: metres ? 'm/s' : 'km/h' },
+      current: { time, wind_speed_10m: speed, wind_direction_10m: direction },
+    }),
+  );
 
 /** The URL of the wind builder for a Supported position, and nothing else (for the gate's entries). */
 const windUrl = fc
@@ -1179,6 +1221,93 @@ export const HOSTILE_LIST: readonly HostileEntry[] = [
         // What the builder writes, the gate's decision accepts (P-11.9).
         const url = Reflect.get(result as object, 'value') as string;
         expect(decideRequest(url, HOST_LIST).ok).toBe(true);
+      }
+    },
+  ),
+  hostileEntry(
+    'parseWindResponse',
+    fc.tuple(fc.oneof(hostileString(), windResponseText), hostilePosition, hostileParameters),
+    parseWindResponse,
+    ([, , p], result) => {
+      const invalidField = firstInvalidField(p);
+      if (invalidField !== null) {
+        expect(result).toEqual({ ok: false, reason: 'invalid_number', field: invalidField });
+      } else if (Reflect.get(result as object, 'ok') === true) {
+        const reading = Reflect.get(result as object, 'value') as WindReading;
+        expect(reading.directionFromRad).toBeGreaterThanOrEqual(0);
+        expect(reading.directionFromRad).toBeLessThan(2 * Math.PI);
+        expect(reading.speedMs).toBeGreaterThanOrEqual(0);
+      }
+    },
+  ),
+  hostileEntry(
+    'windPointPosition',
+    fc.tuple(hostilePosition, hostileParameters),
+    windPointPosition,
+    ([, p], result) => {
+      const invalidField = firstInvalidField(p);
+      if (invalidField !== null) {
+        expect(result).toEqual({ ok: false, reason: 'invalid_number', field: invalidField });
+      }
+    },
+  ),
+  hostileEntry(
+    'windWords',
+    fc.tuple(hostileWindReading, hostileNumber(), hostileParameters),
+    windWords,
+    ([, , p], result) => {
+      const invalidField = firstInvalidField(p);
+      if (invalidField !== null) {
+        expect(result).toEqual({ ok: false, reason: 'invalid_number', field: invalidField });
+      } else if (Reflect.get(result as object, 'ok') === true) {
+        const text = (Reflect.get(result as object, 'value') as string[]).join(' ');
+        expect(/NaN|Infinity|undefined|null/.test(text)).toBe(false);
+      }
+    },
+  ),
+  hostileEntry(
+    'windTiming',
+    fc.tuple(hostileNumber(), hostileNumber(), hostileParameters),
+    windTiming,
+    (_args, result) => {
+      expect(['current', 'old', 'forecast']).toContain(result);
+    },
+  ),
+  hostileEntry(
+    'windArrow',
+    fc.tuple(hostileWindReading, hostileWindDrawing),
+    windArrow,
+    (_args, result) => {
+      if (Reflect.get(result as object, 'ok') === true) {
+        const arrow = Reflect.get(result as object, 'value') as { lengthM: number; gapM: number };
+        expect(arrow.lengthM).toBeGreaterThanOrEqual(300);
+        expect(arrow.gapM).toBeCloseTo(arrow.lengthM / 2, 6);
+      }
+    },
+  ),
+  hostileEntry(
+    'windLayers',
+    fc.tuple(hostileWindReading, hostileWindDrawing),
+    windLayers,
+    (_args, result) => {
+      if (Reflect.get(result as object, 'ok') === true) {
+        const layers = Reflect.get(result as object, 'value') as readonly object[];
+        expect(layers).toHaveLength(2);
+        for (const layer of layers) expect('fit' in layer).toBe(false);
+      }
+    },
+  ),
+  hostileEntry(
+    'observersMidpoint',
+    fc.tuple(fc.array(hostilePosition, { minLength: 0, maxLength: 5 })),
+    observersMidpoint,
+    ([observers], result) => {
+      if (Reflect.get(result as object, 'ok') === true) {
+        expect(observers.length).toBeGreaterThan(0);
+        const p = Reflect.get(result as object, 'value') as { latRad: number; lonRad: number };
+        expect(Math.abs(p.latRad)).toBeLessThanOrEqual(Math.PI / 2);
+        expect(p.lonRad).toBeGreaterThan(-Math.PI);
+        expect(p.lonRad).toBeLessThanOrEqual(Math.PI);
       }
     },
   ),

@@ -22,6 +22,8 @@ import { LOOK } from './look';
 import { useStore, useVigia } from './store';
 
 export interface SightScreenProps {
+  /** A wind reading is shown on the map (Req 13.5): the guidance says that smoke drifts downwind. */
+  readonly windShown?: boolean;
   readonly onBack: () => void;
   /** The capture was added to a smoke: the App goes back to the Smoke screen. */
   readonly onAdded: () => void;
@@ -36,7 +38,12 @@ export interface SightScreenProps {
 /** A tap is refused on a phone: there is no field of view (Req 3.3, Open question U1). */
 const NO_TAP_SIGMA_PX = Number.NaN;
 
-export function SightScreen({ onBack, onAdded, onTrySimulator }: SightScreenProps) {
+export function SightScreen({
+  onBack,
+  onAdded,
+  onTrySimulator,
+  windShown = false,
+}: SightScreenProps) {
   const environment = useEnvironment();
   const store = useStore();
   const { open } = useVigia();
@@ -100,7 +107,7 @@ export function SightScreen({ onBack, onAdded, onTrySimulator }: SightScreenProp
       )}
       {source.kind === 'device' ? (
         <>
-          <GuidanceBlock collapsed={captureCount > 0} windShown={false} />
+          <GuidanceBlock collapsed={captureCount > 0} windShown={windShown} />
           <DeviceSighting
             createSource={source.createSource}
             cameraSurface={source.cameraSurface}
@@ -121,7 +128,7 @@ export function SightScreen({ onBack, onAdded, onTrySimulator }: SightScreenProp
         <>
           {source.render(onSession)}
           <p style={LOOK.dim}>{SIMULATION_VALUES_TEXT}</p>
-          <GuidanceBlock collapsed={captureCount > 0} windShown={false} />
+          <GuidanceBlock collapsed={captureCount > 0} windShown={windShown} />
         </>
       )}
     </section>

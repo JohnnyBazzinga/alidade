@@ -44,16 +44,22 @@ export function relabelCode(
 /**
  * The item as a code of the Incident `incidentId`: the same item when it already is, else its
  * Sighting relabelled and its code made again. A code made under a former id reaches the Incident
- * that holds it through this.
+ * that holds it through this. An item that holds a number that is not finite is `invalid_number`
+ * naming `item`, in both branches: the relabelled item keeps the other fields as they are (Req 2.1;
+ * the counterexample of P-2.6, seed 456561989). When the item is relabelled, a parameter that is not
+ * valid is named first (Req 19.3; seed 679858833).
  */
 export function relabelItem(
   item: InboxItem,
   incidentId: string,
   parameters: VigiaParameters,
 ): VigiaResult<InboxItem> {
-  if (item.sighting.incidentId === incidentId) {
-    return hasOnlyFiniteNumbers(item) ? ok(item) : err('invalid_number', { field: 'item' });
+  if (item.sighting.incidentId !== incidentId) {
+    const checked = checkParameters(parameters);
+    if (!checked.ok) return checked;
   }
+  if (!hasOnlyFiniteNumbers(item)) return err('invalid_number', { field: 'item' });
+  if (item.sighting.incidentId === incidentId) return ok(item);
   const code = relabelCode(item.code, incidentId, parameters);
   if (!code.ok) return code;
   return ok({ ...item, code: code.value, sighting: { ...item.sighting, incidentId } });

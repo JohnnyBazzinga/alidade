@@ -38,6 +38,8 @@ export interface OverlayState {
 export interface OverlayContext {
   readonly observers: readonly Position[];
   readonly fix: Position | null;
+  /** The semi-major axis of the Fix's 95 % ellipse, metres; `0` with no Fix. */
+  readonly clearRadiusM: number;
   readonly lineLengthM: number;
 }
 

@@ -131,6 +131,12 @@ const SOURCES: readonly string[] = [
   'src/overlays/shared/components/OverlayPanel.tsx',
   'src/overlays/shared/components/SourcesList.tsx',
   'src/overlays/shared/math/overlay-types.ts',
+  // task group 17
+  'src/overlays/wind/components/wind-controller.ts',
+  'src/overlays/wind/components/wind-definition.ts',
+  'src/overlays/wind/math/wind-features.ts',
+  'src/overlays/wind/math/wind-parse.ts',
+  'src/overlays/wind/math/wind-words.ts',
   // task 13.6
   'src/components/EmergencyScreen.tsx',
   'src/components/PrivacyPage.tsx',
@@ -160,6 +166,10 @@ const VIEWS: Readonly<Record<string, View>> = Object.fromEntries(
     return [p, views(text)];
   }),
 );
+
+const WIND_CONTROLLER = 'src/overlays/wind/components/wind-controller.ts';
+/** The wind fixture as the controller's import resolves (relative to the package). */
+const WIND_FIXTURE = 'fixtures/open-meteo-sample.json?raw';
 
 /** What a rule probe starts from when its path is not a real source yet. */
 const THROWAWAY = 'export const probe = 1;\n';
@@ -243,6 +253,7 @@ const DEG_FILES = [
   'src/math/code/sighting-code.ts',
   'src/math/network/request-boxes.ts',
   'src/overlays/wind/math/wind-parse.ts',
+  'src/overlays/wind/math/wind-words.ts',
   'src/math/fix/fix-words.ts',
   'src/math/fix/emergency-text.ts',
   'src/math/fix/format.ts',
@@ -521,11 +532,22 @@ const RULES: readonly Rule[] = [
       specifiers(v.code).some((s) => {
         const target = resolveImport(p, s);
         if (target === null) return false;
+        // The one exception: the wind controller reads the synthetic wind fixture for Simulation mode.
+        if (p === WIND_CONTROLLER && target === WIND_FIXTURE) return false;
         return !/^src\/(?:overlays|math|adapters|components)(?:\/|$)|^src\/result$/.test(target);
       }),
     probe: {
       path: 'src/overlays/wind/math/probe.ts',
       token: "\nimport { x } from '../../../App';\n",
+    },
+  },
+  {
+    name: 'the synthetic wind fixture is read by the wind controller alone (Req 13.1, 17.4)',
+    applies: notExactly(WIND_CONTROLLER),
+    violates: scan('code', /fixtures\/open-meteo-sample/),
+    probe: {
+      path: 'src/App.tsx',
+      token: "\nimport sample from '../fixtures/open-meteo-sample.json?raw';\n",
     },
   },
   {
