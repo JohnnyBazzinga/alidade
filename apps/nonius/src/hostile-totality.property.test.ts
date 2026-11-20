@@ -47,6 +47,28 @@ import {
   subsolarPoint,
   sunPosition,
 } from './math/sun/sun-wrapper';
+import { circleArc } from './math/sphere/circle-arc';
+import {
+  axisWords,
+  calibrationText,
+  compassWord8,
+  distanceText,
+  lengthText95,
+  nauticalText,
+  positionDecimals,
+  positionText,
+  sigmaDegText,
+} from './math/fix/format';
+import { fixWords, oneSightWords, placeWords } from './math/fix/fix-words';
+import { compare } from './math/fix/comparison';
+import { mapModel } from './math/fix/map-model';
+import {
+  applyAction,
+  checkIndexError,
+  emptyState,
+  type NoniusState,
+} from './math/state/apply-action';
+import { parseStoredState, serialiseState } from './math/state/storage-format';
 import { checkParameters, defaultParameters, type NoniusParameters } from './math/parameters';
 import { NONIUS_REASONS } from './reasons';
 import { altitudeCapture } from './test-support/captures';
@@ -409,6 +431,68 @@ function firstBadField(p: NoniusParameters): string | null {
 
 // --- the list --------------------------------------------------------------------------------
 
+/**
+ * An Assessment of any kind built from hostile parts (the shapes of design §5; the numbers are
+ * hostile, the structure is not). Domain: each kind one time in five.
+ */
+export function hostileAssessment(): fc.Arbitrary<Assessment> {
+  const choice = fc.oneof(
+    fc.constant({ kind: 'single' as const }),
+    fc.record({ kind: fc.constant('other_failed' as const), compassDisagrees: fc.boolean() }),
+    fc.record({
+      kind: fc.constant('fit' as const),
+      worstMissRad: hostileNumber(),
+      compassDisagreedWithBoth: fc.boolean(),
+    }),
+    fc.record({
+      kind: fc.constant('sun_side' as const),
+      sightId: hostileString(),
+      measuredTrueAzimuthRad: hostileNumber(),
+      otherAzimuthRad: hostileNumber(),
+      otherDistanceM: hostileNumber(),
+    }),
+    fc.record({
+      kind: fc.constant('user' as const),
+      label: fc.constantFrom('A' as const, 'B' as const),
+      otherDistanceM: hostileNumber(),
+      otherAzimuthRad: hostileNumber(),
+    }),
+  );
+  const place = (label: 'A' | 'B') =>
+    fc.record({ label: fc.constant(label), fix: hostileFix(), check: hostileFix() });
+  const common = { calibration: hostileCalibration(), setAside: fc.constant([]) };
+  const used = fc.array(hostilePrepared(), { maxLength: 3 });
+  return fc.oneof(
+    fc.record({ kind: fc.constant('empty' as const), ...common }),
+    fc.record({ kind: fc.constant('one' as const), sight: hostilePrepared(), ...common }),
+    fc.record({
+      kind: fc.constant('failed' as const),
+      failure: fc.constant({ ok: false as const, reason: 'not_converged' as const }),
+      used,
+      ...common,
+    }),
+    fc.record({
+      kind: fc.constant('two_places' as const),
+      places: fc.tuple(place('A'), place('B')),
+      distanceM: hostileNumber(),
+      why: fc.constant(['two_sights' as const]),
+      usedIdsKey: hostileString(),
+      used,
+      ...common,
+    }),
+    fc.record({
+      kind: fc.constant('fix' as const),
+      fix: hostileFix(),
+      check: hostileFix(),
+      choice,
+      disagreement: fc.boolean(),
+      usedIdsKey: hostileString(),
+      used,
+      ...common,
+    }),
+  ) as unknown as fc.Arbitrary<Assessment>;
+}
+
 export const HOSTILE_LIST: readonly HostileEntry[] = [
   hostileEntry(
     'messageFor',
@@ -659,6 +743,124 @@ export const HOSTILE_LIST: readonly HostileEntry[] = [
   hostileEntry('ruleOfThumb', fc.tuple(hostileParameters()), ruleOfThumb, (_a, r) => {
     expect(String(r)).not.toMatch(/NaN|Infinity|undefined|null/);
   }),
+  // Task group 8.
+  hostileEntry('lengthText95', fc.tuple(hostileNumber()), lengthText95),
+  hostileEntry('nauticalText', fc.tuple(hostileNumber()), nauticalText),
+  hostileEntry('distanceText', fc.tuple(hostileNumber()), distanceText),
+  hostileEntry('positionDecimals', fc.tuple(hostileNumber()), positionDecimals),
+  hostileEntry('positionText', fc.tuple(hostilePosition(), hostileNumber()), positionText),
+  hostileEntry('compassWord8', fc.tuple(hostileNumber()), compassWord8),
+  hostileEntry('axisWords', fc.tuple(hostileNumber()), axisWords),
+  hostileEntry('sigmaDegText', fc.tuple(hostileNumber()), sigmaDegText),
+  hostileEntry(
+    'calibrationText',
+    fc.tuple(hostileCalibration(), hostileTime(), hostileParameters()),
+    calibrationText,
+    ([, , p], r) => expectParametersFirst(p, r),
+  ),
+  hostileEntry(
+    'oneSightWords',
+    fc.tuple(hostilePrepared(), hostileParameters()),
+    oneSightWords,
+    ([, p], r) => expectParametersFirst(p, r),
+  ),
+  hostileEntry(
+    'placeWords',
+    fc.tuple(
+      fc.record({
+        label: fc.constantFrom('A' as const, 'B' as const),
+        fix: hostileFix(),
+        check: hostileFix(),
+      }),
+      hostileParameters(),
+    ),
+    placeWords,
+    ([, p], r) => expectParametersFirst(p, r),
+  ),
+  hostileEntry(
+    'fixWords',
+    fc.tuple(hostileAssessment(), hostileTime(), hostileParameters()),
+    fixWords,
+    ([, , p], r) => expectParametersFirst(p, r),
+  ),
+  hostileEntry(
+    'circleArc',
+    fc.tuple(
+      hostilePosition(),
+      hostileNumber(),
+      hostilePosition(),
+      hostileNumber(),
+      hostileNumber(),
+    ),
+    circleArc,
+  ),
+  hostileEntry(
+    'compare',
+    fc.tuple(hostileFix(), hostilePosition(), hostileParameters()),
+    compare,
+    ([, , p], r) => expectParametersFirst(p, r),
+  ),
+  hostileEntry(
+    'mapModel',
+    fc.tuple(
+      hostileAssessment(),
+      fc.oneof(
+        fc.constant(null),
+        fc.record({
+          gps: hostilePosition(),
+          distanceM: hostileNumber(),
+          azimuthRad: hostileNumber(),
+          mahalanobisSquared: hostileNumber(),
+          inside: fc.boolean(),
+        }),
+      ),
+      hostileParameters(),
+    ),
+    mapModel,
+    ([, , p], r) => expectParametersFirst(p, r),
+  ),
+  // The state of the reducer is what Storage validated: hostile numbers arrive through actions,
+  // and a `reload` carries the empty state (the parser's output is validated by its own entry).
+  hostileEntry(
+    'applyAction',
+    fc.tuple(
+      fc.constant<NoniusState>(emptyState()),
+      fc.oneof(
+        fc.record({ kind: fc.constant('capture' as const), sight: hostileSight() }),
+        fc.record({ kind: fc.constant('delete' as const), id: hostileString() }),
+        fc.constant({ kind: 'start_again' as const }),
+        fc.record({
+          kind: fc.constant('save_index_error' as const),
+          indexError: hostileIndexError(),
+        }),
+        fc.constant({ kind: 'remove_index_error' as const }),
+        fc.constant({ kind: 'reload' as const, state: emptyState() }),
+      ),
+      hostileParameters(),
+    ),
+    applyAction,
+  ),
+  hostileEntry('checkIndexError', fc.tuple(hostileIndexError(), hostileParameters()), (e, p) => ({
+    ok: true,
+    value: checkIndexError(e, p) === null,
+  })),
+  hostileEntry('emptyState', fc.constant<[]>([]), emptyState),
+  hostileEntry(
+    'serialiseState',
+    fc.tuple(
+      fc.record({
+        sights: fc.array(hostileSight(), { maxLength: 3 }),
+        indexError: fc.oneof(fc.constant(null), hostileIndexError()),
+      }),
+    ),
+    serialiseState,
+  ),
+  hostileEntry(
+    'parseStoredState',
+    fc.tuple(fc.oneof(fc.constant(null), hostileString(), fc.json()), hostileParameters()),
+    parseStoredState,
+    ([, p], r) => expectParametersFirst(p, r),
+  ),
   hostileEntry('defaultParameters', fc.constant<[]>([]), defaultParameters),
   hostileEntry(
     'checkParameters',

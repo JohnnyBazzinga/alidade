@@ -96,7 +96,9 @@ unmounts.
 />
 ```
 
-`cameraRequest`, `onSession`, `onStreamSize` and `observe` are optional. The Playground is built on it.
+`cameraRequest`, `kind`, `onSession`, `onStreamSize` and `observe` are optional. `kind` is
+`'bearing'` (the default) or `'altitude'` (a Session that captures an altitude and asks for no
+position); keep it stable between renders. The Playground is built on it.
 
 ## No defaults for the camera
 

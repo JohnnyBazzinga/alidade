@@ -16,7 +16,7 @@ import type { CameraSurface } from '../adapters/camera/camera-surface';
 import type { CameraCalibration } from '../math/camera-calibration';
 import type { SourceSize } from '../math/image-layout';
 import type { SessionParameters } from '../math/session/parameters';
-import type { Session } from '../math/session/session';
+import type { Session, SessionKind } from '../math/session/session';
 import type { ActionRequest } from '../math/session/session-events';
 import { CameraImage } from './CameraImage';
 import type { ObserveElementSize } from './dom-size';
@@ -38,6 +38,11 @@ export interface DeviceSightingProps {
   readonly tapSigmaPx: number;
   /** The camera's requested size; the default asks for the rear camera and nothing else. */
   readonly cameraRequest?: CameraStartRequest;
+  /**
+   * What the Session captures: a `bearing` (the default; Vigia) or an `altitude` (Nonius, which asks
+   * for no position). Must be stable between renders: a new kind restarts the Session.
+   */
+  readonly kind?: SessionKind;
   /** Called with every new Session. */
   readonly onSession?: (session: Session) => void;
   /** Called with the running stream's size, and with `null` when there is none. */
@@ -50,12 +55,13 @@ const NO_REQUEST: CameraStartRequest = {};
 export function DeviceSighting(props: DeviceSightingProps) {
   const { createSource, cameraSurface, timer, parameters, onSession, onStreamSize } = props;
   const cameraRequest = props.cameraRequest ?? NO_REQUEST;
+  const kind = props.kind ?? 'bearing';
   const created = useMemo(() => createSource(), [createSource]);
   const source = created.ok ? created.value : null;
   const adapter = useMemo(() => createCameraAdapter(cameraSurface), [cameraSurface]);
   const [stream, setStream] = useState<CameraStream | null>(null);
   const [size, setSize] = useState<SourceSize | null>(null);
-  const sighting = useSightingSession({ source, kind: 'bearing', parameters, timer });
+  const sighting = useSightingSession({ source, kind, parameters, timer });
   const { camera } = sighting;
 
   useEffect(() => () => source?.stop(), [source]);

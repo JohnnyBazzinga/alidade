@@ -212,7 +212,7 @@ Criteria no test cites by number are listed with what covers them.
 | 18.7 | purity |
 | 18.8 | *not cited:* playground/Playground.integration (every alert equals a `messageFor` text) |
 | 18.9 | playground/Playground.integration |
-| 18.10 | components/DeviceSighting, playground/Playground.integration (the Playground's device-mode tests, unchanged) |
+| 18.10 | components/DeviceSighting (the `kind` tests of task group 32: an altitude Session, the capture equal to Sensors' `captureAltitude`, no `startPosition`; no `kind` gives a bearing Session), playground/Playground.integration (the Playground's device-mode tests, unchanged) |
 | 18.11 | playground/Playground.integration (device mode: the sighting screen first, the calibration form after it in a closed `details`; simulator mode unchanged) |
 | 19.1 | defaults, math/session/parameters |
 | 19.2 | math/session/parameters |

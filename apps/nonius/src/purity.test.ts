@@ -89,6 +89,14 @@ const SOURCES: readonly string[] = [
   'src/math/fix/shared-error.ts',
   'src/math/fix/solve-candidate.ts',
   'src/math/sphere/circle-crossings.ts',
+  // task group 8
+  'src/math/fix/comparison.ts',
+  'src/math/fix/fix-words.ts',
+  'src/math/fix/format.ts',
+  'src/math/fix/map-model.ts',
+  'src/math/sphere/circle-arc.ts',
+  'src/math/state/apply-action.ts',
+  'src/math/state/storage-format.ts',
 ];
 
 const VIEWS: Readonly<Record<string, View>> = Object.fromEntries(

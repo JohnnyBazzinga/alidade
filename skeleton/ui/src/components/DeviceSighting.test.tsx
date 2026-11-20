@@ -3,6 +3,7 @@
 // fakes of the package: the Simulator as the Sensor source, a fake Timer, a fake camera surface.
 
 import {
+  captureAltitude,
   createSimulator,
   type SensorSource,
   type SimulatorControls,
@@ -12,7 +13,7 @@ import { act, fireEvent, render, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { defaultSessionParameters } from '../math/session/parameters';
 import { buildCatalogue } from '../math/scene/catalogue';
-import type { Session } from '../math/session/session';
+import type { Session, SessionKind } from '../math/session/session';
 import { messageFor } from '../math/messages';
 import { FakeCameraSurface } from '../test-support/fake-camera-surface';
 import { fakeObserver } from '../test-support/fake-observe';
@@ -28,12 +29,24 @@ const steady = catalogue.value.find((c) => c.scene.id === 'steady');
 const station = steady?.scene.stations[0];
 const script = station === undefined ? undefined : steady?.scripts[station.id];
 if (script === undefined) throw new Error('the steady scene has no script');
-const SCRIPT: SimulatorScript = script;
+const steadyScript: SimulatorScript = script;
 
-function mount() {
+const sunScene = catalogue.value.find((c) => c.scene.id === 'sun');
+const sunStation = sunScene?.scene.stations[0];
+const sunScript = sunStation === undefined ? undefined : sunScene?.scripts[sunStation.id];
+if (sunScript === undefined) throw new Error('the sun scene has no script');
+const SUN_SCRIPT: SimulatorScript = sunScript;
+
+function mount(options: { readonly kind?: SessionKind; readonly script?: SimulatorScript } = {}) {
+  const SCRIPT = options.script ?? steadyScript;
   const timer = new FakeTimer();
   const camera = new FakeCameraSurface();
-  const sensors = { controls: null as SimulatorControls | null, permissionCalls: 0, stops: 0 };
+  const sensors = {
+    controls: null as SimulatorControls | null,
+    permissionCalls: 0,
+    positionCalls: 0,
+    stops: 0,
+  };
   const createSource = () => {
     const sim = createSimulator(SCRIPT, 1, OPTIONS);
     if (!sim.ok) return sim;
@@ -44,6 +57,10 @@ function mount() {
       requestOrientationPermission: () => {
         sensors.permissionCalls += 1;
         return real.requestOrientationPermission();
+      },
+      startPosition: () => {
+        sensors.positionCalls += 1;
+        return real.startPosition();
       },
       stop: () => {
         sensors.stops += 1;
@@ -61,6 +78,7 @@ function mount() {
       timer={timer}
       parameters={PARAMETERS}
       calibration={null}
+      {...(options.kind === undefined ? {} : { kind: options.kind })}
       tapSigmaPx={Number.NaN}
       cameraRequest={{}}
       onSession={onSession}
@@ -166,5 +184,44 @@ describe('DeviceSighting (Req 18.10)', () => {
     m.unmount();
     await m.settle(() => m.camera.release());
     expect(m.camera.streams.every((s) => s.tracks.every((t) => t.stopped))).toBe(true);
+  });
+});
+
+describe('DeviceSighting kind (skeleton-ui task group 32, Req 18.10 as amended)', () => {
+  it('with kind altitude, reports an altitude Session and captures what Sensors computes', async () => {
+    const m = mount({ kind: 'altitude', script: SUN_SCRIPT });
+    await m.settle();
+    await m.press('start');
+    expect(m.sensors.permissionCalls).toBe(1);
+    await m.advance(1500);
+    await m.press('freeze');
+    await m.press('capture');
+    expect(m.state()).toBe('captured');
+    const last = m.sessions[m.sessions.length - 1];
+    expect(last?.kind).toBe('altitude');
+    const captured = last?.captured;
+    const frozen = m.sessions.filter((x) => x.state === 'frozen').pop()?.frozen;
+    if (captured?.kind !== 'altitude' || frozen === null || frozen === undefined) {
+      throw new Error('no altitude capture');
+    }
+    const expected = captureAltitude({
+      samples: frozen.history.samples,
+      window: frozen.window,
+      calibration: PARAMETERS.altitudeCalibration,
+    });
+    if (!expected.ok) throw new Error(expected.reason);
+    expect(captured.altitude.apparentAltitudeRad).toBe(expected.value.apparentAltitudeRad);
+    expect(Math.abs(captured.altitude.apparentAltitudeRad)).toBeGreaterThan(0.3);
+    expect(m.sensors.positionCalls).toBe(0);
+  });
+
+  it('with no kind, is a bearing Session and asks for a position, as before', async () => {
+    const m = mount();
+    await m.settle();
+    await m.press('start');
+    await m.advance(1500);
+    const last = m.sessions[m.sessions.length - 1];
+    expect(last?.kind).toBe('bearing');
+    expect(m.sensors.positionCalls).toBeGreaterThan(0);
   });
 });
