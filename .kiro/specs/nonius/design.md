@@ -464,7 +464,7 @@ Task 10 computes each scene's numbers (the 95 % axes, the class, the Studentised
 | P-4.12        | Sight from capture; corrected altitude and sigmas                       | captures and calibrations of Req 4.12                                                       |
 | P-5.8         | partials: analytic at the centre, step-consistent elsewhere             | `truthArb(85)`, `timeArb(2026, 2029)`, origins within 1 000 km                              |
 | P-5.9         | noise-free residual below `1e-9`                                        | as P-5.8                                                                                    |
-| P-5.10        | noise-free Fix within `0.1 m`                                           | `sightTimesArb(…, 2 to 8, 24, 20)`, start within 300 km                                     |
+| P-5.10        | noise-free Fix within `0.1 m`                                           | `sightTimesArb(…, 2 to 8, 24, 20)`, start within 100 km                                     |
 | P-6.9, P-6.10 | never the mirror place alone; order-free                                | `sightTimesArb(…, 2 to 8, 24, 20)`, Sun side at random                                      |
 | P-7.3, P-8.5  | coverage and false alarms, by band (statistical, seed an argument; D22) | `truthArb(70)`, `sightTimesArb(…, 2 to 6, 2 to 9, 0)`, `noisySights`                        |
 | P-8.6         | one wrong Sight, shares reported                                        | as P-7.3 with one Sight off by `3°` to `20°`                                                |
@@ -477,6 +477,8 @@ Task 10 computes each scene's numbers (the 95 % axes, the class, the Studentised
 | P-11.6        | inside test agrees with `fixFeatures`'s polygon                         | covariances of Req 11.6                                                                     |
 | P-12.7        | reducer and storage over action sequences                               | 0 to 200 actions on a fake Storage                                                          |
 | P-15.8        | Index error equals the bias; sigma formula; the corrected Fix           | `truthArb(80)`, `timeArb(2026, 2029)`, `b` in `[−10°, 10°]` (`1e-6` inside), 1 to 10 sights |
+
+*P-5.10 (2026-11-21): the start is within `100 km`, not `300 km`, as Requirement 5.10 now says: the solve is local, one noise-free set (a hunt found it, seed 716968603) ends in a second minimum 569 km from the truth when started 300 km due north, and the app starts from the Candidates of Requirement 6.2, which P-6.9 holds; the set is the example test `known-local-minimum.test.ts`.*
 
 Example tests: the fixture rows of Req 3.4 and 4.10; each reason's Message; Req 6.11's three cases; the rule of thumb's sentence; D23's radius check; each scene's end (§10).
 

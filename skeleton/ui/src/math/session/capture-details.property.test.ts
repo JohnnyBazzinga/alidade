@@ -9,7 +9,8 @@ import { describe, expect, it } from 'vitest';
 import { cappedRuns } from '../../test-support/fast-check-setup';
 import { closed, layoutCase, pointInOffsetSpace, uniform } from '../../test-support/generators';
 import { checkProperty, ErrorTracker } from '../../test-support/property-report';
-import { scriptHistory } from '../../test-support/script-history';
+import { buildHistoryFromRun, type ScriptRun } from '../../test-support/history-from-script';
+import { scriptHistory, scriptRun } from '../../test-support/script-history';
 import {
   FIXTURE_DECLINATION,
   PARAMETERS,
@@ -26,33 +27,106 @@ import { step } from './step';
  * addition: the way north is set, one of none (it then holds only on the Absolute frame), the
  * compass, a known true azimuth, a known magnetic azimuth (azimuth in [0, 2π), 1-sigma in
  * [0.01°, 5°]); and the Mark present or not. Cases whose freeze fails are discarded.
+ *
+ * Two branches, drawn first (`oneof`, weights 2 and 1), so that the outcome kinds the reach check
+ * demands are reached by construction and not by chance:
+ * - `free`: the whole domain above, as before. The compass succeeds there in about 1 case in 100
+ *   (a Relative frame, a heading, no reset in the window, the camera within 30° of the horizon
+ *   for the whole window), which at 200 cases left the kind unreached about one run in eight.
+ * - `compass`: a bearing Session whose way of setting north is the compass, on a script that the
+ *   compass accepts: the drawn script with its frame made Relative and its resets removed, a
+ *   heading present with an accepted accuracy, and every drawn altitude (keyframes and aims)
+ *   clamped to ±20° (the limit is 30°, and the noise and bias are at most 1° and 5°). Everything
+ *   else (seed, times, noise, bias, Declination, fix, Mark, tap sigma) is as drawn. The branch
+ *   adds cases to the domain; it removes none.
  */
-const detailsCase = scriptHistory(false, true, 1300)
-  .filter((h) => h.run.script.screenAngleDeg === 0)
-  .chain((h) =>
-    fc.record({
-      h: fc.constant(h),
-      kind: fc.constantFrom('bearing' as const, 'altitude' as const),
-      point: layoutCase().chain((c) => pointInOffsetSpace(c)),
-      tapSigmaPx: closed(0, 50),
-      withMark: fc.boolean(),
-      // Weighted towards the compass, which succeeds only on a Relative frame with a heading and
-      // a level camera; every way of setting north stays in the domain.
-      yaw: fc.oneof(
-        { weight: 1, arbitrary: fc.constant(null) },
-        { weight: 3, arbitrary: fc.constant<YawSource>({ kind: 'compass' }) },
-        {
-          weight: 2,
-          arbitrary: fc.record({
-            kind: fc.constant('knownAzimuth' as const),
-            azimuthRad: uniform(0, 2 * Math.PI),
-            sigmaRad: closed((0.01 * Math.PI) / 180, (5 * Math.PI) / 180),
-            northReference: fc.constantFrom('true' as const, 'magnetic' as const),
-          }),
-        },
-      ),
-    }),
-  );
+const DEG = Math.PI / 180;
+const COMPASS_ALTITUDE_CLAMP_RAD = 20 * DEG;
+const clampAltitude = (x: number): number =>
+  Math.max(-COMPASS_ALTITUDE_CLAMP_RAD, Math.min(COMPASS_ALTITUDE_CLAMP_RAD, x));
+
+/** The drawn run, made one the compass accepts (see the domain above). */
+function compassAccepted(run: ScriptRun): ScriptRun {
+  const script = run.script;
+  const zeroRad = script.frame.kind === 'relative' ? script.frame.zeroRad : 0;
+  return {
+    ...run,
+    script: {
+      ...script,
+      frame: { kind: 'relative', zeroRad, resets: [] },
+      heading: {
+        biasRad: script.heading?.biasRad ?? 0,
+        noiseSigmaRad: script.heading?.noiseSigmaRad ?? 0,
+        jumps: script.heading?.jumps ?? [],
+        reportedAccuracyDeg: 10,
+      },
+      pose: script.pose.map((k) => ({
+        ...k,
+        apparentAltitudeRad: clampAltitude(k.apparentAltitudeRad),
+      })),
+    },
+    steps: run.steps.map((st) => ({
+      ...st,
+      aim:
+        st.aim === null
+          ? null
+          : { ...st.aim, apparentAltitudeRad: clampAltitude(st.aim.apparentAltitudeRad) },
+    })),
+  };
+}
+
+const freeHistory = scriptHistory(false, true, 1300).filter(
+  (h) => h.run.script.screenAngleDeg === 0,
+);
+const compassHistory = scriptRun(false, true, 1300)
+  .filter((run) => run.script.screenAngleDeg === 0)
+  .map(compassAccepted)
+  .map((run) => ({ run, built: buildHistoryFromRun(run) }));
+
+const markFields = {
+  point: layoutCase().chain((c) => pointInOffsetSpace(c)),
+  tapSigmaPx: closed(0, 50),
+  withMark: fc.boolean(),
+};
+
+const detailsCase = fc.oneof(
+  {
+    weight: 2,
+    arbitrary: freeHistory.chain((h) =>
+      fc.record({
+        h: fc.constant(h),
+        kind: fc.constantFrom('bearing' as const, 'altitude' as const),
+        ...markFields,
+        // Weighted towards the compass, which succeeds only on a Relative frame with a heading and
+        // a level camera; every way of setting north stays in the domain.
+        yaw: fc.oneof(
+          { weight: 1, arbitrary: fc.constant(null) },
+          { weight: 3, arbitrary: fc.constant<YawSource>({ kind: 'compass' }) },
+          {
+            weight: 2,
+            arbitrary: fc.record({
+              kind: fc.constant('knownAzimuth' as const),
+              azimuthRad: uniform(0, 2 * Math.PI),
+              sigmaRad: closed((0.01 * Math.PI) / 180, (5 * Math.PI) / 180),
+              northReference: fc.constantFrom('true' as const, 'magnetic' as const),
+            }),
+          },
+        ),
+      }),
+    ),
+  },
+  {
+    weight: 1,
+    arbitrary: compassHistory.chain((h) =>
+      fc.record({
+        h: fc.constant(h),
+        kind: fc.constant('bearing' as const),
+        ...markFields,
+        yaw: fc.constant<YawSource>({ kind: 'compass' }),
+      }),
+    ),
+  },
+);
 
 // P-12.6 (Req 12.6, 13.5), a design property: what a captured result carries is the number Sensors
 // used, to the last bit. For a bearing, Sensors' sigma (with the Mark's Ray offset when there is

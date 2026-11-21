@@ -13,7 +13,9 @@ const params = defaultParameters();
 
 describe('P-5.10: the re-centred solve of noise-free sights (Req 5.10)', () => {
   // Generator: truth latitude in [-80°, 80°]; 2 to 8 times within 24 hours of a start in 2026 to
-  // 2029; a start within 300 km of the truth (bearing uniform, distance uniform in [0, 300 km]).
+  // 2029; a start within 100 km of the truth (bearing uniform, distance uniform in [0, 100 km]; 300 km
+  // until 2026-11-21, when Req 5.10 was amended: from 300 km due north one set ends in a second
+  // minimum 569 km away, kept as an example test in `known-local-minimum.test.ts`).
   // Discarded and counted: a set with the Sun outside [5°, 80°] at a time, or whose largest
   // Angle of cut at the truth is under 20°.
   it('returns a Fix within 0.1 m of the true Position', () => {
@@ -24,7 +26,7 @@ describe('P-5.10: the re-centred solve of noise-free sights (Req 5.10)', () => {
         truthArb(80),
         rawTimesArb(2, 8, 0.5, 24),
         fc.double({ min: 0, max: 2 * Math.PI, noNaN: true }),
-        fc.double({ min: 0, max: 300_000, noNaN: true }),
+        fc.double({ min: 0, max: 100_000, noNaN: true }),
         (truth, times, bearing, offsetM) => {
           fc.pre(usableTimes(truth, times, 20, params));
           const prepared = preparedAt(truth, times, params);
