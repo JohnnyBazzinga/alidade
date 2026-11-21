@@ -40,6 +40,8 @@ export const LOOK = {
   text,
   /** Text of lesser weight: a time, a source. */
   dim: { ...text, color: COLOURS.inkDim } satisfies CSSProperties,
+  /** A sentence that must stay as prominent as a readout: the body stack at the readout's size (D24). */
+  statement: { ...text, fontSize: SIZES.labelPx, lineHeight: 1.35 } satisfies CSSProperties,
   /** A readout: the position, a direction, the Emergency text (UI's readout size). */
   readout: {
     ...text,

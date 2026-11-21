@@ -124,7 +124,7 @@ describe('SmokeScreen in every state (design §9)', () => {
       e.getAttribute('data-testid'),
     );
     expect(order.indexOf('disagreement')).toBeLessThan(order.indexOf('fix-headline'));
-    expect(order.indexOf('disagreement')).toBe(order.indexOf('smoke-header') + 1);
+    expect(order.indexOf('disagreement')).toBe(order.indexOf('not-calling') + 1);
     expect(s.getByTestId('fix-headline').textContent).toMatch(
       /^Best fit of sightings that do not agree/,
     );
@@ -171,7 +171,8 @@ describe('SmokeScreen in every state (design §9)', () => {
   it('says when the smoke was started, and how many sightings it holds and uses', () => {
     const incident = postsIncident(['west', 'east', 'side'], (_p, i) => ({ hidden: i === 2 }));
     const s = show([incident]);
-    const header = s.getByTestId('smoke-header').textContent ?? '';
+    // Task 23.6: the header is the first lines of "Details and limits" (Req 6.12).
+    const header = s.getAllByText(/Smoke started/)[0]?.closest('details')?.textContent ?? '';
     expect(header).toContain('UTC');
     expect(header).toContain('3 sightings, 2 used');
   });

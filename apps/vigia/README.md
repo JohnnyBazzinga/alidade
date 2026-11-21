@@ -33,6 +33,21 @@ instead" when no sensor reading arrives. The page has no service worker, so it m
 with a connection; after that the sighting, the position, the Emergency text and the text code work
 with no connection.
 
+## The screens on a phone
+
+The Sight screen is one column the height of the screen: Back, one line ("Aim at the base of the
+smoke") with "How to aim", the camera, the compact readout, and at the foot the one action to take
+now (Start, "Set north from the compass", Freeze, Capture). The first sighting starts the smoke and
+the Smoke screen opens with "Sighting saved" and "Send this sighting"; with a smoke open you are
+asked whether it is the same smoke. The Smoke screen's first view is the position with its 95 %
+radius, how many sightings it rests on, what to watch for and "Show on map"; everything else is under
+"Details and limits".
+
+Sharing starts from "Send this sighting" or from a sighting's Share: what the code shows is stated
+before you choose "Show QR code (someone beside you)" or "Send link (someone far away)"; the text
+code is under "Other ways (no connection)". A code received is a compact card: choose whether it is
+the same smoke, confirm, and the Smoke screen opens with the new result.
+
 ## Using it with another person
 
 Each person sights the smoke from where they stand; then one sends a sighting by link, QR code or

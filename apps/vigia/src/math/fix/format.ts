@@ -191,6 +191,16 @@ export function directionText(azimuthRad: number, sigmaRad: number): VigiaResult
 }
 
 /**
+ * `Sighting saved: 45.5° ± 2.0° (true)` (Req 4.11): the Bearing's direction with its sigma rounded
+ * up, and the word for its North reference, which a Bearing always has as true.
+ */
+export function savedLineText(azimuthRad: number, sigmaRad: number): VigiaResult<string> {
+  const direction = directionText(azimuthRad, sigmaRad);
+  if (!direction.ok) return direction;
+  return ok(`Sighting saved: ${direction.value} (true)`);
+}
+
+/**
  * A position accuracy (Req 3.6, 9.4), rounded up: whole metres below 1 000 m (at least `1 m`),
  * then as `lengthText95`. Fails with `invalid_number` naming `accuracyM` for an accuracy that is
  * not finite or below 0.

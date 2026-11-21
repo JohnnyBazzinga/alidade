@@ -70,6 +70,7 @@ import {
   axisWords,
   compassWord8,
   directionText,
+  savedLineText,
   lengthText95,
   lengthTextNearest,
   positionDecimals,
@@ -103,7 +104,7 @@ import { windTiming, windWords } from './overlays/wind/math/wind-words';
 import { tileSetupFromEnvironment } from './math/network/tile-setup';
 import { smokeScenes } from './math/scenes/smoke-scenes';
 import { initialMode, simulatorRequested } from './math/start-mode';
-import { reviewerPathLines, sightingGuidance } from './math/texts';
+import { countLineText, reviewerPathLines, sightingGuidance } from './math/texts';
 import { toDeg, fromDeg } from './math/degrees';
 import { checkParameters, defaultParameters, type VigiaParameters } from './math/parameters';
 import type { Incident } from './math/incident/incident-state';
@@ -885,6 +886,32 @@ export const HOSTILE_LIST: readonly HostileEntry[] = [
     },
   ),
   hostileEntry('compassWord8', fc.tuple(hostileNumber()), compassWord8),
+  // --- the first use on a phone (task 23) ---
+  hostileEntry(
+    'savedLineText',
+    fc.tuple(hostileNumber(), hostileNumber()),
+    savedLineText,
+    ([azimuthRad, sigmaRad], result) => {
+      const valid = Number.isFinite(azimuthRad) && sigmaRad > 0 && sigmaRad <= Math.PI;
+      expect(Reflect.get(result as object, 'ok')).toBe(valid);
+      if (valid) {
+        expect(Reflect.get(result as object, 'value')).toMatch(
+          /^Sighting saved: \d{1,3}\.\d° ± \d+\.\d° \(true\)$/,
+        );
+      }
+    },
+  ),
+  hostileEntry(
+    'countLineText',
+    fc.tuple(
+      fc.constantFrom('joined' as const, 'added' as const, 'opened' as const),
+      hostileNumber(),
+    ),
+    countLineText,
+    (_args, result) => {
+      expect(result).toMatch(/^(Joined|Added|New smoke opened): \d+ sightings?$/);
+    },
+  ),
   // --- the formatters of the screens (task 13.3) ---
   hostileEntry(
     'directionText',

@@ -49,7 +49,14 @@ export interface AppProps {
 }
 
 type Route =
-  | { readonly kind: 'tab'; readonly tab: TabId }
+  | {
+      readonly kind: 'tab';
+      readonly tab: TabId;
+      /** The Smoke screen right after a capture: "Sighting saved" and "Send this sighting" (Req 4.11). */
+      readonly saved?: string;
+      /** The Smoke screen right after a join, an add or a new smoke: its one line (Req 4.12). */
+      readonly line?: string;
+    }
   | { readonly kind: 'sight' }
   | { readonly kind: 'share'; readonly sightingId: string; readonly back: TabId }
   | { readonly kind: 'inbox'; readonly back: TabId }
@@ -146,7 +153,7 @@ function Shell({
       <SightScreen
         windShown={slot?.windShown ?? false}
         onBack={() => toTab('smoke')}
-        onAdded={() => toTab('smoke')}
+        onAdded={(sightingId) => setRoute({ kind: 'tab', tab: 'smoke', saved: sightingId })}
         {...(hasDeviceOrientation && onModeChange !== undefined
           ? { onTrySimulator: () => onModeChange('simulation') }
           : {})}
@@ -161,7 +168,12 @@ function Shell({
       />
     );
   } else if (route.kind === 'inbox') {
-    content = <InboxSheet onClose={() => toTab(route.back)} />;
+    content = (
+      <InboxSheet
+        onClose={() => toTab(route.back)}
+        onTaken={(line) => setRoute({ kind: 'tab', tab: 'smoke', line })}
+      />
+    );
   } else if (route.kind === 'privacy') {
     content = <PrivacyPage onBack={() => setRoute(route.back)} />;
   } else if (route.tab === 'sightings') {
@@ -179,6 +191,10 @@ function Shell({
     content = (
       <SmokeScreen
         onSight={() => setRoute({ kind: 'sight' })}
+        onShowMap={() => toTab('map')}
+        onSend={(sightingId) => setRoute({ kind: 'share', sightingId, back: 'smoke' })}
+        {...(route.saved === undefined ? {} : { saved: { sightingId: route.saved } })}
+        {...(route.line === undefined ? {} : { statusLine: route.line })}
         onInbox={inbox}
         onPrivacy={privacy}
         {...(reviewerPath === null ? {} : { reviewerPath })}
@@ -215,7 +231,9 @@ function Shell({
           minHeight: 0,
           overflowY: 'auto',
           overflowX: 'hidden',
-          padding: SIZES.gapPx * 1.5,
+          // The phone's Sight screen is the whole column, `100dvh` high (Req 3.10, D23.1): any
+          // padding would make the page scroll.
+          padding: route.kind === 'sight' && environment.mode === 'device' ? 0 : SIZES.gapPx * 1.5,
         }}
       >
         <PrimaryRowProvider value={primaryRow}>{content}</PrimaryRowProvider>

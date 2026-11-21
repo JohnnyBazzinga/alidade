@@ -31,7 +31,15 @@ export function QrImage({ matrix, link }: { readonly matrix: QrMatrix; readonly 
         aria-label="QR code of the sighting link"
         viewBox={`0 0 ${side} ${side}`}
         shapeRendering="crispEdges"
-        style={{ width: '100%', height: 'auto', display: 'block', background: LIGHT }}
+        // As large as the width allows, and no taller than what the screen leaves under the view's
+        // other rows (Back, the title, one line, the link), so that it is inside the first screen.
+        style={{
+          width: '100%',
+          height: 'auto',
+          maxHeight: 'calc(100dvh - 300px)',
+          display: 'block',
+          background: LIGHT,
+        }}
       >
         <rect x={0} y={0} width={side} height={side} fill={LIGHT} />
         <path d={path} fill={DARK} />

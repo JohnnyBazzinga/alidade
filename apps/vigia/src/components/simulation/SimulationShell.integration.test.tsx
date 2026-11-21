@@ -19,7 +19,7 @@ import { fireEvent, within } from '@testing-library/react';
 import { describe, expect, inject, it } from 'vitest';
 import { messageFor } from '../../math/messages';
 import { SIMULATION_TEXT } from '../../math/texts';
-import { QR_PURPOSE_TEXT } from '../../math/texts';
+import { QR_ONE_LINE_TEXT } from '../../math/texts';
 import { OVERLAYS } from '../../overlays';
 import { OVERLAYS as CUT } from '../../overlays-empty';
 import { featuresOf } from '../../test-support/fake-maplibre';
@@ -510,12 +510,15 @@ describe('while the browser reports offline (Req 17.6, 10.7)', () => {
         />,
         { href: 'https://app.example.test/', storedItems: storedWith([incident]) },
       );
-      await s.settle(() => fireEvent.click(s.getByRole('button', { name: 'Show QR code' })));
-      const qr = within(s.getByTestId('share-qr'));
+      // Task 23.7: the QR is a view of its own, with the one line beside it (Req 10.6, 10.7).
+      await s.settle(() =>
+        fireEvent.click(s.getByRole('button', { name: 'Show QR code (someone beside you)' })),
+      );
+      const qr = within(s.getByTestId('qr-view'));
       expect(qr.getByTestId('qr-link')).toBeTruthy();
-      expect(s.getByTestId('share-qr').querySelector('svg')).not.toBeNull();
-      expect(s.getByTestId('share-qr').querySelector('img')).toBeNull();
-      expect(s.getByTestId('share-qr').textContent).toContain(QR_PURPOSE_TEXT);
+      expect(s.getByTestId('qr-view').querySelector('svg')).not.toBeNull();
+      expect(s.getByTestId('qr-view').querySelector('img')).toBeNull();
+      expect(s.getByTestId('qr-view').textContent).toContain(QR_ONE_LINE_TEXT);
     } finally {
       Reflect.deleteProperty(navigator, 'onLine');
     }

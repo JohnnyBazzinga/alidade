@@ -31,18 +31,19 @@ P-8.10, P-9.6, P-9.7, P-10.9, P-10.10, P-11.9, P-13.6, P-14.8, P-14.9, P-15.9, P
 | 2.4 | math/messages |
 | 2.5 | components/FailureNotice, components/store, math/messages |
 | 2.6 | hostile-totality.property, math/assessment/assess, math/fix/format, math/incident/join, math/network/request-boxes |
-| 3.1 | components/SightScreen |
+| 3.1 | components/SightScreen, components/simulation/sight-first-screen (the docked column), components/SightScreen.simulator-offer |
 | 3.2 | components/SightScreen |
 | 3.3 | components/SightScreen |
 | 3.4 | adapters/random, components/SightScreen, components/store, math/incident/ids, math/incident/ids.property, math/incident/sighting |
 | 3.5 | components/SightScreen |
 | 3.6 | components/SightScreen, components/SightingsScreen, math/civil-time, math/fix/format |
-| 3.7 | components/SightScreen, components/common-parts |
+| 3.7 | components/SightScreen (the line and "How to aim"), components/common-parts (GuidanceBlock) |
 | 3.8 | components/SightScreen, components/store, math/incident/sighting |
 | 3.9 | math/incident/ids.property, math/incident/sighting |
+| 3.10 | components/simulation/sight-first-screen (device mode, docked: the column, the budget at 390 × 664 and 375 × 667), components/App (the route has no padding) |
 | 4.1 | adapters/random, math/incident/ids |
-| 4.2 | components/InboxSheet, components/SightScreen, components/store, math/incident/apply-action |
-| 4.3 | components/SightScreen, components/store, math/texts |
+| 4.2 | components/InboxSheet, components/SightScreen (a capture with no smoke open starts it), components/flow-next-step, components/store, math/incident/apply-action |
+| 4.3 | components/SightScreen (the question as a view of its own), components/store, math/texts |
 | 4.4 | adapters/storage, components/store |
 | 4.5 | components/SmokeScreen, components/store, math/incident/apply-action, math/incident/storage-format |
 | 4.6 | math/incident/merge |
@@ -50,6 +51,8 @@ P-8.10, P-9.6, P-9.7, P-10.9, P-10.10, P-11.9, P-13.6, P-14.8, P-14.9, P-15.9, P
 | 4.8 | components/InboxSheet, components/simulation/SimulationShell.integration, components/store, math/incident/incident-state.property, math/incident/join, math/incident/join.property |
 | 4.9 | components/InboxSheet, components/simulation/SimulationShell.integration, components/store, math/incident/join, math/incident/storage-format |
 | 4.10 | math/incident/join.property |
+| 4.11 | components/SmokeScreen.first-view (the saved line, "Send this sighting"), components/flow-next-step, math/fix/format (savedLineText), hostile-totality |
+| 4.12 | components/InboxSheet (Join, Add, Open: onTaken), components/flow-next-step, math/texts (countLineText) |
 | 5.1 | components/SightingsScreen, math/assessment/assess, math/assessment/assess.property |
 | 5.2 | components/SightingsScreen, math/assessment/assess, math/assessment/assess.property |
 | 5.3 | math/assessment/assess, math/assessment/assess.property |
@@ -74,6 +77,7 @@ P-8.10, P-9.6, P-9.7, P-10.9, P-10.10, P-11.9, P-13.6, P-14.8, P-14.9, P-15.9, P
 | 6.9 | math/fix/from-you, math/fix/geometry.property |
 | 6.10 | math/fix/fix-words.property |
 | 6.11 | components/MapScreen, math/fix/emergency-text, math/fix/fix-words, math/fix/map-model |
+| 6.12 | components/SmokeScreen.first-view (the first view, its words, the two disclosures), components/App ("Show on map") |
 | 7.1 | math/fix/geometry-class, math/fix/geometry.property |
 | 7.2 | components/SmokeScreen, math/fix/advice |
 | 7.3 | components/SmokeScreen, math/fix/advice |
@@ -113,6 +117,8 @@ P-8.10, P-9.6, P-9.7, P-10.9, P-10.10, P-11.9, P-13.6, P-14.8, P-14.9, P-15.9, P
 | 10.8 | components/ShareSheet, math/privacy-table |
 | 10.9 | math/assessment/assess, math/code/code-link, math/code/code-link.property, math/privacy-table, test-support/generators |
 | 10.10 | components/store.property, math/privacy-table |
+| 10.11 | components/ShareSheet (the order, the statement, the two choices, Other ways, the QR view), components/simulation/SimulationShell.integration |
+| 10.12 | components/flow-next-step (every view opens at the top), components/ShareSheet, components/InboxSheet |
 | 11.1 | adapters/network-gate, adapters/network-gate.property, purity |
 | 11.2 | math/network/host-list, purity |
 | 11.3 | adapters/network-gate, adapters/network-gate.property, hostile-totality.property, math/network/gate-decision, math/network/gate-decision.property |
@@ -152,12 +158,12 @@ P-8.10, P-9.6, P-9.7, P-10.9, P-10.10, P-11.9, P-13.6, P-14.8, P-14.9, P-15.9, P
 | 14.10 | math/fix/emergency-text |
 | 14.11 | math/fix/emergency-text, math/parameters |
 | 15.1 | components/store.property |
-| 15.2 | components/ShareSheet |
+| 15.2 | components/ShareSheet (the statement, always visible), math/texts |
 | 15.3 | components/PrivacyPage, math/privacy-table, readme |
 | 15.4 | components/store.property, readme |
 | 15.5 | components/SightingsScreen, components/store |
 | 15.6 | components/ShareSheet |
-| 15.7 | components/InboxSheet |
+| 15.7 | components/InboxSheet (the line and "Why check this?") |
 | 15.8 | components/InboxSheet |
 | 15.9 | components/store.property |
 | 16.1 | components/SmokeScreen, components/common-parts, math/texts |
@@ -197,3 +203,4 @@ P-8.10, P-9.6, P-9.7, P-10.9, P-10.10, P-11.9, P-13.6, P-14.8, P-14.9, P-15.9, P
 | 21.5 | *not cited:* purity (no clock, random or network in the Math layer), test-support/fake-* and seeded-normal (seeds and times are arguments) |
 | 21.6 | *not cited:* the shrunk counterexamples kept as examples (math/incident/join: seeds 456561989 and 679858833; components/store.property: seed 1160607519); the fixtures are synthetic and no test writes them |
 | 21.7 | *not cited:* package.json (`test` is `vitest run`); no task starts a server or a watch mode |
+| 21.8 | components/simulation/sight-first-screen (rewritten), components/SmokeScreen.first-view, components/ShareSheet, components/InboxSheet, components/SightScreen, components/flow-next-step, components/look |

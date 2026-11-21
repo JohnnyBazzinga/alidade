@@ -1,19 +1,17 @@
-// The Share sheet (design §9; Req 9.3, 10.1, 10.5 to 10.8, 15.2, 15.6, 17.4): what a code holds
-// before the first Share, the three presentations of one code, each recording its channel only on
-// its own button, a hidden sighting marked, a page address too long for a link, and the
-// Simulation variant with no link, no QR, no system share and one button for each other phone.
+// The Share sheet (design §9, D23.6; Req 9.3, 10.1, 10.6 to 10.8, 10.11, 10.12, 15.2, 15.6, 17.4),
+// REWRITTEN 2026-11-21 (task 23.7): the sheet is a title, the bearing in a line, one compact
+// statement that is always visible, two primary choices and "Other ways (no connection)"; the QR
+// is a view of its own. Requirement changes: the first-Share/later-Shares difference, the three
+// blocks with a paragraph each and the printed address are replaced; each channel is still recorded
+// only by its own control, a hidden sighting is still marked, a page address too long still gives
+// "link too long" and the text only, and the Simulation variant has no link, no QR, no system share.
 
 import { fireEvent, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { groupCode } from '../math/code/alphabet';
 import { messageFor } from '../math/messages';
 import type { Incident } from '../math/incident/incident-state';
-import {
-  CODE_HOLDS_TEXT,
-  LINK_PURPOSE_TEXT,
-  QR_PURPOSE_TEXT,
-  TEXT_PURPOSE_TEXT,
-} from '../math/texts';
+import { CODE_HOLDS_TEXT, LEAVES_STATEMENT_TEXT } from '../math/texts';
 import type { FakeEnvironmentOptions } from '../test-support/fake-environment';
 import { START_UTC_MS } from '../test-support/fake-environment';
 import { pointingAt, postsIncident, postPosition, TARGET } from '../test-support/geometry-fixtures';
@@ -52,104 +50,170 @@ const messageText = (
   return `${m.whatHappened} ${m.whatToDo}`;
 };
 
-describe('what a code holds (Req 15.2)', () => {
-  it('is stated in full before the first Share of the session, above every presentation', () => {
+const QR = 'Show QR code (someone beside you)';
+const SEND = 'Send link (someone far away)';
+const OTHER = 'Other ways (no connection)';
+
+/** The text of the sheet in document order. */
+const sheet = (s: ReturnType<typeof open>) => s.getByTestId('share-sheet').textContent ?? '';
+
+describe('the sheet’s order and its statement (Req 10.11, 15.2)', () => {
+  it('is the title, the bearing, the statement, the two choices, Other ways, the page, Close', () => {
     const s = open(postsIncident(['west', 'east']));
-    const statement = s.getByTestId('code-holds');
-    expect(statement.textContent).toBe(CODE_HOLDS_TEXT);
-    expect(statement.closest('details')).toBeNull();
-    const all = s.getByTestId('share-sheet').textContent ?? '';
-    expect(all.indexOf(CODE_HOLDS_TEXT)).toBeLessThan(all.indexOf(LINK_PURPOSE_TEXT));
+    const all = sheet(s);
+    const order = [
+      'Share this sighting',
+      'Toward',
+      LEAVES_STATEMENT_TEXT,
+      QR,
+      SEND,
+      OTHER,
+      'What leaves this phone',
+      'Close',
+    ].map((t) => all.indexOf(t));
+    expect(order.every((i) => i >= 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
   });
 
-  it('is in the details of every later Share', async () => {
+  it('states, compactly and in full, what leaves, and is visible before every choice, in every Share', async () => {
     const s = open(postsIncident(['west', 'east']));
-    await s.settle(() => fireEvent.click(s.getByRole('button', { name: 'Copy text' })));
-    const statement = s.getByTestId('code-holds');
-    expect(statement.textContent).toBe(CODE_HOLDS_TEXT);
-    expect(statement.closest('details')).not.toBeNull();
+    const statement = s.getByTestId('leaves-statement');
+    expect(statement.closest('details')).toBeNull();
+    for (const part of [
+      'about 1 m',
+      'how well the phone knew',
+      'when',
+      'direction',
+      'uncertainty',
+      'which smoke',
+      'cannot be taken back',
+    ]) {
+      expect(statement.textContent).toContain(part);
+    }
+    // After a Share it is still there, not folded: a later Share is made with it in view.
+    await s.settle(() => fireEvent.click(s.getByRole('button', { name: SEND })));
+    expect(s.getByTestId('leaves-statement').closest('details')).toBeNull();
+  });
+
+  it('keeps the long text under a closed disclosure, "What the code holds"', () => {
+    const s = open(postsIncident(['west', 'east']));
+    const details = s.getByTestId('code-holds-details') as HTMLDetailsElement;
+    expect(details.open).toBe(false);
+    expect(details.querySelector('summary')?.textContent).toBe('What the code holds');
+    expect(details.querySelector('[data-testid="code-holds"]')?.textContent).toBe(CODE_HOLDS_TEXT);
+  });
+
+  it('has two primary choices of at least 64 px, and prints neither the address nor the code before them', () => {
+    const s = open(postsIncident(['west', 'east']));
+    for (const name of [QR, SEND]) {
+      const b = s.getByRole('button', { name });
+      expect(Number.parseFloat(b.style.minHeight)).toBeGreaterThanOrEqual(64);
+    }
+    const outside = [...s.getByTestId('share-sheet').children]
+      .filter((c) => c.getAttribute('data-testid') !== 'share-text')
+      .map((c) => c.textContent)
+      .join(' ');
+    expect(outside).not.toContain(ADDRESS);
+    expect(outside).not.toContain(s.entry.code);
+    expect(outside).not.toContain(groupCode(s.entry.code));
+  });
+
+  it('has no paragraph of purpose before the choices: each says who it is for on its label', () => {
+    const s = open(postsIncident(['west', 'east']));
+    expect(sheet(s)).not.toMatch(/someone far away who has a connection/);
+    expect(s.getByRole('button', { name: QR })).toBeTruthy();
   });
 });
 
-describe('the three presentations of one code (Req 10.1, 10.6 to 10.8)', () => {
-  it('says what each one is for, and all three carry the same code', async () => {
-    const s = open(postsIncident(['west', 'east']));
-    expect(s.section('share-link').textContent).toContain(LINK_PURPOSE_TEXT);
-    expect(s.section('share-qr').textContent).toContain(QR_PURPOSE_TEXT);
-    expect(s.section('share-text').textContent).toContain(TEXT_PURPOSE_TEXT);
-    const link = `${ADDRESS}#${s.entry.code}`;
-    expect(s.section('share-link').textContent).toContain(link);
-    expect(s.section('share-text').textContent).toContain(groupCode(s.entry.code));
-    await s.settle(() => fireEvent.click(s.getByRole('button', { name: 'Show QR code' })));
-    expect(s.section('share-qr').textContent).toContain(link);
-  });
-
-  it('records each channel only on its own button', async () => {
+describe('sending the link (Req 10.1)', () => {
+  it('uses the share sheet where it exists, and records system_share', async () => {
     const s = open(postsIncident(['west', 'east']));
     expect(s.channels()).toEqual([]);
-    await s.settle(() => fireEvent.click(s.getByRole('button', { name: 'Copy link' })));
-    expect(s.channels()).toEqual(['link']);
-    expect(s.fake.navigator.written).toEqual([`${ADDRESS}#${s.entry.code}`]);
-    await s.settle(() => fireEvent.click(s.getByRole('button', { name: 'Show QR code' })));
-    expect(s.channels()).toEqual(['link', 'qr']);
-    await s.settle(() => fireEvent.click(s.getByRole('button', { name: 'Copy text' })));
-    expect(s.channels()).toEqual(['link', 'qr', 'text']);
-    expect(s.fake.navigator.written[1]).toBe(groupCode(s.entry.code));
-    await s.settle(() => fireEvent.click(s.getByRole('button', { name: 'Share…' })));
-    expect(s.channels()).toEqual(['link', 'qr', 'text', 'system_share']);
+    await s.settle(() => fireEvent.click(s.getByRole('button', { name: SEND })));
     expect(s.fake.navigator.shared).toEqual([`${ADDRESS}#${s.entry.code}`]);
+    expect(s.channels()).toEqual(['system_share']);
+    expect(s.fake.navigator.written).toEqual([]);
+  });
+
+  it('otherwise copies the link, says that it did, and records link', async () => {
+    const s = open(postsIncident(['west', 'east']), { navigator: { share: 'absent' } });
+    await s.settle(() => fireEvent.click(s.getByRole('button', { name: SEND })));
+    expect(s.fake.navigator.written).toEqual([`${ADDRESS}#${s.entry.code}`]);
+    expect(s.channels()).toEqual(['link']);
+    expect(s.getByRole('status').textContent).toBe('Link copied.');
+  });
+
+  it('a share sheet the user closes is no failure and records nothing', async () => {
+    const s = open(postsIncident(['west', 'east']), { navigator: { share: 'reject' } });
+    await s.settle(() => fireEvent.click(s.getByRole('button', { name: SEND })));
+    expect(s.channels()).toEqual([]);
+    expect(s.queryAllByRole('alert')).toEqual([]);
+  });
+
+  it('shows a failed copy beside the choice, and records nothing', async () => {
+    const s = open(postsIncident(['west', 'east']), {
+      navigator: { share: 'absent', clipboard: 'reject' },
+    });
+    await s.settle(() => fireEvent.click(s.getByRole('button', { name: SEND })));
+    expect(s.getByRole('alert').textContent).toBe(messageText('clipboard_unavailable'));
+    expect(s.channels()).toEqual([]);
+  });
+});
+
+describe('the QR view (Req 10.6, 10.7)', () => {
+  it('is a view of its own: the QR as an inline SVG, one line, the link as text, Back', async () => {
+    const s = open(postsIncident(['west', 'east']));
+    expect(s.container.querySelector('svg')).toBeNull();
+    await s.settle(() => fireEvent.click(s.getByRole('button', { name: QR })));
+    const view = s.getByTestId('qr-view');
+    expect(view.querySelector('svg')).not.toBeNull();
+    expect(s.container.querySelector('img')).toBeNull();
+    expect(view.textContent).toContain(`${ADDRESS}#${s.entry.code}`);
+    expect(view.textContent).toMatch(/connection/);
+    expect(s.queryByTestId('share-sheet')).toBeNull();
+    expect(s.channels()).toEqual(['qr']);
+    fireEvent.click(within(view).getByRole('button', { name: 'Back' }));
+    expect(s.getByTestId('share-sheet')).toBeTruthy();
+    expect(s.queryByTestId('qr-view')).toBeNull();
+  });
+});
+
+describe('Other ways (no connection) (Req 10.1, 10.8)', () => {
+  it('holds the text code in a closed disclosure with Copy text, recording text', async () => {
+    const s = open(postsIncident(['west', 'east']));
+    const other = s.getByTestId('share-text') as HTMLDetailsElement;
+    expect(other.tagName).toBe('DETAILS');
+    expect(other.open).toBe(false);
+    expect(other.querySelector('summary')?.textContent).toBe(OTHER);
+    expect(other.textContent).toContain(groupCode(s.entry.code));
+    await s.settle(() => fireEvent.click(s.getByRole('button', { name: 'Copy text' })));
+    expect(s.channels()).toEqual(['text']);
+    expect(s.fake.navigator.written).toEqual([groupCode(s.entry.code)]);
     expect(s.fake.gate.calls).toEqual([]);
   });
 
-  it('draws the QR only when asked, as an inline SVG and no image', async () => {
-    const s = open(postsIncident(['west', 'east']));
-    expect(s.section('share-qr').querySelector('svg')).toBeNull();
-    await s.settle(() => fireEvent.click(s.getByRole('button', { name: 'Show QR code' })));
-    expect(s.section('share-qr').querySelector('svg')).not.toBeNull();
-    expect(s.container.querySelector('img')).toBeNull();
-  });
-
-  it('has no Share… without a share sheet, and a cancelled share sheet records nothing', async () => {
-    const without = open(postsIncident(['west', 'east']), { navigator: { share: 'absent' } });
-    expect(without.queryByRole('button', { name: 'Share…' })).toBeNull();
-    without.unmount();
-    const cancelled = open(postsIncident(['west', 'east']), { navigator: { share: 'reject' } });
-    await cancelled.settle(() =>
-      fireEvent.click(cancelled.getByRole('button', { name: 'Share…' })),
-    );
-    expect(cancelled.channels()).toEqual([]);
-    expect(cancelled.queryAllByRole('alert')).toEqual([]);
-  });
-
-  it('shows a failed copy beside its button, records nothing and leaves the text to select', async () => {
-    const s = open(postsIncident(['west', 'east']), { navigator: { clipboard: 'reject' } });
-    await s.settle(() => fireEvent.click(s.getByRole('button', { name: 'Copy link' })));
-    expect(within(s.section('share-link')).getByRole('alert').textContent).toBe(
-      messageText('clipboard_unavailable'),
-    );
-    expect(within(s.section('share-text')).queryByRole('alert')).toBeNull();
-    expect(s.channels()).toEqual([]);
-  });
-
-  it('with a page address of 110 characters: "link too long" and the text only', () => {
+  it('with a page address of 110 characters: "link too long", no choices, and Other ways open', () => {
     const href = `${ADDRESS}${'p'.repeat(110 - ADDRESS.length)}`;
     expect(href).toHaveLength(110);
     const s = open(postsIncident(['west', 'east']), { href });
-    expect(s.queryByTestId('share-link')).toBeNull();
-    expect(s.queryByTestId('share-qr')).toBeNull();
+    expect(s.queryByRole('button', { name: SEND })).toBeNull();
+    expect(s.queryByRole('button', { name: QR })).toBeNull();
     expect(s.getAllByRole('alert').map((a) => a.textContent)).toContain(
       messageText('link_too_long'),
     );
-    expect(s.section('share-text').textContent).toContain(groupCode(s.entry.code));
+    const other = s.getByTestId('share-text') as HTMLDetailsElement;
+    expect(other.open).toBe(true);
+    expect(other.textContent).toContain(groupCode(s.entry.code));
   });
 });
 
 describe('a hidden sighting (Req 15.6)', () => {
-  it('is marked as hidden by you before anything is shared', () => {
+  it('is marked as hidden by you before the statement and the choices', () => {
     const s = open(postsIncident(['west', 'east'], (_p, i) => ({ hidden: i === 0 })));
     expect(s.getByTestId('hidden-mark').textContent).toContain('You hid this one');
-    const all = s.getByTestId('share-sheet').textContent ?? '';
-    expect(all.indexOf('You hid this one')).toBeLessThan(all.indexOf(LINK_PURPOSE_TEXT));
+    const all = sheet(s);
+    expect(all.indexOf('You hid this one')).toBeLessThan(all.indexOf(LEAVES_STATEMENT_TEXT));
+    expect(all.indexOf('You hid this one')).toBeLessThan(all.indexOf(SEND));
   });
 });
 
@@ -180,9 +244,8 @@ describe('a simulated smoke', () => {
     await s.settle(() => void s.store.capture(bearing, 'new'));
     const entry = s.store.getSnapshot().open?.incident.entries[0];
     if (entry === undefined) throw new Error('no entry');
-    expect(s.queryByTestId('share-link')).toBeNull();
-    expect(s.queryByTestId('share-qr')).toBeNull();
-    expect(s.queryByRole('button', { name: 'Share…' })).toBeNull();
+    expect(s.queryByRole('button', { name: SEND })).toBeNull();
+    expect(s.queryByRole('button', { name: QR })).toBeNull();
     expect(s.queryByRole('button', { name: 'Copy text' })).toBeNull();
     expect(s.getByTestId('share-text').textContent).toContain(groupCode(entry.code));
     await s.settle(() =>
@@ -205,8 +268,8 @@ describe('a simulated smoke', () => {
     expect(s.getAllByRole('alert').map((a) => a.textContent)).toContain(
       messageText('simulation_not_shareable'),
     );
-    expect(s.queryByTestId('share-link')).toBeNull();
-    expect(s.queryByTestId('share-qr')).toBeNull();
+    expect(s.queryByRole('button', { name: SEND })).toBeNull();
+    expect(s.queryByRole('button', { name: QR })).toBeNull();
     expect(s.getByTestId('share-text').textContent).toContain(groupCode(code));
   });
 });

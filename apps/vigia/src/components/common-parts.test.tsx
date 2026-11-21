@@ -27,29 +27,34 @@ describe('LimitsBlock (Req 16.1)', () => {
   });
 });
 
+// Requirement change (Req 3.7 and 16.2 as amended 2026-11-21, task 23.4): the first form showed the
+// four sentences in view before the first capture and folded them after it ("collapsed"); the
+// amended form is one visible line and a closed "How to aim" disclosure, the same in every state.
 describe('GuidanceBlock (Req 3.7, 16.2)', () => {
-  it('before the first capture: every sentence of how to aim, in view', () => {
-    const { getByTestId } = render(<GuidanceBlock collapsed={false} windShown={false} />);
+  it('shows one line and holds every sentence of how to aim in a closed disclosure', () => {
+    const { getByTestId } = render(<GuidanceBlock windShown={false} />);
     const block = getByTestId('guidance');
-    for (const sentence of sightingGuidance(false)) expect(block.textContent).toContain(sentence);
-    expect(block.querySelector('details')).toBeNull();
-  });
-
-  it('after a capture: the same sentences one tap away', () => {
-    const { getByTestId } = render(<GuidanceBlock collapsed windShown={false} />);
-    const details = getByTestId('guidance').querySelector('details');
-    expect(details).not.toBeNull();
+    const details = block.querySelector('details');
     expect(details?.open).toBe(false);
-    expect(details?.querySelector('summary')?.textContent).toBe('How to aim at smoke');
-    for (const sentence of sightingGuidance(false))
-      expect(details?.textContent).toContain(sentence);
+    expect(details?.querySelector('summary')?.textContent).toContain(
+      'Aim at the base of the smoke',
+    );
+    expect(details?.querySelector('summary')?.textContent).toContain('How to aim');
+    for (const sentence of sightingGuidance(false)) {
+      expect(details?.querySelector('ul')?.textContent).toContain(sentence);
+    }
   });
 
   it('with a wind reading shown, says that the smoke leans downwind', () => {
-    const { getByTestId } = render(<GuidanceBlock collapsed={false} windShown />);
+    const { getByTestId } = render(<GuidanceBlock windShown />);
     const last = sightingGuidance(true).at(-1) ?? '';
     expect(last).toContain('downwind');
-    expect(getByTestId('guidance').textContent).toContain(last);
+    expect(getByTestId('guidance').querySelector('ul')?.textContent).toContain(last);
+  });
+
+  it('without a wind reading, does not say it', () => {
+    const { getByTestId } = render(<GuidanceBlock windShown={false} />);
+    expect(getByTestId('guidance').textContent).not.toContain('downwind');
   });
 });
 

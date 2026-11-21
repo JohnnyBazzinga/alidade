@@ -1,14 +1,19 @@
-// The Fix in words (Req 6.1 to 6.4, 6.7, 6.11, design §7.8): built from a Core `Fix`, which always
-// has its Ellipse, so no position reaches this component without its uncertainty. A disagreement
-// is the first thing, in the alert's colour; then the position with its metres in one sentence,
-// the 95 % area, the distance from this phone with its interval when the phone knows where it is,
-// what it rests on, the geometry and the warnings. The limits are the LimitsBlock's.
+// The Fix in words (Req 6.1 to 6.4, 6.7, 6.11, 6.12, design §7.8, D23.5): built from a Core `Fix`,
+// which always has its Ellipse, so no position reaches this component without its uncertainty.
+// Two parts, because the first screen of a smoke with a Fix was 287 words long:
+//   - `first`: a disagreement (in the alert's colour, first), the position with its 95 % radius in
+//     one sentence, how many sightings it rests on, and every warning that applies, poor geometry
+//     with its sentence included;
+//   - `details`: the 95 % area, what it rests on with the ages and the number set aside, the
+//     distance from this phone with its interval, the geometry sentence when the class is not
+//     `poor`, and what the ellipse does and does not say.
 
 import type { Fix } from '@alidade/core';
 import { useMemo } from 'react';
 import type { Assessment } from '../math/assessment/assess';
 import { fixWords } from '../math/fix/fix-words';
 import { fromYouWords } from '../math/fix/from-you';
+import { geometryClass } from '../math/fix/geometry-class';
 import type { VigiaParameters } from '../math/parameters';
 import { FailureNotice } from './FailureNotice';
 import { LOOK } from './look';
@@ -20,6 +25,7 @@ export interface FixWordsViewProps {
   readonly nowUtcMs: number;
   readonly ownPosition: OwnPosition | null;
   readonly parameters: VigiaParameters;
+  readonly part: 'first' | 'details';
 }
 
 export function FixWordsView({
@@ -28,6 +34,7 @@ export function FixWordsView({
   nowUtcMs,
   ownPosition,
   parameters,
+  part,
 }: FixWordsViewProps) {
   const words = useMemo(
     () => fixWords(fix, assessment, nowUtcMs, parameters),
@@ -37,38 +44,55 @@ export function FixWordsView({
     () => (ownPosition === null ? null : fromYouWords(fix, ownPosition.position, parameters)),
     [fix, ownPosition, parameters],
   );
-  if (!words.ok) return <FailureNotice failure={words} />;
+  const geometry = useMemo(() => geometryClass(fix, parameters), [fix, parameters]);
+  if (!words.ok) return part === 'first' ? <FailureNotice failure={words} /> : null;
   const w = words.value;
-  return (
-    <>
-      {w.disagreement !== null && (
-        <div style={LOOK.alertPanel}>
-          <p data-testid="disagreement" style={LOOK.alertText}>
-            {w.disagreement}
-          </p>
-        </div>
-      )}
-      <section data-testid="fix-words" style={LOOK.panel}>
-        <p data-testid="fix-headline" style={{ ...LOOK.readout, fontWeight: 700 }}>
-          {w.headline}
-        </p>
-        <p style={LOOK.text}>{w.area}</p>
-        {fromYou !== null &&
-          (fromYou.ok ? (
-            <p data-testid="from-you" style={LOOK.readout}>
-              {fromYou.value}
+  const poor = geometry.ok && geometry.value === 'poor';
+  const used = assessment.used.length;
+  if (part === 'first') {
+    return (
+      <>
+        {w.disagreement !== null && (
+          <div style={LOOK.alertPanel}>
+            <p data-testid="disagreement" style={LOOK.alertText}>
+              {w.disagreement}
             </p>
-          ) : (
-            <FailureNotice failure={fromYou} />
-          ))}
-        <p style={LOOK.text}>{w.basis}</p>
-        <p style={LOOK.text}>{w.geometry}</p>
+          </div>
+        )}
+        <section data-testid="fix-words" style={LOOK.panel}>
+          <p data-testid="fix-headline" style={{ ...LOOK.readout, fontWeight: 700 }}>
+            {w.headline}
+          </p>
+          <p data-testid="first-basis" style={LOOK.text}>
+            {`Based on ${used} ${used === 1 ? 'sighting' : 'sightings'}.`}
+          </p>
+        </section>
         {w.warnings.map((warning) => (
-          <p key={warning} style={{ ...LOOK.text, color: LOOK.alertText.color }}>
+          <p key={warning} data-part="warning" style={LOOK.alertText}>
             {warning}
           </p>
         ))}
-      </section>
+        {poor && (
+          <p data-part="poor-geometry" style={LOOK.alertText}>
+            {w.geometry}
+          </p>
+        )}
+      </>
+    );
+  }
+  return (
+    <>
+      <p style={LOOK.text}>{w.area}</p>
+      {fromYou !== null &&
+        (fromYou.ok ? (
+          <p data-testid="from-you" style={LOOK.readout}>
+            {fromYou.value}
+          </p>
+        ) : (
+          <FailureNotice failure={fromYou} />
+        ))}
+      <p style={LOOK.text}>{w.basis}</p>
+      {!poor && <p style={LOOK.text}>{w.geometry}</p>}
     </>
   );
 }

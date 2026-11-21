@@ -81,3 +81,55 @@ export const TEXT_PURPOSE_TEXT =
 /** Where a code is added (Req 15.7). */
 export const NO_PROOF_TEXT =
   "A code carries no proof of who made it: anyone who knows this smoke's identifier can make one that looks real, and a wrong one moves the position. Every sighting is listed with where it came from and when, and you can hide one.";
+
+// ---- The first use on a phone (task 23, 2026-11-21; design D23) -------------------------------
+
+/** The one visible line of the Sight screen (Req 3.7); the guidance is under "How to aim". */
+export const AIM_LINE_TEXT = 'Aim at the base of the smoke';
+
+/** In the first view of a Fix, where the limits note is in full under "Details and limits" (Req 6.12, 16.1). */
+export const COMPASS_ONE_LINE_TEXT = 'Phone compasses are off by several degrees.';
+
+/** The one visible line of an Inbox card; the whole text is `NO_PROOF_TEXT` under "Why check this?" (Req 15.7). */
+export const INBOX_WARNING_LINE_TEXT = 'Anyone can make a code; a wrong one moves the position.';
+
+/** Under "Why check this?", after `NO_PROOF_TEXT` (Req 4.8). */
+export const JOIN_HIDE_TEXT =
+  'Joining crosses the sightings for good, but a joined smoke’s sightings can still be hidden or deleted one by one.';
+
+/** The confirmation of a join: the three things of Req 4.8 in two short sentences. */
+export const JOIN_CONFIRM_TEXT =
+  'Joining puts all the sightings into one position. Two different smokes must not be joined, and a join cannot be undone.';
+
+/** The confirmation of opening a code as a new smoke here (Req 4.2). */
+export const OPEN_NEW_CONFIRM_TEXT =
+  'Open this as a new smoke on this phone? Its sightings will be listed with where they came from.';
+
+/** What leaves with a code, always visible on the Share sheet (Req 15.2); the long text is `CODE_HOLDS_TEXT`. */
+export const LEAVES_STATEMENT_TEXT =
+  'Whoever receives this code sees where you stood (to about 1 m, and how well the phone knew it), when, the direction with its uncertainty, and which smoke. It cannot be taken back.';
+
+/** Beside the QR (Req 10.7): the page has to be loaded by the other phone. */
+export const QR_ONE_LINE_TEXT =
+  'It works only when the phones are together, and the other phone needs a connection to open the page.';
+
+/** The two choices and the disclosure of the Share sheet (Req 10.8, 10.11). */
+export const SHARE_QR_LABEL = 'Show QR code (someone beside you)';
+export const SHARE_SEND_LABEL = 'Send link (someone far away)';
+export const SHARE_OTHER_LABEL = 'Other ways (no connection)';
+
+/** The largest count `countLineText` writes: far above `MAX_SIGHTINGS_PER_INCIDENT`. */
+const MAX_COUNT_LINE = 1_000_000;
+
+/**
+ * The line after a join, an add or a new smoke (Req 4.12): `Joined: 3 sightings`. `n` is a count;
+ * anything else reads as 0, so that no `NaN` is ever written.
+ */
+export function countLineText(kind: 'joined' | 'added' | 'opened', n: number): string {
+  // A count of sightings is small: a larger number is not one (and would print in exponent form).
+  const count = Number.isInteger(n) && n >= 0 && n <= MAX_COUNT_LINE ? n : 0;
+  const what = `${count} ${count === 1 ? 'sighting' : 'sightings'}`;
+  if (kind === 'joined') return `Joined: ${what}`;
+  if (kind === 'added') return `Added: ${what}`;
+  return `New smoke opened: ${what}`;
+}

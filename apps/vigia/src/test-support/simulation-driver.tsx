@@ -154,13 +154,14 @@ export function mountSimulation(options: MountOptions = {}) {
     await press('freeze');
     if (how === 'mark') await markTarget('smoke');
     await press('capture');
-    if (sightingState() !== 'captured') throw new Error(`not captured: ${sightingState()}`);
-    const label = smokeAlready
-      ? answer === 'same'
-        ? 'The same smoke'
-        : 'A different smoke'
-      : 'Start a new smoke with this sighting';
-    await click(label);
+    // With no smoke open the Capture starts it and the Smoke screen opens (Req 4.2, 4.11); with one
+    // open the question is a view of its own (Req 4.3).
+    if (!smokeAlready) {
+      if (q.queryByTestId('smoke-screen') === null)
+        throw new Error('the Smoke screen did not open');
+      return;
+    }
+    await click(answer === 'same' ? 'The same smoke' : 'A different smoke');
   };
 
   /** The phone in hand becomes the one at `stationId`, by the chooser under the banner. */
@@ -188,11 +189,14 @@ export function mountSimulation(options: MountOptions = {}) {
    * the smoke as new where the phone does not have it; then back on the Smoke screen.
    */
   const addEverythingWaiting = async () => {
-    await click(/Add a sighting someone sent me/);
+    // A card taken in closes the sheet (Req 4.12): the Inbox is opened again for the next one.
     for (let guard = 0; guard < 10; guard += 1) {
-      const cards = q.queryAllByTestId('inbox-card');
-      const card = cards[0];
-      if (card === undefined) break;
+      await click(/Add a sighting someone sent me/);
+      const card = q.queryAllByTestId('inbox-card')[0];
+      if (card === undefined) {
+        await click('Close');
+        return;
+      }
       const open = within(card).queryByRole('button', {
         name: 'Open it as a new smoke on this phone',
       });
@@ -203,7 +207,6 @@ export function mountSimulation(options: MountOptions = {}) {
         await settle(() => fireEvent.click(within(card).getByRole('button', { name: 'Add' })));
       }
     }
-    await click('Close');
   };
 
   /**
@@ -212,23 +215,29 @@ export function mountSimulation(options: MountOptions = {}) {
    * phone does not have, Add for one it does; then back on the Smoke screen.
    */
   const addByJoining = async () => {
-    await click(/Add a sighting someone sent me/);
     for (let guard = 0; guard < 10; guard += 1) {
+      await click(/Add a sighting someone sent me/);
       const card = q.queryAllByTestId('inbox-card')[0];
-      if (card === undefined) break;
+      if (card === undefined) {
+        await click('Close');
+        return;
+      }
       const same = within(card).queryByRole('button', {
         name: 'It is the same smoke as the one I have open',
       });
       if (same !== null) {
         await settle(() => fireEvent.click(same));
         await settle(() =>
-          fireEvent.click(within(card).getByRole('button', { name: 'Join the two smokes' })),
+          fireEvent.click(
+            within(q.getByTestId('confirm-view')).getByRole('button', {
+              name: 'Join the two smokes',
+            }),
+          ),
         );
       } else {
         await settle(() => fireEvent.click(within(card).getByRole('button', { name: 'Add' })));
       }
     }
-    await click('Close');
   };
 
   /**

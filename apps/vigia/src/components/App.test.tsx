@@ -294,3 +294,24 @@ describe('the phone in hand, in Simulation mode (task 21.5)', () => {
     expect(a.queryByTestId('reviewer-path')).toBeNull();
   });
 });
+
+// Task 23.4 and 23.6 (2026-11-21; Req 3.10, 6.12).
+describe('the Sight route is the whole column (Req 3.10, design D23.1)', () => {
+  it('gives the route of the phone no padding, and the other routes their padding', () => {
+    const a = mount();
+    expect(a.getByTestId('app-main').style.padding).not.toBe('0px');
+    a.tap('Sight the smoke');
+    expect(a.getByTestId('app-main').style.padding).toBe('0px');
+    a.tap('Back');
+    expect(a.getByTestId('app-main').style.padding).not.toBe('0px');
+  });
+});
+
+describe('"Show on map" (Req 6.12)', () => {
+  it('goes from the first view of a Fix to the Map tab', async () => {
+    const a = mount();
+    await act(async () => fireEvent.click(a.getByRole('button', { name: 'Show on map' })));
+    expect(a.getByTestId('map-screen')).toBeTruthy();
+    expect(a.getByRole('tab', { name: 'Map' }).getAttribute('aria-selected')).toBe('true');
+  });
+});

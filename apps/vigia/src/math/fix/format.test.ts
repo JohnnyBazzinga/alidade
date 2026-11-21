@@ -10,6 +10,7 @@ import {
   METRES_PER_DEGREE,
   positionDecimals,
   positionText,
+  savedLineText,
 } from './format';
 
 const rad = (deg: number): number => {
@@ -300,5 +301,24 @@ describe('accuracyText: a position accuracy, rounded up (Req 3.6, 9.4)', () => {
   it('refuses an accuracy that is not finite or below 0', () => {
     expect(accuracyText(-1)).toMatchObject({ ok: false, field: 'accuracyM' });
     expect(accuracyText(Number.NaN)).toMatchObject({ ok: false, field: 'accuracyM' });
+  });
+});
+
+// Task 23.5 (Req 4.11): "Sighting saved: <bearing> ± <sigma> (<North word>)".
+describe('savedLineText (Req 4.11)', () => {
+  it('writes the bearing, its sigma rounded up, and the North word', () => {
+    expect(text(savedLineText(rad(45.5), rad(2)))).toBe('Sighting saved: 45.5° ± 2.0° (true)');
+    expect(text(savedLineText(rad(359.96), rad(0.04)))).toBe('Sighting saved: 0.0° ± 0.1° (true)');
+  });
+
+  it('fails with invalid_number for an angle or a sigma that is not one', () => {
+    for (const [a, sg] of [
+      [Number.NaN, 0.1],
+      [1, 0],
+      [1, Number.POSITIVE_INFINITY],
+    ] as const) {
+      const r = savedLineText(a, sg);
+      expect(r.ok).toBe(false);
+    }
   });
 });

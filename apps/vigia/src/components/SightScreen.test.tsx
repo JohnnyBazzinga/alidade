@@ -1,92 +1,24 @@
-// The Sight screen (design §9; Req 3.1 to 3.8, 4.2, 4.3, 16.2): UI's sighting screen through UI's
-// `DeviceSighting` on a phone (crosshair only: no calibration, no tap sigma), the guidance before
-// and after the first capture, and the question after a capture, preselected only within the
-// maximum Incident age; nothing is added until it is answered.
+// The Sight screen (design §9, D23; Req 3.1, 3.3, 3.7, 3.10, 4.2, 4.3, 16.2), as amended 2026-11-21
+// (task 23.4, 23.5): UI's docked sighting screen through `DeviceSighting` on a phone (crosshair only,
+// no calibration), one aiming line and "How to aim", no instruction to tap, a capture with no smoke
+// open that starts the smoke with no question, and with one open a question that is a view of its
+// own, preselected only within the maximum Incident age.
 
-import {
-  createSimulator,
-  type SensorSource,
-  type SimulatorControls,
-  type SimulatorScript,
-} from '@alidade/sensors';
-import { buildCatalogue, defaultSessionParameters, type Session } from '@alidade/ui';
+import type { Session } from '@alidade/ui';
 import { fireEvent, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { messageFor } from '../math/messages';
-import { SIMULATION_VALUES_TEXT, sightingGuidance, TWO_SMOKES_TEXT } from '../math/texts';
-import { FakeCameraSurface, fixedSize } from '../test-support/fake-camera';
 import {
-  createFakeEnvironment,
-  recordingSightingSource,
-  type FakeEnvironmentOptions,
-} from '../test-support/fake-environment';
+  AIM_LINE_TEXT,
+  SIMULATION_VALUES_TEXT,
+  sightingGuidance,
+  TWO_SMOKES_TEXT,
+} from '../math/texts';
+import { mountDeviceSight as mount } from '../test-support/device-sight';
+import { createFakeEnvironment, recordingSightingSource } from '../test-support/fake-environment';
 import { postsIncident } from '../test-support/geometry-fixtures';
 import { renderScreen, storedWith } from '../test-support/render-screen';
-import type { SightingSource } from './environment';
 import { SightScreen } from './SightScreen';
-
-const SIMULATOR_OPTIONS = {
-  listeningTimeoutMs: 3000,
-  positionTimeoutMs: 30_000,
-  positionConfidenceScale: 1,
-};
-const SESSION_PARAMETERS = defaultSessionParameters();
-
-const catalogue = buildCatalogue();
-if (!catalogue.ok) throw new Error(catalogue.reason);
-const steady = catalogue.value.find((c) => c.scene.id === 'steady');
-const firstStation = steady?.scene.stations[0];
-const found = firstStation === undefined ? undefined : steady?.scripts[firstStation.id];
-if (found === undefined) throw new Error('the steady scene has no script');
-const SCRIPT: SimulatorScript = found;
-
-function mount(stored: Record<string, string> = {}, extra: FakeEnvironmentOptions = {}) {
-  const sensors = { controls: null as SimulatorControls | null };
-  const camera = new FakeCameraSurface();
-  const sighting: SightingSource = {
-    kind: 'device',
-    createSource: () => {
-      const sim = createSimulator(SCRIPT, 1, SIMULATOR_OPTIONS);
-      if (!sim.ok) return sim;
-      sensors.controls = sim.value.controls;
-      const source: SensorSource = sim.value.source;
-      return { ok: true, value: source };
-    },
-    cameraSurface: camera,
-    sessionParameters: SESSION_PARAMETERS,
-    observe: fixedSize(360, 640),
-  };
-  const fake = createFakeEnvironment({ ...extra, sighting, storedItems: stored });
-  const calls: string[] = [];
-  const screen = renderScreen(
-    <SightScreen onBack={() => void calls.push('back')} onAdded={() => void calls.push('added')} />,
-    {},
-    fake,
-  );
-  const press = (id: string) =>
-    screen.settle(() => {
-      const el = screen.container.querySelector<HTMLElement>(`[data-control="${id}"]`);
-      if (el === null) throw new Error(`no control ${id}`);
-      fireEvent.click(el);
-    });
-  const advance = async (ms: number) => {
-    for (let t = 50; t <= ms; t += 50) {
-      await screen.settle(() => {
-        sensors.controls?.advanceTo(SCRIPT.startUtcMs + t);
-        fake.timer.advance(50);
-      });
-    }
-  };
-  const captureOnCrosshair = async () => {
-    await screen.settle();
-    await press('start');
-    await advance(1500);
-    await press('freeze');
-    await press('capture');
-  };
-  const entries = () => screen.store.getSnapshot().open?.incident.entries.length ?? 0;
-  return { ...screen, camera, calls, press, advance, captureOnCrosshair, entries };
-}
 
 const calibrationMissing = () => {
   const m = messageFor({ ok: false, reason: 'calibration_missing' });
@@ -129,38 +61,75 @@ describe('SightScreen on a phone (Req 3.1, 3.3)', () => {
   });
 });
 
-describe('the guidance (Req 3.7, 16.2)', () => {
-  it('is in view before the first capture and one tap away after it', async () => {
+describe('the aiming line and "How to aim" (Req 3.7, 16.2)', () => {
+  it('shows one line, and every statement of the guidance in a closed disclosure', async () => {
     const s = mount();
     await s.settle();
-    const before = s.getByTestId('guidance');
-    expect(before.querySelector('details')).toBeNull();
-    for (const sentence of sightingGuidance(false)) expect(before.textContent).toContain(sentence);
-    await s.captureOnCrosshair();
-    const after = s.getByTestId('guidance');
-    expect(after.querySelector('details')?.open).toBe(false);
-    for (const sentence of sightingGuidance(false)) expect(after.textContent).toContain(sentence);
+    const guidance = s.getByTestId('guidance');
+    const details = guidance.querySelector('details') as HTMLDetailsElement;
+    expect(details.open).toBe(false);
+    const summary = details.querySelector('summary') as HTMLElement;
+    expect(summary.textContent).toContain(AIM_LINE_TEXT);
+    expect(summary.textContent).toContain('How to aim');
+    for (const sentence of sightingGuidance(false)) {
+      expect(details.textContent).toContain(sentence);
+      expect(summary.textContent).not.toContain(sentence);
+    }
+    expect(guidance.parentElement?.getAttribute('data-part')).toBe('middle');
+    expect(Number.parseFloat(summary.style.minHeight)).toBeGreaterThanOrEqual(48);
+  });
+
+  it('adds the wind sentence only when a wind reading is shown', async () => {
+    const s = mount({ windShown: true });
+    await s.settle();
+    for (const sentence of sightingGuidance(true)) {
+      expect(s.getByTestId('guidance').textContent).toContain(sentence);
+    }
+  });
+
+  it('is in every state of the screen, and says nothing of tapping the image on a phone', async () => {
+    const s = mount();
+    await s.settle();
+    expect(s.getByTestId('guidance')).toBeTruthy();
+    await s.toLive();
+    expect(s.getByTestId('guidance')).toBeTruthy();
+    await s.press('freeze');
+    expect(s.getByTestId('guidance')).toBeTruthy();
+    expect(s.getByTestId('sight-screen').textContent).not.toMatch(/Tap the image|No mark|Mark set/);
   });
 });
 
-describe('the question after a capture (Req 4.2, 4.3)', () => {
-  it('with no smoke open: one answer, which starts a smoke, and nothing before it is given', async () => {
+describe('a capture with no smoke open starts the smoke (Req 4.2, 4.11)', () => {
+  it('adds the sighting to a new smoke at once, with no question, and says where it went', async () => {
     const s = mount();
     await s.captureOnCrosshair();
-    const dialog = s.getByTestId('confirm-smoke');
-    expect(dialog.textContent).toContain('This sighting starts a new smoke on this phone.');
-    expect(s.store.getSnapshot().state.incidents).toHaveLength(0);
-    fireEvent.click(
-      within(dialog).getByRole('button', { name: 'Start a new smoke with this sighting' }),
-    );
+    expect(s.queryByTestId('confirm-smoke')).toBeNull();
     expect(s.store.getSnapshot().state.incidents).toHaveLength(1);
     expect(s.entries()).toBe(1);
-    expect(s.calls).toEqual(['added']);
+    const id = s.store.getSnapshot().open?.incident.entries[0]?.sighting.sightingId;
+    expect(s.calls).toEqual([`added:${id}`]);
   });
 
-  it('with a recent smoke open: "the same smoke" is preselected, and nothing is added until a tap', async () => {
-    const s = mount(storedWith([postsIncident(['west', 'east'])]));
+  it('shows the refusal of the store in a view with a way back to the sighting, and adds nothing', async () => {
+    const s = mount({ extra: { randomAvailable: false } });
     await s.captureOnCrosshair();
+    const m = messageFor({ ok: false, reason: 'random_unavailable' });
+    expect(s.getByRole('alert').textContent).toBe(`${m.whatHappened} ${m.whatToDo}`);
+    expect(s.store.getSnapshot().state.incidents).toHaveLength(0);
+    expect(s.calls).toEqual([]);
+    fireEvent.click(s.getByRole('button', { name: 'Back to the sighting' }));
+    // The camera was released while the Message showed: the way back is a fresh Start.
+    expect(s.getByTestId('sighting-screen').dataset.state).toBe('permission');
+  });
+});
+
+describe('the question with a smoke open is a view of its own (Req 4.3)', () => {
+  it('replaces the camera and the readout; no "Take another" anywhere; the answers fully visible', async () => {
+    const s = mount({ stored: storedWith([postsIncident(['west', 'east'])]) });
+    await s.captureOnCrosshair();
+    expect(s.queryByTestId('sighting-screen')).toBeNull();
+    expect(s.queryByTestId('image-surface')).toBeNull();
+    expect(s.queryByRole('button', { name: 'Take another' })).toBeNull();
     const dialog = s.getByTestId('confirm-smoke');
     expect(dialog.textContent).toContain('Is this the same smoke as before?');
     expect(dialog.textContent).toContain(TWO_SMOKES_TEXT);
@@ -168,10 +137,37 @@ describe('the question after a capture (Req 4.2, 4.3)', () => {
     const other = within(dialog).getByRole('button', { name: 'A different smoke' });
     expect(same.dataset.preselected).toBe('true');
     expect(other.dataset.preselected).toBe('false');
+    for (const b of [same, other]) {
+      expect(Number.parseFloat(b.style.minHeight)).toBeGreaterThanOrEqual(48);
+    }
     expect(s.entries()).toBe(2);
-    fireEvent.click(same);
+  });
+
+  it('puts the breakdown of the bearing under "Why this accuracy?", below the answers', async () => {
+    const s = mount({ stored: storedWith([postsIncident(['west', 'east'])]) });
+    await s.captureOnCrosshair();
+    const dialog = s.getByTestId('confirm-smoke');
+    const why = dialog.querySelector('details') as HTMLDetailsElement;
+    expect(why.open).toBe(false);
+    expect(why.querySelector('summary')?.textContent).toBe('Why this accuracy?');
+    expect(why.querySelector('[data-part="made-of"]')).not.toBeNull();
+    const buttons = [...dialog.querySelectorAll('button')];
+    const same = buttons.find((b) => b.textContent === 'The same smoke') as HTMLElement;
+    expect(same.compareDocumentPosition(why) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+    // The bearing's own 1-sigma stays visible, outside the disclosure (Req 13.6).
+    expect(dialog.textContent).toMatch(/1-sigma ±/);
+  });
+
+  it('"the same smoke" adds it to the open smoke, and nothing was added before the tap', async () => {
+    const s = mount({ stored: storedWith([postsIncident(['west', 'east'])]) });
+    await s.captureOnCrosshair();
+    fireEvent.click(
+      within(s.getByTestId('confirm-smoke')).getByRole('button', { name: 'The same smoke' }),
+    );
     expect(s.entries()).toBe(3);
     expect(s.store.getSnapshot().state.incidents).toHaveLength(1);
+    expect(s.calls).toHaveLength(1);
+    expect(s.calls[0]).toMatch(/^added:/);
   });
 
   it('with an old smoke open: "a different smoke" is preselected, and choosing it starts one', async () => {
@@ -179,7 +175,7 @@ describe('the question after a capture (Req 4.2, 4.3)', () => {
     const old = postsIncident(['west', 'east'], (_p, i) => ({
       bearing: { timeUtcMs: 1_790_000_000_000 - maxAgeMs - 60_000 * (i + 1) },
     }));
-    const s = mount(storedWith([old]));
+    const s = mount({ stored: storedWith([old]) });
     await s.captureOnCrosshair();
     const dialog = s.getByTestId('confirm-smoke');
     expect(
@@ -193,26 +189,26 @@ describe('the question after a capture (Req 4.2, 4.3)', () => {
     expect(s.entries()).toBe(1);
   });
 
-  it('is gone after Take another, and adds nothing for the capture left unanswered', async () => {
-    const s = mount(storedWith([postsIncident(['west', 'east'])]));
-    await s.captureOnCrosshair();
-    expect(s.getByTestId('confirm-smoke')).toBeTruthy();
-    await s.press('again');
-    expect(s.queryByTestId('confirm-smoke')).toBeNull();
-    expect(s.entries()).toBe(2);
-  });
-
-  it('shows a refused answer beside the answers, and stays on the screen', async () => {
-    const s = mount({}, { randomAvailable: false });
+  it('shows a refused answer in the view, and stays on it', async () => {
+    const s = mount({
+      stored: storedWith([postsIncident(['west', 'east'])]),
+      extra: { randomAvailable: false },
+    });
     await s.captureOnCrosshair();
     const dialog = s.getByTestId('confirm-smoke');
-    fireEvent.click(
-      within(dialog).getByRole('button', { name: 'Start a new smoke with this sighting' }),
-    );
+    fireEvent.click(within(dialog).getByRole('button', { name: 'The same smoke' }));
     const m = messageFor({ ok: false, reason: 'random_unavailable' });
     expect(within(dialog).getByRole('alert').textContent).toBe(`${m.whatHappened} ${m.whatToDo}`);
-    expect(s.store.getSnapshot().state.incidents).toHaveLength(0);
+    expect(s.entries()).toBe(2);
     expect(s.calls).toEqual([]);
+  });
+
+  it('Back leaves without saving the unanswered capture, as before', async () => {
+    const s = mount({ stored: storedWith([postsIncident(['west', 'east'])]) });
+    await s.captureOnCrosshair();
+    fireEvent.click(s.getByRole('button', { name: 'Back' }));
+    expect(s.calls).toEqual(['back']);
+    expect(s.entries()).toBe(2);
   });
 });
 

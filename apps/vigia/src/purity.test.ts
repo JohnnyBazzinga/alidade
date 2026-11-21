@@ -104,11 +104,14 @@ const SOURCES: readonly string[] = [
   // task 13.1
   'src/components/environment.ts',
   'src/components/FailureNotice.tsx',
+  'src/components/Disclosure.tsx',
   'src/components/GuidanceBlock.tsx',
   'src/components/LimitsBlock.tsx',
   'src/components/look.ts',
   'src/components/SimulationBanner.tsx',
   'src/components/store.ts',
+  // task 23
+  'src/components/use-open-at-top.ts',
   'src/components/TabBar.tsx',
   // task 13.2
   'src/components/AdviceView.tsx',

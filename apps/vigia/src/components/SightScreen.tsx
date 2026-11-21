@@ -1,32 +1,33 @@
-// The Sight screen (design §9; Req 3.1 to 3.8, 4.2, 4.3, 16.2), full screen with no tabs. On a
-// phone it is UI's sighting screen through UI's `DeviceSighting`, with no Camera calibration and
-// no tap sigma, so the sighting is along the crosshair and a tap is refused by the skeleton
-// (Req 3.3); in Simulation mode the shell renders the Simulator's source. The capture itself is
-// the skeleton's: Vigia reimplements none of it (Req 3.1).
+// The Sight screen (design §9, D23; Req 3.1, 3.3, 3.7, 3.10, 4.2, 4.3, 4.11, 16.2). On a phone it is
+// UI's sighting screen through UI's `DeviceSighting` in the docked layout: Back, the aiming line
+// and "How to aim", the camera, the compact readout, and a bar at the foot with the current action;
+// with no Camera calibration and no tap sigma, so the sighting is along the crosshair and the image
+// takes no taps (Req 3.3). In Simulation mode the shell renders the Simulator's source in the flow
+// layout. The capture itself is the skeleton's: Vigia reimplements none of it (Req 3.1).
 //
-// After a capture the question of Req 4.3 comes first on the screen, because answering it is the
-// next thing to do; nothing is added until it is answered. The guidance is in view before the
-// first capture and one tap away after it. In Simulation mode the reviewer's controls come first
-// (the post is chosen under the banner, then the scene and Start in the panel), and the guidance,
-// which is about real smoke, after them (task 21.4): before it, Start was below the first screen.
+// A capture with no smoke open starts the smoke at once, with no question (Req 4.2): the Capture is
+// the act. With one open, the question (Req 4.3) is a view of its own that replaces the camera.
+// Nothing is added until it is answered.
 
-import { DeviceSighting, type CapturedResult, type Session } from '@alidade/ui';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { DeviceSighting, SIZES, type CapturedResult, type Session } from '@alidade/ui';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { newestTimeUtcMs } from '../math/incident/incident-state';
 import { SIMULATION_VALUES_TEXT } from '../math/texts';
 import type { VigiaFailure } from '../result';
 import { ConfirmSmokeDialog, type SmokeAnswer } from './ConfirmSmokeDialog';
 import { useEnvironment } from './environment';
+import { FailureNotice } from './FailureNotice';
 import { GuidanceBlock } from './GuidanceBlock';
 import { LOOK } from './look';
 import { useStore, useVigia } from './store';
+import { useOpenAtTop } from './use-open-at-top';
 
 export interface SightScreenProps {
   /** A wind reading is shown on the map (Req 13.5): the guidance says that smoke drifts downwind. */
   readonly windShown?: boolean;
   readonly onBack: () => void;
-  /** The capture was added to a smoke: the App goes back to the Smoke screen. */
-  readonly onAdded: () => void;
+  /** The capture was added to a smoke: the App opens the Smoke screen on it (Req 4.11). */
+  readonly onAdded: (sightingId: string) => void;
   /**
    * Switches the page to Simulation mode. When given, a phone-mode screen whose sensors never
    * sent an event offers it beside the refusal (Req 17.1): a desktop browser has the event type
@@ -48,18 +49,22 @@ export function SightScreen({
   const store = useStore();
   const { open } = useVigia();
   const [session, setSession] = useState<Session | null>(null);
-  const [answered, setAnswered] = useState<CapturedResult | null>(null);
-  const [captureCount, setCaptureCount] = useState(0);
+  // The captured result that the user has answered, or has left behind with a refusal.
+  const [done, setDone] = useState<CapturedResult | null>(null);
   const [failure, setFailure] = useState<VigiaFailure | null>(null);
-  const lastCaptured = useRef<CapturedResult | null>(null);
+  const started = useRef<CapturedResult | null>(null);
+  // A capture that happened in front of the user: the Session went from `frozen` to `captured`
+  // while this screen was on. A captured result that a panel hands over again (a phone or a scene
+  // that changed) is not one: nothing is added for it without a question or an act (Req 3.8, 4.2).
+  const previous = useRef<Session['state'] | null>(null);
+  const [fresh, setFresh] = useState<CapturedResult | null>(null);
 
   const onSession = useCallback((next: Session) => {
-    setSession(next);
-    if (next.captured !== null && next.captured !== lastCaptured.current) {
-      lastCaptured.current = next.captured;
-      setCaptureCount((n) => n + 1);
-      setFailure(null);
+    if (next.state === 'captured' && next.captured !== null && previous.current === 'frozen') {
+      setFresh(next.captured);
     }
+    previous.current = next.state;
+    setSession(next);
   }, []);
 
   const captured =
@@ -67,15 +72,30 @@ export function SightScreen({
     session.state === 'captured' &&
     session.captured !== null &&
     session.captured.kind === 'bearing' &&
-    session.captured !== answered
+    session.captured !== done
       ? session.captured
       : null;
+  const smokeOpen = open !== null;
 
-  const preselected = useMemo((): SmokeAnswer | null => {
-    if (captured === null || open === null) return null;
+  const preselected = useMemo((): SmokeAnswer => {
+    if (open === null) return 'new';
     const ageMs = environment.clock() - newestTimeUtcMs(open.incident);
     return ageMs <= environment.parameters.maxIncidentAgeMs ? 'same' : 'new';
-  }, [captured, open, environment]);
+  }, [open, environment]);
+
+  // No smoke open: the Capture starts the smoke (Req 4.2), once for each captured result.
+  useEffect(() => {
+    if (captured === null || captured.kind !== 'bearing' || smokeOpen) return;
+    if (fresh !== captured || started.current === captured) return;
+    started.current = captured;
+    const result = store.capture(captured.bearing, 'new');
+    if (!result.ok) {
+      setFailure(result);
+      return;
+    }
+    setDone(captured);
+    onAdded(result.value.sightingId);
+  }, [captured, fresh, smokeOpen, store, onAdded]);
 
   const answer = (which: SmokeAnswer): void => {
     if (captured === null || captured.kind !== 'bearing') return;
@@ -84,17 +104,90 @@ export function SightScreen({
       setFailure(result);
       return;
     }
-    setAnswered(captured);
-    onAdded();
+    setDone(captured);
+    onAdded(result.value.sightingId);
   };
 
   const source = environment.sighting;
+  const viewRef = useOpenAtTop<HTMLElement>(captured === null ? 'sight' : 'capture-view');
   // Started, refused, and not one orientation event arrived: the sensors are not there.
   const noSensorEvent =
     source.kind === 'device' &&
     session !== null &&
     session.state === 'failed' &&
     session.history.samples.length === 0;
+
+  // The question: a view of its own, in place of the camera.
+  if (captured !== null && smokeOpen) {
+    return (
+      <section ref={viewRef} data-testid="sight-question" style={LOOK.stack}>
+        <ConfirmSmokeDialog
+          preselected={preselected}
+          captured={captured}
+          failure={failure}
+          onAnswer={answer}
+          onBack={onBack}
+        />
+      </section>
+    );
+  }
+  // The store refused a first capture: its Message, and a way back to the sighting.
+  if (captured !== null && failure !== null) {
+    return (
+      <section ref={viewRef} data-testid="sight-refused" style={LOOK.stack}>
+        <FailureNotice failure={failure} />
+        <button
+          type="button"
+          onClick={() => {
+            setDone(captured);
+            setFailure(null);
+          }}
+          style={LOOK.button}
+        >
+          Back to the sighting
+        </button>
+      </section>
+    );
+  }
+
+  const back = (
+    <div style={{ padding: `${SIZES.gapPx}px ${SIZES.gapPx}px 0` }}>
+      <button type="button" onClick={onBack} style={LOOK.button}>
+        Back
+      </button>
+    </div>
+  );
+
+  if (source.kind === 'device') {
+    return (
+      <section data-testid="sight-screen" style={{ display: 'block' }}>
+        <DeviceSighting
+          createSource={source.createSource}
+          cameraSurface={source.cameraSurface}
+          timer={environment.timer}
+          parameters={source.sessionParameters}
+          calibration={null}
+          tapSigmaPx={NO_TAP_SIGMA_PX}
+          onSession={onSession}
+          layout="docked"
+          top={back}
+          aim={<GuidanceBlock windShown={windShown} />}
+          extra={
+            noSensorEvent && onTrySimulator !== undefined ? (
+              <button
+                type="button"
+                onClick={onTrySimulator}
+                style={{ ...LOOK.button, margin: SIZES.gapPx }}
+              >
+                Try the simulator instead
+              </button>
+            ) : undefined
+          }
+          {...(source.observe === undefined ? {} : { observe: source.observe })}
+        />
+      </section>
+    );
+  }
   return (
     <section data-testid="sight-screen" style={LOOK.stack}>
       <div style={LOOK.controls}>
@@ -102,35 +195,9 @@ export function SightScreen({
           Back
         </button>
       </div>
-      {captured !== null && (
-        <ConfirmSmokeDialog preselected={preselected} failure={failure} onAnswer={answer} />
-      )}
-      {source.kind === 'device' ? (
-        <>
-          <GuidanceBlock collapsed={captureCount > 0} windShown={windShown} />
-          <DeviceSighting
-            createSource={source.createSource}
-            cameraSurface={source.cameraSurface}
-            timer={environment.timer}
-            parameters={source.sessionParameters}
-            calibration={null}
-            tapSigmaPx={NO_TAP_SIGMA_PX}
-            onSession={onSession}
-            {...(source.observe === undefined ? {} : { observe: source.observe })}
-          />
-          {noSensorEvent && onTrySimulator !== undefined && (
-            <button type="button" onClick={onTrySimulator} style={LOOK.button}>
-              Try the simulator instead
-            </button>
-          )}
-        </>
-      ) : (
-        <>
-          {source.render(onSession)}
-          <p style={LOOK.dim}>{SIMULATION_VALUES_TEXT}</p>
-          <GuidanceBlock collapsed={captureCount > 0} windShown={windShown} />
-        </>
-      )}
+      {source.render(onSession)}
+      <p style={LOOK.dim}>{SIMULATION_VALUES_TEXT}</p>
+      <GuidanceBlock windShown={windShown} />
     </section>
   );
 }

@@ -1,5 +1,12 @@
-// The reviewer's Sight screen, live, fits a phone's first screen (skeleton-ui task 30.4,
-// 2026-11-20). On a phone held up at smoke, Freeze must be reachable without scrolling: the banner,
+// REWRITTEN 2026-11-21 (task 23.2), as a requirement change and not a narrowed test. This file
+// targeted 844 CSS px and asserted that 375 × 667 does NOT fit (it fixed the smallest height at 810):
+// the first form's arithmetic for a flow layout, which Req 3.10 and skeleton-ui 13.15 replace on a
+// phone. The two assertions below that still describe the reviewer's Simulation-mode screen (which
+// the amendment leaves in the flow layout) are kept unchanged; the 'does not fit 667' assertion and
+// the 810 constant are removed; the device-mode docked screen is checked at the end of
+// this file against 390 × 664 and 375 × 667.
+//
+// (The first form, skeleton-ui task 30.4, 2026-11-20.) On a phone held up at smoke, Freeze must be reachable without scrolling: the banner,
 // the bar of the phone in hand, Back, the panel's scene chooser, the image, the readout and the
 // control bar together must be no taller than the screen.
 //
@@ -10,6 +17,7 @@
 // component sets. The real pixels are the lead's check in a browser.
 
 import { describe, expect, it } from 'vitest';
+import { mountDeviceSight } from '../../test-support/device-sight';
 import { mountSimulation } from '../../test-support/simulation-driver';
 
 const ADVANCE_EM = 0.63;
@@ -148,7 +156,7 @@ function heightToTheBar(m: Mounted, widthPx: number, heightPx: number) {
   return { parts, total };
 }
 
-describe('the reviewer’s Sight screen, live, on a phone’s first screen (task 30.4)', () => {
+describe('the reviewer’s Sight screen in Simulation mode stays in the flow layout (task 30.4; unchanged by task 23)', () => {
   it('has nothing between the readout and the control bar, and the image and the readout before them', async () => {
     const m = await liveSightScreen();
     const bar = m.getByTestId('control-bar');
@@ -163,29 +171,130 @@ describe('the reviewer’s Sight screen, live, on a phone’s first screen (task
     const { parts, total } = heightToTheBar(m, 390, 844);
     expect(total, JSON.stringify(parts)).toBeLessThanOrEqual(844);
   });
-
-  it('does not fit 667 CSS px at 375 wide; the smallest height that fits is stated', async () => {
-    const m = await liveSightScreen();
-    const small = heightToTheBar(m, 375, 667);
-    expect(small.total, JSON.stringify(small.parts)).toBeGreaterThan(667);
-    // Above the image the parts take the same at any height; the image is 28 % of it, at least
-    // 200 px. The smallest height that holds everything to the bottom of the bar:
-    let smallest = 0;
-    for (let h = 600; h <= 1200; h += 1) {
-      if (heightToTheBar(m, 375, h).total <= h) {
-        smallest = h;
-        break;
-      }
-    }
-    expect(smallest).toBe(SMALLEST_HEIGHT_AT_375_PX);
-    // Without the image's floor of 200 px, 667 px would leave this much for it:
-    const withoutImage = small.total - small.parts.image;
-    expect(667 - withoutImage).toBeLessThan(200);
-  });
 });
 
-/**
- * The smallest viewport height, at 375 CSS px wide, that holds the live Sight screen of the
- * reviewer down to the bottom of the control bar (measured by the arithmetic above).
- */
-const SMALLEST_HEIGHT_AT_375_PX = 810;
+// ---- Device mode, docked (Req 3.10, 21.8; skeleton-ui 13.15) -------------------------------------
+
+/** The home indicator's inset with Safari's toolbars hidden, in CSS px. */
+const SAFE_AREA_INSET_PX = 34;
+
+/** Greedy wrap at an advance of 0.63 em: an upper bound for the body stack (skeleton-ui Q16). */
+function wrapped(text: string, widthPx: number, fontPx: number): number {
+  return lines(text, widthPx, fontPx);
+}
+
+/** The rows of the docked screen that do not flex, summed from their styles (as UI's budget test). */
+function dockedTotal(screen: HTMLElement, widthPx: number, heightPx: number) {
+  const parts: Record<string, number> = {};
+  const add = (name: string, v: number) => (parts[name] = (parts[name] ?? 0) + v);
+  const textHeight = (el: HTMLElement, w: number) => {
+    const font = px(el.style.fontSize);
+    const line = Number(el.style.lineHeight);
+    if (!(line > 0)) throw new Error(`no line height: ${el.outerHTML.slice(0, 90)}`);
+    return (
+      wrapped(
+        el.textContent ?? '',
+        w - px(el.style.paddingLeft) - px(el.style.paddingRight),
+        font,
+      ) *
+        font *
+        line +
+      vertical(el)
+    );
+  };
+  const top = screen.firstElementChild as HTMLElement;
+  const back = top.querySelector('button') as HTMLElement;
+  add('top (Back)', px(back.style.minHeight) + vertical(top));
+  const middle = screen.querySelector('[data-part="middle"]') as HTMLElement;
+  for (const child of middle.children) {
+    const el = child as HTMLElement;
+    if (el.dataset.testid === 'guidance') {
+      const summary = el.querySelector('summary') as HTMLElement;
+      add('aim', Math.max(px(summary.style.minHeight), 0) + vertical(el));
+    } else if (el.dataset.part === 'image-box') add('image', px(el.style.minHeight));
+    else if (el.dataset.testid === 'readout') {
+      let h = vertical(el);
+      for (const p of el.querySelectorAll<HTMLElement>(':scope > p')) {
+        const numeral = p.querySelector<HTMLElement>('span');
+        const font = Math.max(
+          px(el.style.fontSize),
+          numeral === null ? 0 : px(numeral.style.fontSize),
+        );
+        h +=
+          wrapped(p.textContent ?? '', widthPx - 16, px(el.style.fontSize)) *
+          font *
+          Number(el.style.lineHeight);
+      }
+      add('readout', h);
+    } else if (el.dataset.part === 'hint' || el.dataset.part === 'intro')
+      add('hint', textHeight(el, widthPx));
+    else if (el.dataset.testid === 'limits-note') add('limits', textHeight(el, widthPx));
+    else if (el.dataset.part === 'details' || el.tagName === 'BUTTON') add('below the fold', 0);
+    else throw new Error(`a row of the middle part is not counted: ${el.outerHTML.slice(0, 100)}`);
+  }
+  const bar = screen.lastElementChild as HTMLElement;
+  const gap = px(bar.style.gap);
+  const pieces: number[] = [];
+  const text = bar.querySelector<HTMLElement>('[data-part="bar-text"]');
+  if (text !== null) {
+    const hint = text.querySelector<HTMLElement>('[data-part="hint"]');
+    pieces.push(
+      text.textContent === 'Starting the motion sensors.' && hint !== null
+        ? textHeight(hint, widthPx)
+        : (px(text.style.maxHeight) / 100) * heightPx,
+    );
+  }
+  const buttons = [...bar.querySelectorAll<HTMLElement>('[data-part="bar-controls"] button')];
+  for (const b of buttons.filter((b) => b.dataset.primary === 'true'))
+    pieces.push(px(b.style.height));
+  const others = buttons.filter((b) => b.dataset.primary !== 'true');
+  if (others.length > 0) pieces.push(Math.max(...others.map((b) => px(b.style.height))));
+  add(
+    'bar',
+    px(bar.style.paddingTop) +
+      gap +
+      SAFE_AREA_INSET_PX +
+      pieces.reduce((a, b) => a + b, 0) +
+      gap * Math.max(0, pieces.length - 1),
+  );
+  return { parts, total: Object.values(parts).reduce((a, b) => a + b, 0) };
+}
+
+describe('the Sight screen on a phone is the docked column (Req 3.10, UI 13.15)', () => {
+  const sizes = [
+    [390, 664],
+    [375, 667],
+  ] as const;
+  // A refusal at the cap of the bar's text part is counted by skeleton-ui's own budget test (its
+  // 34.7): on a phone Freeze is not offered while north is needed, so no refusal can be reached here.
+  const states = ['permission', 'live', 'live, north needed', 'frozen'] as const;
+
+  for (const [widthPx, heightPx] of sizes) {
+    for (const name of states) {
+      it(`${name} fits ${widthPx} × ${heightPx}`, async () => {
+        const m = mountDeviceSight({
+          relative: name.includes('north needed'),
+        });
+        await m.settle();
+        if (name !== 'permission') await m.toLive();
+        if (name === 'frozen') await m.press('freeze');
+        const screen = m.getByTestId('sighting-screen');
+        expect(screen.dataset.layout).toBe('docked');
+        const { parts, total } = dockedTotal(screen, widthPx, heightPx);
+        expect(total, JSON.stringify(parts)).toBeLessThanOrEqual(heightPx);
+      });
+    }
+  }
+
+  it('is one column: Back, the middle part, the bar last', async () => {
+    const m = mountDeviceSight({});
+    await m.settle();
+    const screen = m.getByTestId('sighting-screen');
+    expect((screen.firstElementChild as HTMLElement).querySelector('button')?.textContent).toBe(
+      'Back',
+    );
+    expect(screen.children[1]?.getAttribute('data-part')).toBe('middle');
+    expect(screen.lastElementChild?.getAttribute('data-testid')).toBe('control-bar');
+    expect(screen.style.height).toBe('100dvh');
+  });
+});

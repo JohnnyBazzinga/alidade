@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
+  AIM_LINE_TEXT,
+  COMPASS_ONE_LINE_TEXT,
+  countLineText,
   EMERGENCY_NOT_CALLING_TEXT,
+  INBOX_WARNING_LINE_TEXT,
+  JOIN_CONFIRM_TEXT,
+  LEAVES_STATEMENT_TEXT,
+  QR_ONE_LINE_TEXT,
   FIX_LIMITS_TEXT,
   NOT_CALLING_TEXT,
   sightingGuidance,
@@ -56,6 +63,69 @@ describe('the fixed sentences (Req 6.3, 14.5, 16.1, 16.2, 4.3)', () => {
       ...sightingGuidance(true),
     ]) {
       expect(text).not.toMatch(/exact|located at|confirmed|precisely/i);
+    }
+  });
+});
+
+// Task 23 (2026-11-21): the sentences of the first-use flow on a phone.
+describe('the sentences of the flow on a phone (Req 3.7, 4.8, 4.12, 6.12, 10.7, 10.11, 15.2, 15.7)', () => {
+  it('has the aiming line, the one sentence on compasses and the warning line, word for word', () => {
+    expect(AIM_LINE_TEXT).toBe('Aim at the base of the smoke');
+    expect(COMPASS_ONE_LINE_TEXT).toBe('Phone compasses are off by several degrees.');
+    expect(INBOX_WARNING_LINE_TEXT).toBe('Anyone can make a code; a wrong one moves the position.');
+  });
+
+  it('writes the line after a join, an add and a new smoke, in the singular for one', () => {
+    expect(countLineText('joined', 3)).toBe('Joined: 3 sightings');
+    expect(countLineText('joined', 1)).toBe('Joined: 1 sighting');
+    expect(countLineText('added', 1)).toBe('Added: 1 sighting');
+    expect(countLineText('opened', 2)).toBe('New smoke opened: 2 sightings');
+  });
+
+  it('is total: a number that is not a count gives a count of 0, never NaN', () => {
+    for (const n of [Number.NaN, Number.POSITIVE_INFINITY, -3, 1.5]) {
+      expect(countLineText('joined', n)).not.toMatch(/NaN|Infinity|undefined|null|-/);
+    }
+  });
+
+  // The shrunk counterexample of P-2.6 (seed -226173570): 1e21 is an integer and printed as
+  // "1e+21 sightings".
+  it('writes a count too large for a count as 0, never in exponent form', () => {
+    expect(countLineText('joined', 1e21)).toBe('Joined: 0 sightings');
+    expect(countLineText('added', Number.MAX_SAFE_INTEGER)).toBe('Added: 0 sightings');
+    expect(countLineText('opened', 32)).toBe('New smoke opened: 32 sightings');
+  });
+
+  it('says in the statement all that a code shows and that it cannot be taken back (Req 15.2)', () => {
+    for (const part of [
+      'about 1 m',
+      'how well the phone knew',
+      'when',
+      'direction',
+      'uncertainty',
+      'which smoke',
+      'cannot be taken back',
+    ]) {
+      expect(LEAVES_STATEMENT_TEXT).toContain(part);
+    }
+  });
+
+  it('says the three things of Req 4.8 in at most two sentences', () => {
+    expect(JOIN_CONFIRM_TEXT.split(/(?<=\.)\s+/)).toHaveLength(2);
+    expect(JOIN_CONFIRM_TEXT).toMatch(/one position/);
+    expect(JOIN_CONFIRM_TEXT).toMatch(/different/);
+    expect(JOIN_CONFIRM_TEXT).toMatch(/cannot be undone|not taken back/);
+  });
+
+  it('says beside the QR that the other phone needs a connection, and names no emergency number', () => {
+    expect(QR_ONE_LINE_TEXT).toMatch(/connection/);
+    for (const t of [
+      AIM_LINE_TEXT,
+      COMPASS_ONE_LINE_TEXT,
+      QR_ONE_LINE_TEXT,
+      LEAVES_STATEMENT_TEXT,
+    ]) {
+      expect(t).not.toMatch(/\d{3}|tel:|dial|NaN|undefined|null/i);
     }
   });
 });
