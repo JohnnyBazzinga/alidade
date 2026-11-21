@@ -11,11 +11,11 @@ Entry for Kiroween 2026, category Skeleton Crew.
 
 ## Try it
 
-| What                | Link                                                                                                      |
-| ------------------- | --------------------------------------------------------------------------------------------------------- |
-| Vigia               | <https://whistleblower-shore.github.io/alidade-playground/vigia/> (on a laptop add `?mode=simulator`)     |
-| Nonius              | <https://whistleblower-shore.github.io/alidade-playground/nonius/> (choose Simulator on the first screen) |
-| Skeleton playground | <https://whistleblower-shore.github.io/alidade-playground/>                                               |
+| What                | Link                                                                                      |
+| ------------------- | ----------------------------------------------------------------------------------------- |
+| Vigia               | <https://johnnybazzinga.github.io/alidade/vigia/> (on a laptop add `?mode=simulator`)     |
+| Nonius              | <https://johnnybazzinga.github.io/alidade/nonius/> (choose Simulator on the first screen) |
+| Skeleton playground | <https://johnnybazzinga.github.io/alidade/>                                               |
 
 Every scene in the simulators is made up. Neither app calls or notifies anyone.
 
