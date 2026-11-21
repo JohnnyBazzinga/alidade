@@ -1,1 +1,0 @@
-var e=new URL(`maplibre-gl-worker-CMkqA50c.mjs`,import.meta.url).href;export{e as default};
