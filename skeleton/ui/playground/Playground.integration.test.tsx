@@ -407,7 +407,9 @@ describe('the Playground in device mode (Req 18.2, 18.3)', () => {
     expect(m.getByTestId('camera-video')).toBeTruthy();
   });
 
-  it('a Mark without a calibration shows calibration_missing, and the crosshair still captures', async () => {
+  // Requirement change (18.10 as amended 2026-11-21): with no calibration at all the image takes no
+  // taps and shows no Message; this test used to expect `calibration_missing`.
+  it('a tap without a calibration takes no mark and shows no Message, and the crosshair still captures', async () => {
     const { m, advance } = deviceSetup();
     await m.settle();
     await m.press('start');
@@ -419,7 +421,7 @@ describe('the Playground in device mode (Req 18.2, 18.3)', () => {
       fireEvent.pointerDown(surface, { pointerId: 1, clientX: 50, clientY: 50 });
       fireEvent.pointerUp(surface, { pointerId: 1, clientX: 50, clientY: 50 });
     });
-    expect(m.alerts()).toEqual([messageText('calibration_missing')]);
+    expect(m.alerts()).toEqual([]);
     await m.press('capture');
     expect(m.state()).toBe('captured');
   });

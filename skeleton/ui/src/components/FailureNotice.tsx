@@ -4,7 +4,7 @@
 import type { UiFailure } from '../result';
 import type { UiReason } from '../reasons';
 import { messageFor } from '../math/messages';
-import { COLOURS, FONT_STACK, SIZES } from './theme';
+import { COLOURS, BODY_FONT_STACK, SIZES } from './theme';
 
 export interface FailureLike {
   readonly reason: UiReason;
@@ -35,7 +35,7 @@ export function FailureNotice({ failure }: { readonly failure: FailureLike }) {
         background: COLOURS.panel,
         borderLeft: `3px solid ${COLOURS.alert}`,
         padding: SIZES.gapPx,
-        fontFamily: FONT_STACK,
+        fontFamily: BODY_FONT_STACK,
         fontSize: SIZES.labelPx,
       }}
     >

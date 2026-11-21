@@ -12,7 +12,7 @@
 // long the screen is; in Simulation mode the bar of the phone in hand is under the banner on every
 // screen, and the first screen gives the reviewer's path while this phone has sighted nothing.
 
-import { COLOURS, FONT_STACK, SIZES } from '@alidade/ui';
+import { BODY_FONT_STACK, COLOURS, SIZES } from '@alidade/ui';
 import { useEffect, useRef, useState } from 'react';
 import { EmergencyScreen } from './components/EmergencyScreen';
 import {
@@ -200,7 +200,7 @@ function Shell({
         height: '100dvh',
         background: COLOURS.bg,
         color: COLOURS.ink,
-        fontFamily: FONT_STACK,
+        fontFamily: BODY_FONT_STACK,
       }}
     >
       {environment.mode === 'simulation' && <SimulationBanner />}

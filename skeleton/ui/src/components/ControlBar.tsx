@@ -4,7 +4,9 @@
 // a bar held at the lower edge of the viewport would lie over the image, the readout or the
 // Message that the user needs to read.
 
-import { COLOURS, FONT_STACK, SIZES } from './theme';
+import type { ReactNode } from 'react';
+import { DOCKED_BAR_TEXT_MAX_SHARE } from '../defaults';
+import { BODY_FONT_STACK, COLOURS, SIZES } from './theme';
 
 export interface ControlSpec {
   readonly id: string;
@@ -22,7 +24,7 @@ export function controlStyle(primary: boolean) {
     minHeight: primary ? SIZES.primaryPx : SIZES.touchPx,
     height: primary ? SIZES.primaryPx : SIZES.touchPx,
     padding: `0 ${SIZES.gapPx * 2}px`,
-    fontFamily: FONT_STACK,
+    fontFamily: BODY_FONT_STACK,
     fontSize: SIZES.labelPx,
     borderRadius: 0,
     border: `1px solid ${primary ? COLOURS.brass : COLOURS.rule}`,
@@ -30,6 +32,81 @@ export function controlStyle(primary: boolean) {
     color: primary ? COLOURS.brassInk : COLOURS.ink,
     flex: primary ? '1 1 100%' : '1 1 auto',
   } as const;
+}
+
+function Buttons({ controls }: { readonly controls: readonly ControlSpec[] }) {
+  return (
+    <>
+      {controls.map((c) => (
+        <button
+          key={c.id}
+          type="button"
+          data-control={c.id}
+          data-primary={c.primary === true ? 'true' : 'false'}
+          disabled={c.disabled === true}
+          onClick={c.onPress}
+          style={controlStyle(c.primary === true)}
+        >
+          {c.label}
+        </button>
+      ))}
+    </>
+  );
+}
+
+/**
+ * The docked bar (Req 13.15, design D35): the last row of the screen's column, never a layer. A
+ * text part (the north prompt, the portrait warning, the Message of the current refusal) of at
+ * most `DOCKED_BAR_TEXT_MAX_SHARE` of the viewport's height, scrolling inside the bar beyond it,
+ * over the controls, with the home indicator's inset added to the bottom padding.
+ */
+export function DockedBar({
+  text,
+  controls,
+}: {
+  readonly text: ReactNode;
+  readonly controls: readonly ControlSpec[];
+}) {
+  const hasText = text !== null && text !== undefined && text !== false;
+  return (
+    <div
+      data-testid="control-bar"
+      data-placement="docked"
+      style={{
+        flex: '0 0 auto',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: SIZES.gapPx,
+        padding: SIZES.gapPx,
+        paddingBottom: `calc(${SIZES.gapPx}px + env(safe-area-inset-bottom))`,
+        background: COLOURS.panel,
+        borderTop: `1px solid ${COLOURS.rule}`,
+      }}
+    >
+      {hasText && (
+        <div
+          data-part="bar-text"
+          style={{
+            maxHeight: `${DOCKED_BAR_TEXT_MAX_SHARE * 100}dvh`,
+            overflowY: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: SIZES.gapPx,
+          }}
+        >
+          {text}
+        </div>
+      )}
+      {controls.length > 0 && (
+        <div
+          data-part="bar-controls"
+          style={{ display: 'flex', flexWrap: 'wrap', gap: SIZES.gapPx }}
+        >
+          <Buttons controls={controls} />
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function ControlBar({ controls }: { readonly controls: readonly ControlSpec[] }) {
@@ -47,19 +124,7 @@ export function ControlBar({ controls }: { readonly controls: readonly ControlSp
         borderTop: `1px solid ${COLOURS.rule}`,
       }}
     >
-      {controls.map((c) => (
-        <button
-          key={c.id}
-          type="button"
-          data-control={c.id}
-          data-primary={c.primary === true ? 'true' : 'false'}
-          disabled={c.disabled === true}
-          onClick={c.onPress}
-          style={controlStyle(c.primary === true)}
-        >
-          {c.label}
-        </button>
-      ))}
+      <Buttons controls={controls} />
     </div>
   );
 }

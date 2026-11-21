@@ -1,9 +1,20 @@
+import { render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
+import type { LiveReadout } from '../math/session/session';
+import { sessionInState } from '../test-support/session-fixtures';
+import { CaptureSummary } from './CaptureSummary';
+import { ControlBar } from './ControlBar';
+import { FailureNotice } from './FailureNotice';
+import { LimitsNote } from './LimitsNote';
+import { Readout } from './Readout';
 import { contrastRatio } from '../math/contrast';
 import { MAP_DARK, MAP_FIX, MAP_LIGHT } from '../math/map/map-style';
 import {
+  BODY_FONT_STACK,
   COLOURS,
   HAIRLINE_MIN_RATIO,
+  NUMERAL_STYLE,
+  NUMERIC_FONT_STACK,
   MAP_FIX_COLOUR,
   PALETTE_PAIRS,
   SIZES,
@@ -74,5 +85,109 @@ describe('the palette (Req 13.2, 13.11, design §7.18)', () => {
     expect(SIZES.touchPx).toBe(48);
     expect(SIZES.primaryPx).toBe(64);
     expect(SIZES.gapPx).toBe(8);
+  });
+});
+
+// Req 13.4 as amended 2026-11-21, design D36: two stacks, and no size, colour or contrast lowered.
+const INDEX_SOURCE = Object.values(
+  import.meta.glob<string>('../index.ts', { query: '?raw', import: 'default', eager: true }),
+)[0];
+
+describe('the two font stacks (Req 13.4, D36)', () => {
+  it('has the body stack and the numeric stack exactly', () => {
+    expect(BODY_FONT_STACK).toBe('system-ui, -apple-system, "Segoe UI", Roboto, sans-serif');
+    expect(NUMERIC_FONT_STACK).toBe(
+      'ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace',
+    );
+    expect(NUMERAL_STYLE.fontFamily).toBe(NUMERIC_FONT_STACK);
+    expect(NUMERAL_STYLE.fontVariantNumeric).toBe('tabular-nums');
+  });
+
+  it('no longer exports FONT_STACK, so that no use is chosen silently', () => {
+    const index = INDEX_SOURCE ?? '';
+    expect(index).not.toBe('');
+    expect(index).not.toMatch(/\bFONT_STACK\b/);
+    expect(index).toMatch(/BODY_FONT_STACK/);
+    expect(index).toMatch(/NUMERIC_FONT_STACK/);
+  });
+
+  it('sets prose and control labels in the body stack', () => {
+    const body = (el: Element | null) => (el as HTMLElement).style.fontFamily;
+    const bar = render(<ControlBar controls={[{ id: 'a', label: 'A', onPress: () => {} }]} />);
+    expect(body(bar.container.querySelector('button'))).toContain('sans-serif');
+    bar.unmount();
+    const note = render(<FailureNotice failure={{ reason: 'permission_denied' }} />);
+    expect(body(note.getByTestId('failure-notice'))).toContain('sans-serif');
+    note.unmount();
+    const limits = render(<LimitsNote />);
+    expect(body(limits.getByTestId('limits-note'))).toContain('sans-serif');
+  });
+
+  it('sets numerals in the numeric stack', () => {
+    const readout: LiveReadout = {
+      timeUtcMs: 1,
+      sampleCount: 12,
+      newestSampleUtcMs: 1,
+      azimuth: { ok: true, value: { northReference: 'true', azimuthRad: 1 } },
+      apparentAltitudeRad: { ok: true, value: 0.2 },
+      azimuthSpreadRad: 0.004,
+      altitudeStdDevRad: 0.001,
+      steadiness: 'steady',
+      stale: false,
+    };
+    const r = render(<Readout readout={readout} />);
+    const numerals = r.getByTestId('readout').querySelectorAll<HTMLElement>('span');
+    expect(numerals.length).toBeGreaterThan(0);
+    for (const n of numerals) expect(n.style.fontFamily).toContain('monospace');
+    r.unmount();
+    const result = sessionInState('captured', 'bearing').session.captured;
+    if (result === null) throw new Error('not captured');
+    const c = render(<CaptureSummary result={result} />);
+    const headline = c
+      .getByTestId('capture-summary')
+      .querySelector<HTMLElement>('[data-part="headline"]');
+    expect(headline?.style.fontFamily).toContain('monospace');
+  });
+
+  it('lowers no size, colour or contrast (values typed here, not read from the theme)', () => {
+    expect(COLOURS).toEqual({
+      bg: '#0C0F12',
+      panel: '#141A1F',
+      raised: '#1D252C',
+      ink: '#ECE8DC',
+      inkDim: '#AEB6BD',
+      brass: '#E3AE45',
+      brassInk: '#14100A',
+      alert: '#FF9B7A',
+      outline: MAP_DARK,
+      mapInk: MAP_LIGHT,
+      rule: '#6A7884',
+    });
+    expect(SIZES).toEqual({
+      numeralPx: 32,
+      labelPx: 20,
+      touchPx: 48,
+      primaryPx: 64,
+      gapPx: 8,
+      reticleCorePx: 2,
+      reticleOutlinePx: 1,
+      reticleGapPx: 8,
+      reticleArmPx: 28,
+      markRingPx: 28,
+      markRingCorePx: 2,
+      markRingOutlinePx: 1,
+    });
+    expect(PALETTE_PAIRS.map((p) => p.label)).toEqual([
+      ...['ink', 'inkDim', 'brass', 'alert'].flatMap((fg) =>
+        ['bg', 'panel', 'raised'].map((bg) => `${fg} on ${bg}`),
+      ),
+      'brassInk on brass',
+      'brass on black',
+      'outline on white',
+      'outline on brass',
+      'mapInk on black',
+      'outline on mapInk (map attribution)',
+    ]);
+    expect(belowMinimum(PALETTE_PAIRS)).toEqual([]);
   });
 });

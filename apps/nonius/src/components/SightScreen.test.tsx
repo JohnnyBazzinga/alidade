@@ -58,6 +58,21 @@ function mount(preload = 0) {
 }
 
 describe('SightScreen', () => {
+  // Skeleton-ui task 34 (2026-11-21): the docked layout is opt-in and Nonius has not asked for it,
+  // so its Sight screen is the flow layout, with the full readout and the known-azimuth form.
+  it('stays in the flow layout: no docked column', async () => {
+    const m = mount();
+    await m.screen.settle();
+    await m.press('start');
+    await m.advance(1500);
+    const screen = m.q.getByTestId('sighting-screen');
+    expect(screen.dataset.layout).toBeUndefined();
+    expect(screen.style.height).toBe('');
+    expect(m.screen.container.querySelector('[data-part="middle"]')).toBeNull();
+    expect(m.q.getByTestId('control-bar').dataset.placement).toBe('lower');
+    expect(m.q.getByTestId('readout').querySelector('details')).toBeNull();
+  });
+
   it('captures an altitude Sight through DeviceSighting and never asks for a location', async () => {
     const m = mount();
     await m.screen.settle();

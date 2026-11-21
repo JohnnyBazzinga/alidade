@@ -30,22 +30,24 @@
 // and the bar fit under an app's banner and Back (Vigia's `sight-first-screen.test.tsx`).
 
 import { wrapPi } from '@alidade/core';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { CameraCalibration } from '../math/camera-calibration';
 import type { ImageFit, ImageLayout, SourceSize } from '../math/image-layout';
 import type { SessionParameters } from '../math/session/parameters';
 import type { Session } from '../math/session/session';
+import type { UiReason } from '../reasons';
 import type { ActionRequest } from '../math/session/session-events';
 import { yawStatus } from '../math/session/yaw-status';
 import { CaptureSummary } from './CaptureSummary';
-import { ControlBar, type ControlSpec } from './ControlBar';
+import { DOCKED_IMAGE_MIN_HEIGHT_PX } from '../defaults';
+import { ControlBar, controlStyle, DockedBar, type ControlSpec } from './ControlBar';
 import type { ObserveElementSize } from './dom-size';
 import { FailureNotice } from './FailureNotice';
 import { ImageSurface, type AimGesture } from './ImageSurface';
 import { KnownAzimuthForm } from './KnownAzimuthForm';
 import { LimitsNote } from './LimitsNote';
 import { Readout } from './Readout';
-import { COLOURS, FONT_STACK, SIZES } from './theme';
+import { BODY_FONT_STACK, COLOURS, SIZES } from './theme';
 import { YawStatusBar } from './YawStatusBar';
 
 export interface SightingScreenProps {
@@ -65,7 +67,27 @@ export interface SightingScreenProps {
   readonly onLayout?: (layout: ImageLayout | null) => void;
   readonly observe?: ObserveElementSize;
   readonly imageLabel?: string;
+  /**
+   * `flow` (the default): every part in the page's normal flow, as tall as its content. `docked`
+   * (Req 13.15): a column of `100dvh` with the caller's `top` row, a middle part that alone
+   * scrolls, and the bar as its last row. The caller gives the column a parent with no padding.
+   */
+  readonly layout?: SightingLayout;
+  /**
+   * Whether a tap on the frozen image is taken (Req 13.17, 18.10 as amended). Default: whether a
+   * calibration is given. A caller that holds a calibration and withholds it until the tap's
+   * 1-sigma is valid passes `true`, so that the tap is refused with `calibration_missing`.
+   */
+  readonly tapsEnabled?: boolean;
+  /** Docked: a row above the middle part (Vigia: Back). */
+  readonly top?: ReactNode;
+  /** Docked: the aiming line, at the top of the middle part, in place of the screen's own hint. */
+  readonly aim?: ReactNode;
+  /** Docked: rows at the end of the middle part. */
+  readonly extra?: ReactNode;
 }
+
+export type SightingLayout = 'flow' | 'docked';
 
 /**
  * The height of the image: 28 % of the small viewport, and never under 200 or over 480 CSS px,
@@ -80,6 +102,8 @@ export const SCREEN_TEXT = {
   starting: 'Starting the motion sensors.',
   liveHint: 'Aim the crosshair at the target, then tap Freeze.',
   frozenHint: 'Tap the image to mark the target, or capture on the crosshair.',
+  /** Where no tap can mark (no Camera calibration, Req 13.17). */
+  frozenHintNoMark: 'Capture takes the direction of the crosshair.',
   marked: 'Mark set: the capture will use the point you tapped.',
   notMarked: 'No mark: the capture will use the crosshair.',
 } as const;
@@ -105,13 +129,24 @@ function portraitProblem(session: Session, parameters: SessionParameters): boole
   return !wrapped.ok || Math.abs(wrapped.value) > parameters.screenAngleToleranceRad;
 }
 
+/** The Message that the Yaw status's prompt shows, to show a Notice of the same reason once. */
+function promptReason(status: string, frame: string | null): UiReason | null {
+  if (status === 'none') return frame === 'absolute' ? null : 'no_yaw_reference';
+  if (status === 'stale') return 'stale_yaw_reference';
+  if (status === 'invalidated') return 'frame_reset';
+  return null;
+}
+
 export function SightingScreen(props: SightingScreenProps) {
   const { session, parameters, onAction } = props;
+  const docked = props.layout === 'docked';
+  const [otherWays, setOtherWays] = useState(false);
   const state = session.state;
   const bearing = session.kind === 'bearing';
   const frozen = state === 'frozen';
   const showImage = state === 'starting' || state === 'live' || frozen;
   const mark = session.frozen?.mark ?? null;
+  const marking = props.tapsEnabled ?? props.calibration !== null;
   const status = yawStatus(
     session.yawReference,
     session.history.frameResets,
@@ -144,7 +179,9 @@ export function SightingScreen(props: SightingScreenProps) {
       primary: northFirst,
       onPress: () => onAction({ kind: 'establishYaw', from: { kind: 'compass' } }),
     };
-    if (!bearing) controls.push(freeze);
+    // Docked: the current action only (Req 13.15); the compass is also in "Other ways".
+    if (docked) controls.push(northFirst ? { ...north, primary: true } : freeze);
+    else if (!bearing) controls.push(freeze);
     else if (northFirst) controls.push(north, freeze);
     else controls.push(freeze, north);
   } else if (frozen) {
@@ -186,21 +223,224 @@ export function SightingScreen(props: SightingScreenProps) {
     session.notice?.reason !== 'portrait_required';
 
   const text = {
-    fontFamily: FONT_STACK,
+    fontFamily: BODY_FONT_STACK,
     fontSize: SIZES.labelPx,
+    lineHeight: 1.25,
     color: COLOURS.ink,
     margin: 0,
     padding: SIZES.gapPx,
   } as const;
 
-  const yawBar = (
+  const yawBar = (lineOnly = false) => (
     <YawStatusBar
       status={status}
       yawReference={session.yawReference}
       frame={frame}
       headingSigmaRad={parameters.headingSigmaRad}
+      lineOnly={lineOnly}
     />
   );
+
+  const imageBox = (
+    <div
+      data-part="image-box"
+      style={
+        docked
+          ? { position: 'relative', flex: '1 1 auto', minHeight: DOCKED_IMAGE_MIN_HEIGHT_PX }
+          : { position: 'relative', height: IMAGE_HEIGHT }
+      }
+    >
+      <ImageSurface
+        frozen={frozen}
+        sourceSize={props.sourceSize}
+        fit={props.fit}
+        mark={mark}
+        observe={props.observe}
+        onLayout={props.onLayout}
+        onAim={props.onAim}
+        label={props.imageLabel}
+        onMark={(point, layout) => {
+          // No calibration, no tap: the image takes no taps (Req 18.10 as amended, 13.17).
+          if (!marking) return;
+          onAction({
+            kind: 'mark',
+            point,
+            layout,
+            calibration: props.calibration,
+            tapSigmaPx: props.tapSigmaPx,
+          });
+        }}
+      >
+        {(layout) => props.renderImage(layout, frozen)}
+      </ImageSurface>
+    </div>
+  );
+
+  const frozenHint = (
+    <p data-part="hint" style={text}>
+      {marking
+        ? `${SCREEN_TEXT.frozenHint} ${mark === null ? SCREEN_TEXT.notMarked : SCREEN_TEXT.marked}`
+        : SCREEN_TEXT.frozenHintNoMark}
+    </p>
+  );
+
+  if (docked) {
+    const root = {
+      display: 'flex',
+      flexDirection: 'column',
+      height: '100dvh',
+      overflow: 'hidden',
+      background: COLOURS.bg,
+    } as const;
+    const middleStyle = {
+      flex: '1 1 auto',
+      minHeight: 0,
+      overflowY: 'auto',
+      display: 'flex',
+      flexDirection: 'column',
+    } as const;
+    const askNorth = bearing && (state === 'live' || frozen);
+
+    if (otherWays && askNorth) {
+      const close = () => setOtherWays(false);
+      return (
+        <div
+          data-testid="sighting-screen"
+          data-state={state}
+          data-layout="docked"
+          data-view="other-ways"
+          style={root}
+        >
+          {props.top}
+          <div data-part="middle" style={middleStyle}>
+            <div
+              style={{
+                padding: SIZES.gapPx,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: SIZES.gapPx,
+              }}
+            >
+              <button type="button" style={controlStyle(false)} onClick={close}>
+                Back to the sighting
+              </button>
+              {state === 'live' && (
+                <button
+                  type="button"
+                  data-control="north-compass"
+                  style={controlStyle(false)}
+                  onClick={() => {
+                    close();
+                    onAction({ kind: 'establishYaw', from: { kind: 'compass' } });
+                  }}
+                >
+                  Set north from the compass
+                </button>
+              )}
+            </div>
+            <KnownAzimuthForm
+              onSubmit={(from) => {
+                close();
+                onAction({ kind: 'establishYaw', from });
+              }}
+            />
+          </div>
+        </div>
+      );
+    }
+
+    const needsPrompt =
+      bearing &&
+      (state === 'live' || frozen) &&
+      (northFirst || promptReason(status.status, frame) !== null);
+    const shownPromptReason = needsPrompt ? promptReason(status.status, frame) : null;
+    const notice =
+      state !== 'failed' &&
+      session.notice !== null &&
+      !(shownPromptReason !== null && session.notice.reason === shownPromptReason)
+        ? session.notice
+        : null;
+    const barText =
+      state === 'starting' ? (
+        <p data-part="hint" style={{ ...text, padding: 0 }}>
+          {SCREEN_TEXT.starting}
+        </p>
+      ) : (
+        <>
+          {needsPrompt && yawBar()}
+          {portrait && <FailureNotice failure={{ reason: 'portrait_required' }} />}
+          {state === 'failed' && session.failure !== null && (
+            <FailureNotice failure={session.failure} />
+          )}
+          {notice !== null && <FailureNotice failure={notice} />}
+        </>
+      );
+    const hasBarText =
+      state === 'starting' ||
+      needsPrompt ||
+      portrait ||
+      (state === 'failed' && session.failure !== null) ||
+      notice !== null;
+    const limits = <LimitsNote />;
+    const liveHint = (
+      <p data-part="hint" style={text}>
+        {SCREEN_TEXT.liveHint}
+      </p>
+    );
+    return (
+      <div data-testid="sighting-screen" data-state={state} data-layout="docked" style={root}>
+        {props.top}
+        <div data-part="middle" style={middleStyle}>
+          {props.aim ?? (state === 'live' ? liveHint : null)}
+          {state === 'permission' && (
+            <p data-part="intro" style={text}>
+              {SCREEN_TEXT.permission}
+            </p>
+          )}
+          {state === 'permission' && limits}
+          {showImage && imageBox}
+          {state === 'live' && (
+            <Readout readout={session.readout} compact kind={session.kind}>
+              {bearing && !needsPrompt && yawBar(true)}
+              {limits}
+            </Readout>
+          )}
+          {frozen && frozenHint}
+          {frozen && (
+            <details data-part="details" style={{ padding: `0 ${SIZES.gapPx}px` }}>
+              <summary
+                style={{
+                  ...text,
+                  padding: 0,
+                  minHeight: SIZES.touchPx,
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+              >
+                Details
+              </summary>
+              {bearing && !needsPrompt && yawBar(true)}
+              {limits}
+            </details>
+          )}
+          {state === 'captured' && session.captured !== null && (
+            <CaptureSummary result={session.captured} compact />
+          )}
+          {askNorth && (
+            <button
+              type="button"
+              style={{ ...controlStyle(false), margin: SIZES.gapPx }}
+              onClick={() => setOtherWays(true)}
+            >
+              Other ways to set north
+            </button>
+          )}
+          {props.extra}
+        </div>
+        <DockedBar text={hasBarText ? barText : null} controls={controls} />
+      </div>
+    );
+  }
 
   return (
     <div
@@ -223,37 +463,13 @@ export function SightingScreen(props: SightingScreenProps) {
           {SCREEN_TEXT.starting}
         </p>
       )}
-      {showImage && (
-        <div data-part="image-box" style={{ position: 'relative', height: IMAGE_HEIGHT }}>
-          <ImageSurface
-            frozen={frozen}
-            sourceSize={props.sourceSize}
-            fit={props.fit}
-            mark={mark}
-            observe={props.observe}
-            onLayout={props.onLayout}
-            onAim={props.onAim}
-            label={props.imageLabel}
-            onMark={(point, layout) =>
-              onAction({
-                kind: 'mark',
-                point,
-                layout,
-                calibration: props.calibration,
-                tapSigmaPx: props.tapSigmaPx,
-              })
-            }
-          >
-            {(layout) => props.renderImage(layout, frozen)}
-          </ImageSurface>
-        </div>
-      )}
+      {showImage && imageBox}
       {state === 'live' && <Readout readout={session.readout} />}
       {portrait && <FailureNotice failure={{ reason: 'portrait_required' }} />}
       {state === 'captured' && session.captured !== null && (
         <CaptureSummary result={session.captured} />
       )}
-      {(state === 'live' || frozen) && bearing && northFirst && yawBar}
+      {(state === 'live' || frozen) && bearing && northFirst && yawBar()}
       {state === 'failed' && session.failure !== null && (
         <FailureNotice failure={session.failure} />
       )}
@@ -264,12 +480,8 @@ export function SightingScreen(props: SightingScreenProps) {
           {SCREEN_TEXT.liveHint}
         </p>
       )}
-      {frozen && (
-        <p data-part="hint" style={text}>
-          {SCREEN_TEXT.frozenHint} {mark === null ? SCREEN_TEXT.notMarked : SCREEN_TEXT.marked}
-        </p>
-      )}
-      {(state === 'live' || frozen) && bearing && !northFirst && yawBar}
+      {frozen && frozenHint}
+      {(state === 'live' || frozen) && bearing && !northFirst && yawBar()}
       {state === 'live' && <LimitsNote />}
       {(state === 'live' || frozen) && bearing && (
         <KnownAzimuthForm onSubmit={(from) => onAction({ kind: 'establishYaw', from })} />

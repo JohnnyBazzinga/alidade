@@ -20,6 +20,13 @@ describe('named constants (Req 19.1)', () => {
     expect(defaults.SPACING_PX).toBe(8);
     expect(defaults.MIN_CONTRAST_RATIO).toBe(7);
     expect(defaults.MIN_READOUT_FONT_PX).toBe(20);
+    // Req 19.6: finite, positive, and the share below 1.
+    expect(defaults.DOCKED_IMAGE_MIN_HEIGHT_PX).toBe(160);
+    expect(defaults.DOCKED_BAR_TEXT_MAX_SHARE).toBe(0.2);
+    for (const v of [defaults.DOCKED_IMAGE_MIN_HEIGHT_PX, defaults.DOCKED_BAR_TEXT_MAX_SHARE]) {
+      expect(Number.isFinite(v) && v > 0).toBe(true);
+    }
+    expect(defaults.DOCKED_BAR_TEXT_MAX_SHARE).toBeLessThan(1);
     expect(defaults.MAP_ERROR_REPORT_INTERVAL_MS).toBe(1000);
     expect(defaults.SIMULATOR_TICK_MS).toBe(100);
     expect(defaults.SCREEN_ANGLE_TOLERANCE_RAD).toBe(1e-9);

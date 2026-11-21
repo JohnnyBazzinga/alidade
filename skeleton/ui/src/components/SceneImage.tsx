@@ -5,7 +5,7 @@
 
 import type { ImageLayout } from '../math/image-layout';
 import type { ProjectedScene } from '../math/scene/project-scene';
-import { COLOURS, FONT_STACK, SIZES } from './theme';
+import { COLOURS, BODY_FONT_STACK, SIZES } from './theme';
 
 export interface SceneImageProps {
   readonly projected: ProjectedScene | null;
@@ -73,7 +73,7 @@ export function SceneImage({ projected, layout }: SceneImageProps) {
               x={t.point.xPx + 12}
               y={t.point.yPx + 4}
               fill={TARGET}
-              fontFamily={FONT_STACK}
+              fontFamily={BODY_FONT_STACK}
               fontSize={SIZES.labelPx}
               stroke={COLOURS.outline}
               strokeWidth={0.5}

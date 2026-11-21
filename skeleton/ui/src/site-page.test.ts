@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { COLOURS, FONT_STACK, SIZES } from './index';
+import { COLOURS, NUMERIC_FONT_STACK, SIZES } from './index';
 
 // The landing page of the published site, `site/index.html` at the repository root: one static
 // page, inline CSS, no script and no request. It uses this package's palette and font stack so
@@ -114,10 +114,10 @@ describe('site/index.html', () => {
     expect(squash(html)).toContain(squash(svg));
   });
 
-  it('uses the palette and the font stack of @alidade/ui, and no other colour', () => {
+  it('uses the palette and the numeric font stack of @alidade/ui, and no other colour', () => {
     const style = /<style>([\s\S]*?)<\/style>/.exec(html)?.[1] ?? '';
     expect(style).not.toBe('');
-    expect(squash(style)).toContain(squash(FONT_STACK));
+    expect(squash(style)).toContain(squash(NUMERIC_FONT_STACK));
     const allowed = new Set(Object.values(COLOURS).map((c) => c.toLowerCase()));
     const used = (style.match(/#[0-9a-fA-F]{3,8}\b/g) ?? []).map((c) => c.toLowerCase());
     expect(used.length).toBeGreaterThan(3);

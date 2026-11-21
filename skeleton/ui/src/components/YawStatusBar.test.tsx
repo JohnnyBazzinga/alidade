@@ -124,3 +124,19 @@ describe('YawStatusBar (Req 11.4)', () => {
     expect(formatAge(-5)).toBe('0 s');
   });
 });
+
+describe('YawStatusBar, lineOnly (Req 13.16)', () => {
+  it('shows the line and not the prompt', () => {
+    const { container } = render(
+      <YawStatusBar
+        status={{ status: 'none', ageMs: 0 }}
+        yawReference={null}
+        frame="relative"
+        headingSigmaRad={0.05}
+        lineOnly
+      />,
+    );
+    expect(container.querySelector('[data-part="line"]')?.textContent).toBe('North is not set.');
+    expect(container.querySelector('[data-part="prompt"]')).toBeNull();
+  });
+});

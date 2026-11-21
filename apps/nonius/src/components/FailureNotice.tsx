@@ -2,7 +2,7 @@
 // do. UI's notice takes only UI's reasons, so Vigia has its own, in UI's look. The reason's code,
 // the field, the id and the error name are never shown.
 
-import { COLOURS, FONT_STACK, SIZES } from '@alidade/ui';
+import { BODY_FONT_STACK, COLOURS, SIZES } from '@alidade/ui';
 import { messageFor } from '../math/messages';
 import type { NoniusFailure } from '../result';
 
@@ -27,7 +27,7 @@ export function FailureNotice({ failure, count }: FailureNoticeProps) {
         background: COLOURS.panel,
         borderLeft: `4px solid ${COLOURS.alert}`,
         padding: SIZES.gapPx * 1.5,
-        fontFamily: FONT_STACK,
+        fontFamily: BODY_FONT_STACK,
         fontSize: SIZES.labelPx,
         lineHeight: 1.35,
         overflowWrap: 'anywhere',

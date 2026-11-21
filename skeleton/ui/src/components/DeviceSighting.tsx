@@ -6,7 +6,7 @@
 // of the stream.
 
 import type { SensorResult, SensorSource } from '@alidade/sensors';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   createCameraAdapter,
   type CameraStartRequest,
@@ -21,7 +21,7 @@ import type { ActionRequest } from '../math/session/session-events';
 import { CameraImage } from './CameraImage';
 import type { ObserveElementSize } from './dom-size';
 import { FailureNotice } from './FailureNotice';
-import { SightingScreen } from './SightingScreen';
+import { SightingScreen, type SightingLayout } from './SightingScreen';
 import type { Timer } from './timer';
 import { useSightingSession } from './use-sighting-session';
 
@@ -48,6 +48,14 @@ export interface DeviceSightingProps {
   /** Called with the running stream's size, and with `null` when there is none. */
   readonly onStreamSize?: (size: SourceSize | null) => void;
   readonly observe?: ObserveElementSize;
+  /** `flow` (default) or `docked` (Req 13.15); passed to the screen with the three slots below. */
+  readonly layout?: SightingLayout;
+  /** Docked: a row above the middle part (an app's Back). */
+  readonly top?: ReactNode;
+  /** Docked: the aiming line, at the top of the middle part. */
+  readonly aim?: ReactNode;
+  /** Docked: rows at the end of the middle part. */
+  readonly extra?: ReactNode;
 }
 
 const NO_REQUEST: CameraStartRequest = {};
@@ -120,7 +128,12 @@ export function DeviceSighting(props: DeviceSightingProps) {
         Number.isFinite(props.tapSigmaPx) && props.tapSigmaPx >= 0 ? props.calibration : null
       }
       tapSigmaPx={props.tapSigmaPx}
+      tapsEnabled={props.calibration !== null}
       observe={props.observe}
+      {...(props.layout === undefined ? {} : { layout: props.layout })}
+      {...(props.top === undefined ? {} : { top: props.top })}
+      {...(props.aim === undefined ? {} : { aim: props.aim })}
+      {...(props.extra === undefined ? {} : { extra: props.extra })}
       renderImage={(_layout, frozen) => <CameraImage stream={stream} frozen={frozen} fit="cover" />}
     />
   );

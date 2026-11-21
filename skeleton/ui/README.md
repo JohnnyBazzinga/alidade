@@ -90,7 +90,7 @@ unmounts.
   cameraSurface={browserCameraSurface()}
   timer={timer}
   parameters={parameters}       // stable: defaultSessionParameters()
-  calibration={null}            // null: a tap is refused, the crosshair still captures
+  calibration={null}            // null: the image takes no taps, the crosshair still captures
   tapSigmaPx={Number.NaN}
   onSession={(session) => …}
 />
@@ -100,11 +100,27 @@ unmounts.
 `'bearing'` (the default) or `'altitude'` (a Session that captures an altitude and asks for no
 position); keep it stable between renders. The Playground is built on it.
 
+### The docked layout, for a phone
+
+`layout="docked"` (default `flow`) makes the screen a column of `100dvh`: your `top` row (a Back
+button), a middle part that alone scrolls (your `aim` line at its top, the camera taking the
+height that is left, the compact readout, "Details", "Other ways to set north", your `extra`
+rows), and the docked bar as the last row, with the current action, the north prompt and the
+current refusal, and the safe-area inset at the bottom of the screen added to its padding. **Your part:** give the
+screen a parent with no padding in which it is the whole of the screen; with any padding the
+page scrolls. The Playground, the Simulator panel and any caller that does not ask for `docked`
+keep the flow layout.
+
+## The two font stacks
+
+The theme exports `BODY_FONT_STACK` (the system sans, for prose and control labels) and
+`NUMERIC_FONT_STACK` (monospace with tabular digits, for readings, coordinates, bearings and
+codes). `FONT_STACK` no longer exists, so that each use is a decision.
+
 ## No defaults for the camera
 
 The camera's field of view and the tap's 1-sigma are passed in by the caller and never assumed.
-Without them, sighting along the crosshair still works; a tapped point is refused with the Message
-of `calibration_missing`.
+Without a calibration, sighting along the crosshair still works and the image takes no taps.
 
 ## Playground
 

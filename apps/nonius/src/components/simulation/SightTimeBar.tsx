@@ -3,7 +3,7 @@
 // short Next. The full Sight time and the note on the still Sun are on the Sight screen, in its
 // scrolling part (`SightTimeNote`).
 
-import { COLOURS, FONT_STACK, SIZES } from '@alidade/ui';
+import { BODY_FONT_STACK, COLOURS, SIZES } from '@alidade/ui';
 import { utcClockText, utcDateText } from '../../math/civil-time';
 import { BODY_TEXT_PX, LOOK } from '../look';
 
@@ -24,7 +24,7 @@ const selectStyle = {
   minWidth: 0,
   boxSizing: 'border-box',
   minHeight: SIZES.touchPx,
-  fontFamily: FONT_STACK,
+  fontFamily: BODY_FONT_STACK,
   fontSize: BODY_TEXT_PX,
   fontWeight: 700,
   background: COLOURS.raised,

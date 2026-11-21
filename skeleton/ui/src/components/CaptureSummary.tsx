@@ -9,7 +9,7 @@
 import { formatAzimuthDeg, formatSignedDeg } from '../math/display-format';
 import type { CaptureNorth, CapturedResult } from '../math/session/session';
 import { LimitsNote } from './LimitsNote';
-import { COLOURS, FONT_STACK, NUMERAL_STYLE, SIZES } from './theme';
+import { BODY_FONT_STACK, COLOURS, NUMERAL_STYLE, NUMERIC_FONT_STACK, SIZES } from './theme';
 
 const deg1 = (rad: number): string => `±${formatSignedDeg(rad, 1)}°`;
 const deg2 = (rad: number): string => `±${formatSignedDeg(rad, 2)}°`;
@@ -27,7 +27,14 @@ function northLine(north: CaptureNorth): string {
   }
 }
 
-export function CaptureSummary({ result }: { readonly result: CapturedResult }) {
+export function CaptureSummary({
+  result,
+  compact = false,
+}: {
+  readonly result: CapturedResult;
+  /** The headline stays; what it is made of and the limits go under "Why this accuracy?" (Req 13.16). */
+  readonly compact?: boolean;
+}) {
   const lines: string[] = [];
   let headline: string;
   if (result.kind === 'bearing') {
@@ -49,28 +56,55 @@ export function CaptureSummary({ result }: { readonly result: CapturedResult }) 
       `Lens and tap ${deg2(result.markSigmaRad)}: the lens\u2019s field of view and your tap.`,
     );
   }
-  return (
-    <section
-      data-testid="capture-summary"
-      style={{
-        ...NUMERAL_STYLE,
-        fontFamily: FONT_STACK,
-        fontSize: SIZES.labelPx,
-        background: COLOURS.panel,
-        color: COLOURS.ink,
-        padding: SIZES.gapPx,
-      }}
-    >
-      <p data-part="headline" style={{ margin: 0, fontSize: SIZES.numeralPx }}>
-        {headline}
-      </p>
+  const madeOf = (
+    <>
       <p style={{ margin: 0, color: COLOURS.inkDim }}>Made of:</p>
       <ul data-part="made-of" style={{ margin: 0, paddingLeft: SIZES.gapPx * 2 }}>
         {lines.map((l) => (
           <li key={l}>{l}</li>
         ))}
       </ul>
-      <LimitsNote />
+    </>
+  );
+  return (
+    <section
+      data-testid="capture-summary"
+      style={{
+        ...NUMERAL_STYLE,
+        fontFamily: BODY_FONT_STACK,
+        fontSize: SIZES.labelPx,
+        background: COLOURS.panel,
+        color: COLOURS.ink,
+        padding: SIZES.gapPx,
+      }}
+    >
+      <p
+        data-part="headline"
+        style={{ margin: 0, fontSize: SIZES.numeralPx, fontFamily: NUMERIC_FONT_STACK }}
+      >
+        {headline}
+      </p>
+      {compact ? (
+        <details>
+          <summary
+            style={{
+              minHeight: SIZES.touchPx,
+              display: 'flex',
+              alignItems: 'center',
+              color: COLOURS.brass,
+            }}
+          >
+            Why this accuracy?
+          </summary>
+          {madeOf}
+          <LimitsNote />
+        </details>
+      ) : (
+        <>
+          {madeOf}
+          <LimitsNote />
+        </>
+      )}
     </section>
   );
 }

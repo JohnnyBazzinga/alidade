@@ -80,7 +80,7 @@ Criteria no test cites by number are listed with what covers them.
 | 8.4 | math/session/step, math/session/step.property |
 | 8.5 | math/session/step |
 | 8.6 | math/session/step |
-| 8.7 | math/session/step |
+| 8.7 | math/session/step, math/session/notice-lifetime (records that a failure Notice outlives later good samples; Open question 14) |
 | 8.8 | math/session/step |
 | 8.9 | math/session/step.property |
 | 8.10 | math/session/step.property |
@@ -134,7 +134,7 @@ Criteria no test cites by number are listed with what covers them.
 | 13.1 | components/Reticle |
 | 13.2 | components/theme, math/contrast, math/map/map-style |
 | 13.3 | components/MarkRing |
-| 13.4 | components/Readout, components/SightingScreen |
+| 13.4 | components/Readout, components/SightingScreen, components/theme (the two stacks, the sizes and the palette typed in the test) |
 | 13.5 | components/CaptureSummary, math/session/capture-details, math/session/capture-details.property |
 | 13.6 | components/CaptureSummary, components/FixSummary, components/MapView |
 | 13.7 | components/ControlBar |
@@ -145,6 +145,11 @@ Criteria no test cites by number are listed with what covers them.
 | 13.12 | components/ControlBar, components/MarkRing, components/Reticle |
 | 13.13 | components/SightingScreen.layout (the flow, the screen's height, the image's own height, the order around the control bar, the Simulator panel's wrapper), components/ControlBar (the bar is not sticky); overlap at 360, 390 and 430 px is checked by the lead in a real browser |
 | 13.14 | components/SightingScreen.layout (a refused Freeze and a refused Capture after a lost north, shown directly above the bar; the Message cleared by the next action; the compass control primary on the Relative frame without a valid north) |
+| 13.15 | components/SightingScreen.docked (the column, the bar last, the current action in every state, the text part and its cap, the image's floor, the slots), components/SightingScreen.docked-budget (the arithmetic at 390 × 664 and 375 × 667) |
+| 13.16 | components/Readout (compact), components/CaptureSummary (compact), components/YawStatusBar (lineOnly), components/SightingScreen.docked-parts |
+| 13.17 | components/SightingScreen.docked-parts (the hint; a tap with no calibration), components/DeviceSighting, playground/Playground.integration |
+| 13.18 | components/SightingScreen.docked-parts ("Other ways to set north") |
+| 13.19 | the tests of 13.15 to 13.18, which check structure; Device check 11 holds the pixels |
 | 14.1 | math/map/map-geometry |
 | 14.2 | math/map/map-geometry |
 | 14.3 | math/map/map-geometry |
@@ -219,6 +224,7 @@ Criteria no test cites by number are listed with what covers them.
 | 19.3 | math/session/parameters |
 | 19.4 | math/session/parameters, math/session/step, math/session/yaw-loss.property |
 | 19.5 | defaults |
+| 19.6 | defaults (the test of the two constants) |
 | 20.1 | purity |
 | 20.2 | *not cited:* purity (exactly the five runtime dependencies); the justifications are in design §3 |
 | 20.3 | *not cited:* purity (the dependency list is exact); review |

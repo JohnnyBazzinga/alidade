@@ -6,7 +6,7 @@
 // page's normal flow, from 320 to 430 CSS pixels wide, with no fixed or absolute layer, no
 // horizontal scroll (long codes and links break anywhere) and no text over text.
 
-import { COLOURS, FONT_STACK, SIZES } from '@alidade/ui';
+import { BODY_FONT_STACK, COLOURS, NUMERIC_FONT_STACK, SIZES } from '@alidade/ui';
 import type { CSSProperties } from 'react';
 
 /** The size of explanatory text: design §9, "at least 16 px for the rest". */
@@ -14,7 +14,7 @@ export const BODY_TEXT_PX = 16;
 
 const text: CSSProperties = {
   margin: 0,
-  fontFamily: FONT_STACK,
+  fontFamily: BODY_FONT_STACK,
   fontSize: BODY_TEXT_PX,
   lineHeight: 1.4,
   color: COLOURS.ink,
@@ -25,7 +25,7 @@ const buttonBase: CSSProperties = {
   minHeight: SIZES.touchPx,
   minWidth: SIZES.touchPx,
   padding: `0 ${SIZES.gapPx * 2}px`,
-  fontFamily: FONT_STACK,
+  fontFamily: BODY_FONT_STACK,
   fontSize: SIZES.labelPx,
   borderRadius: 0,
   cursor: 'pointer',
@@ -41,7 +41,12 @@ export const LOOK = {
   /** Text of lesser weight: a time, a source. */
   dim: { ...text, color: COLOURS.inkDim } satisfies CSSProperties,
   /** A readout: the position, a direction, the Emergency text (UI's readout size). */
-  readout: { ...text, fontSize: SIZES.labelPx, lineHeight: 1.35 } satisfies CSSProperties,
+  readout: {
+    ...text,
+    fontFamily: NUMERIC_FONT_STACK,
+    fontSize: SIZES.labelPx,
+    lineHeight: 1.35,
+  } satisfies CSSProperties,
   /** A screen's title. */
   title: {
     ...text,

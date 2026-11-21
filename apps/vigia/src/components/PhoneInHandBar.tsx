@@ -3,7 +3,7 @@
 // the screens are of and changes it. The Simulation shell owns the choice and hands it to the
 // Simulator panel, so that the next sighting is taken from the post named here.
 
-import { COLOURS, FONT_STACK, SIZES } from '@alidade/ui';
+import { BODY_FONT_STACK, COLOURS, SIZES } from '@alidade/ui';
 import { BODY_TEXT_PX, LOOK } from './look';
 
 export interface PhoneInHand {
@@ -44,7 +44,7 @@ export function PhoneInHandBar({ hand }: { readonly hand: PhoneInHand }) {
             boxSizing: 'border-box',
             minHeight: SIZES.touchPx,
             minWidth: SIZES.touchPx,
-            fontFamily: FONT_STACK,
+            fontFamily: BODY_FONT_STACK,
             // 16 px, so that the label and the post share one row at 390 CSS px (task 30.4).
             fontSize: BODY_TEXT_PX,
             fontWeight: 700,

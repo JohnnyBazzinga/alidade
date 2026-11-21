@@ -121,3 +121,24 @@ describe('no component takes a bearing, an altitude or a Fix without its uncerta
     expect([a, b]).toHaveLength(2);
   });
 });
+
+// Req 13.16 (2026-11-21): the compact form.
+describe('CaptureSummary, compact (Req 13.16, 13.6)', () => {
+  it('keeps the headline with its sigma; the list and the limits are under "Why this accuracy?"', () => {
+    const result = captured('bearing');
+    const { getByTestId } = render(<CaptureSummary result={result} compact />);
+    const el = getByTestId('capture-summary');
+    expect(el.querySelector('[data-part="headline"]')?.textContent).toMatch(/1-sigma ±/);
+    const details = el.querySelector('details') as HTMLDetailsElement;
+    expect(details.open).toBe(false);
+    expect(details.querySelector('summary')?.textContent).toBe('Why this accuracy?');
+    expect(details.querySelector('[data-part="made-of"]')).not.toBeNull();
+    expect(details.querySelector('[data-testid="limits-note"]')).not.toBeNull();
+    expect(el.querySelector('[data-part="headline"]')?.closest('details')).toBeNull();
+  });
+
+  it('without compact has no disclosure', () => {
+    const { getByTestId } = render(<CaptureSummary result={captured('altitude')} />);
+    expect(getByTestId('capture-summary').querySelector('details')).toBeNull();
+  });
+});

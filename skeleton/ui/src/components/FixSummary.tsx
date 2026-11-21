@@ -7,7 +7,7 @@ import { ellipse95, type Fix } from '@alidade/core';
 import { formatSignedDeg } from '../math/display-format';
 import type { UiResult } from '../result';
 import { FailureNotice } from './FailureNotice';
-import { COLOURS, FONT_STACK, NUMERAL_STYLE, SIZES } from './theme';
+import { COLOURS, BODY_FONT_STACK, NUMERAL_STYLE, SIZES } from './theme';
 
 /** Latitudes and longitudes to 1e-4°, about 11 m: the most the display module prints (D25.4). */
 const POSITION_DECIMALS = 4;
@@ -33,7 +33,7 @@ export function FixSummary({ fix }: { readonly fix: UiResult<Fix> }) {
         ...NUMERAL_STYLE,
         margin: 0,
         padding: SIZES.gapPx,
-        fontFamily: FONT_STACK,
+        fontFamily: BODY_FONT_STACK,
         fontSize: SIZES.labelPx,
         color: COLOURS.ink,
         background: COLOURS.panel,

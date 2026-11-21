@@ -104,7 +104,9 @@ describe('SightScreen on a phone (Req 3.1, 3.3)', () => {
     ]);
   });
 
-  it('sights along the crosshair only: a tap on the frozen image is refused (calibration_missing)', async () => {
+  // Requirement change (Vigia 3.3 and UI 18.10, amended 2026-11-21, the lead's decision on U17): on a
+  // phone the image takes no taps and shows no Message; this test used to expect `calibration_missing`.
+  it('sights along the crosshair only: a tap on the frozen image does nothing and says nothing', async () => {
     const s = mount();
     await s.settle();
     await s.press('start');
@@ -115,7 +117,7 @@ describe('SightScreen on a phone (Req 3.1, 3.3)', () => {
       fireEvent.pointerDown(surface, { pointerId: 1, clientX: 50, clientY: 50 });
       fireEvent.pointerUp(surface, { pointerId: 1, clientX: 50, clientY: 50 });
     });
-    expect(s.getAllByRole('alert').map((a) => a.textContent)).toContain(calibrationMissing());
+    expect(s.queryAllByRole('alert').map((a) => a.textContent)).not.toContain(calibrationMissing());
     expect(s.queryByTestId('mark-ring')).toBeNull();
   });
 

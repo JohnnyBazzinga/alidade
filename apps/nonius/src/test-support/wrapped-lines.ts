@@ -1,6 +1,6 @@
 // The lines a text wraps to, for the height arithmetic of the screens (test support, not exported).
 
-/** The advance of one monospace character, in ems: 0.6 measured, 0.63 with a 5 % margin. */
+/** The advance of one character, in ems: 0.6 measured for monospace, 0.63 with a 5 % margin; an upper bound for the body stack (D36). */
 export const ADVANCE_EM = 0.63;
 
 /** The lines `text` wraps to in `widthPx` at `fontPx` (greedy, at spaces; a long word breaks). */

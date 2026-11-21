@@ -14,7 +14,6 @@ import { describe, expect, it } from 'vitest';
 import { defaultSessionParameters } from '../math/session/parameters';
 import { buildCatalogue } from '../math/scene/catalogue';
 import type { Session, SessionKind } from '../math/session/session';
-import { messageFor } from '../math/messages';
 import { FakeCameraSurface } from '../test-support/fake-camera-surface';
 import { fakeObserver } from '../test-support/fake-observe';
 import { FakeTimer } from '../test-support/fake-timer';
@@ -111,11 +110,6 @@ function mount(options: { readonly kind?: SessionKind; readonly script?: Simulat
   return { ...utils, ...q, camera, sensors, sessions, settle, press, advance, state, alerts };
 }
 
-const messageText = (reason: 'calibration_missing') => {
-  const m = messageFor({ ok: false, reason });
-  return m.whatHappened + m.whatToDo;
-};
-
 describe('DeviceSighting (Req 18.10)', () => {
   it('starts the rear camera and asks for motion from the one tap', async () => {
     const m = mount();
@@ -134,7 +128,9 @@ describe('DeviceSighting (Req 18.10)', () => {
     expect(m.state()).toBe('live');
   });
 
-  it('shows calibration_missing for a Mark without a calibration, and no mark', async () => {
+  // Requirement change (18.10 as amended 2026-11-21, Open question 15): without a calibration the
+  // image takes no taps and shows no Message; this test used to expect `calibration_missing`.
+  it('takes no tap on the image without a calibration: no mark and no Message', async () => {
     const m = mount();
     await m.settle();
     await m.press('start');
@@ -145,7 +141,7 @@ describe('DeviceSighting (Req 18.10)', () => {
       fireEvent.pointerDown(surface, { pointerId: 1, clientX: 50, clientY: 50 });
       fireEvent.pointerUp(surface, { pointerId: 1, clientX: 50, clientY: 50 });
     });
-    expect(m.alerts()).toEqual([messageText('calibration_missing')]);
+    expect(m.alerts()).toEqual([]);
     expect(m.queryByTestId('mark-ring')).toBeNull();
   });
 

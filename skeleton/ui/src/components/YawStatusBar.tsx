@@ -9,7 +9,7 @@ import type { OrientationFrame, YawReference } from '@alidade/sensors';
 import { formatSignedDeg } from '../math/display-format';
 import { messageFor } from '../math/messages';
 import type { YawStatus } from '../math/session/yaw-status';
-import { COLOURS, FONT_STACK, NUMERAL_STYLE, SIZES } from './theme';
+import { COLOURS, BODY_FONT_STACK, NUMERAL_STYLE, SIZES } from './theme';
 
 export interface YawStatusBarProps {
   readonly status: YawStatus;
@@ -18,6 +18,8 @@ export interface YawStatusBarProps {
   readonly frame: OrientationFrame | null;
   /** The heading 1-sigma of the Session parameters: the phone compass's, on the Absolute frame. */
   readonly headingSigmaRad: number;
+  /** The line without its prompt: for "Details" in the docked layout (Req 13.16). */
+  readonly lineOnly?: boolean;
 }
 
 export const ABSOLUTE_NONE_PROMPT = 'Setting north on the Sun or a landmark reduces the error.';
@@ -28,7 +30,13 @@ export function formatAge(ageMs: number): string {
   return s < 120 ? `${s} s` : `${Math.round(s / 60)} min`;
 }
 
-export function YawStatusBar({ status, yawReference, frame, headingSigmaRad }: YawStatusBarProps) {
+export function YawStatusBar({
+  status,
+  yawReference,
+  frame,
+  headingSigmaRad,
+  lineOnly = false,
+}: YawStatusBarProps) {
   const age = formatAge(status.ageMs);
   const detail =
     yawReference === null
@@ -67,7 +75,7 @@ export function YawStatusBar({ status, yawReference, frame, headingSigmaRad }: Y
       data-status={status.status}
       style={{
         ...NUMERAL_STYLE,
-        fontFamily: FONT_STACK,
+        fontFamily: BODY_FONT_STACK,
         fontSize: SIZES.labelPx,
         lineHeight: 1.25,
         background: COLOURS.panel,
@@ -79,7 +87,7 @@ export function YawStatusBar({ status, yawReference, frame, headingSigmaRad }: Y
       <p style={{ margin: 0 }} data-part="line">
         {line}
       </p>
-      {prompt !== null && (
+      {prompt !== null && !lineOnly && (
         <p style={{ margin: 0, color: advice ? COLOURS.inkDim : COLOURS.alert }} data-part="prompt">
           {prompt}
         </p>

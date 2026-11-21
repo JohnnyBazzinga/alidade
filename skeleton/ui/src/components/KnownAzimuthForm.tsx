@@ -8,7 +8,7 @@ import { parseDegrees } from '../math/display-format';
 import type { UiFailure } from '../result';
 import { controlStyle } from './ControlBar';
 import { FailureNotice } from './FailureNotice';
-import { COLOURS, FONT_STACK, SIZES } from './theme';
+import { COLOURS, BODY_FONT_STACK, SIZES } from './theme';
 
 export interface KnownAzimuthFormProps {
   readonly onSubmit: (from: Extract<YawSource, { kind: 'knownAzimuth' }>) => void;
@@ -20,7 +20,7 @@ const inputStyle = {
   height: SIZES.touchPx,
   minWidth: SIZES.touchPx,
   width: '100%',
-  fontFamily: FONT_STACK,
+  fontFamily: BODY_FONT_STACK,
   fontSize: SIZES.labelPx,
   background: COLOURS.bg,
   color: COLOURS.ink,
@@ -56,7 +56,7 @@ export function KnownAzimuthForm({ onSubmit }: KnownAzimuthFormProps) {
         flexDirection: 'column',
         gap: SIZES.gapPx,
         padding: SIZES.gapPx,
-        fontFamily: FONT_STACK,
+        fontFamily: BODY_FONT_STACK,
         fontSize: SIZES.labelPx,
         color: COLOURS.ink,
         background: COLOURS.panel,

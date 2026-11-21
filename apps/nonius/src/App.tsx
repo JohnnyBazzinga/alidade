@@ -2,7 +2,7 @@
 // it works), one column of the screen's height: banner and phone bar in Simulation mode, the
 // scrolling screen, the primary-action row, and the tab bar. Nothing is a layer over anything.
 
-import { COLOURS, FONT_STACK, SIZES } from '@alidade/ui';
+import { BODY_FONT_STACK, COLOURS, SIZES } from '@alidade/ui';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { EnvironmentProvider, type NoniusEnvironment } from './components/environment';
 import { FixScreen } from './components/FixScreen';
@@ -84,7 +84,7 @@ function Shell({ phoneBar, reviewerPath, modeControl, environment }: Omit<AppPro
         height: '100dvh',
         background: COLOURS.bg,
         color: COLOURS.ink,
-        fontFamily: FONT_STACK,
+        fontFamily: BODY_FONT_STACK,
       }}
     >
       {environment.mode === 'simulation' && <SimulationBanner />}

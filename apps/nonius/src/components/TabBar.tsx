@@ -4,7 +4,7 @@
 // Each tab is as wide as its label, and the space left is shared; a label is never wrapped.
 // `TabBar.test.tsx` checks the arithmetic at 320 px.
 
-import { COLOURS, FONT_STACK, SIZES } from '@alidade/ui';
+import { BODY_FONT_STACK, COLOURS, SIZES } from '@alidade/ui';
 
 export type TabId = 'fix' | 'sights' | 'map';
 
@@ -49,7 +49,7 @@ export function TabBar({ current, onSelect }: TabBarProps) {
               minWidth: SIZES.touchPx,
               minHeight: SIZES.touchPx + SIZES.gapPx,
               padding: `0 ${SIZES.gapPx / 2}px`,
-              fontFamily: FONT_STACK,
+              fontFamily: BODY_FONT_STACK,
               fontSize: 16,
               fontWeight: selected ? 700 : 400,
               border: 'none',

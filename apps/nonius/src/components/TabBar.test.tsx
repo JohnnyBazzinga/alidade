@@ -1,5 +1,5 @@
 // The tab labels fit the narrowest screen (Vigia task 21.1's lesson; design §9). jsdom does no
-// layout, so the width is computed: the font is monospace (UI's `FONT_STACK`), a label is its
+// layout, so the width is computed: the labels are in the body stack (since 2026-11-21), and 0.63 em, measured for monospace, is an upper bound for it, a label is its
 // characters times 0.63 of the font size (0.6 measured, 5 % margin), and the font size, padding
 // and the way the tabs share the bar are read from the styles the component sets.
 

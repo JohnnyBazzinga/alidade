@@ -6,7 +6,7 @@
 // the word. A label is never wrapped; the Inbox badge sits under the Smoke label, so that it
 // widens nothing. `TabBar.test.tsx` checks the arithmetic at 320 px.
 
-import { COLOURS, FONT_STACK, SIZES } from '@alidade/ui';
+import { BODY_FONT_STACK, COLOURS, SIZES } from '@alidade/ui';
 
 export type TabId = 'smoke' | 'sightings' | 'map' | 'emergency';
 
@@ -55,7 +55,7 @@ export function TabBar({ current, inboxCount, onSelect }: TabBarProps) {
               minWidth: SIZES.touchPx,
               minHeight: SIZES.touchPx + SIZES.gapPx,
               padding: `0 ${SIZES.gapPx / 2}px`,
-              fontFamily: FONT_STACK,
+              fontFamily: BODY_FONT_STACK,
               fontSize: 16,
               fontWeight: selected ? 700 : 400,
               border: 'none',

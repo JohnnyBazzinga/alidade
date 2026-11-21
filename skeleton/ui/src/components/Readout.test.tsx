@@ -88,3 +88,65 @@ describe('Readout (Req 9.1, 13.4)', () => {
     expect(part(getByTestId('readout'), 'stale')).toBeTruthy();
   });
 });
+
+// Req 13.16 (2026-11-21): the compact readout of the docked layout.
+describe('Readout, compact (Req 13.16)', () => {
+  it('shows the azimuth with its North word and one labelled shake line; the rest is under Details', () => {
+    const { getByTestId } = render(<Readout readout={BASE} compact kind="bearing" />);
+    const el = getByTestId('readout');
+    expect(part(el, 'azimuth')).toBe('90.0° true');
+    expect(part(el, 'steadiness')).toBe('Steady hand: shake ±0.25°');
+    expect(el.querySelector(':scope > [data-part="altitude"]')).toBeNull();
+    const details = el.querySelector('details') as HTMLDetailsElement;
+    expect(details.open).toBe(false);
+    expect(details.querySelector('summary')?.textContent).toBe('Details');
+    expect(details.textContent).toContain('12.3° altitude');
+    expect(details.textContent).toContain('±0.06°');
+    expect(details.textContent).toContain('12 readings');
+  });
+
+  it('never shows a bare ± beside the azimuth, and keeps the sizes of Req 13.4', () => {
+    const { getByTestId } = render(<Readout readout={BASE} compact kind="bearing" />);
+    const el = getByTestId('readout');
+    expect(part(el, 'azimuth')).not.toContain('±');
+    for (const p of el.querySelectorAll('p')) {
+      if (p.textContent?.includes('±')) expect(p.textContent).toMatch(/shake ±/);
+    }
+    expect(el.style.fontSize).toBe('20px');
+    expect(el.querySelector<HTMLElement>('[data-part="azimuth"] span')?.style.fontSize).toBe(
+      '32px',
+    );
+  });
+
+  it('shows the altitude for an altitude Session, with the azimuth under Details', () => {
+    const { getByTestId } = render(<Readout readout={BASE} compact kind="altitude" />);
+    const el = getByTestId('readout');
+    expect(part(el, 'altitude')).toBe('12.3° altitude');
+    expect(part(el, 'steadiness')).toBe('Steady hand: shake ±0.06°');
+    expect(el.querySelector('details')?.textContent).toContain('90.0° true');
+  });
+
+  it('keeps a stale line and a failed readout outside Details; children go inside it', () => {
+    const stale: LiveReadout = { ...BASE, stale: true };
+    const a = render(
+      <Readout readout={stale} compact kind="bearing">
+        <p data-testid="inside">north line</p>
+      </Readout>,
+    );
+    const el = a.getByTestId('readout');
+    expect(el.querySelector('[data-part="stale"]')).not.toBeNull();
+    expect(el.querySelector('details [data-part="stale"]')).toBeNull();
+    expect(el.querySelector('details [data-testid="inside"]')).not.toBeNull();
+    a.unmount();
+    const failed: LiveReadout = { ...BASE, azimuth: { ok: false, reason: 'compass_unreliable' } };
+    const b = render(<Readout readout={failed} compact kind="bearing" />);
+    expect(b.getByTestId('readout').querySelector('details [role="alert"]')).toBeNull();
+    expect(b.getByTestId('failure-notice')).not.toBeNull();
+  });
+
+  it('without compact, is exactly as before', () => {
+    const { getByTestId } = render(<Readout readout={BASE} />);
+    expect(getByTestId('readout').querySelector('details')).toBeNull();
+    expect(part(getByTestId('readout'), 'altitude')).toBe('12.3° altitude');
+  });
+});

@@ -40,7 +40,7 @@ import { FailureNotice } from './FailureNotice';
 import type { AimGesture } from './ImageSurface';
 import { SceneImage } from './SceneImage';
 import { SightingScreen } from './SightingScreen';
-import { COLOURS, FONT_STACK, SIZES } from './theme';
+import { COLOURS, BODY_FONT_STACK, SIZES } from './theme';
 import type { Timer } from './timer';
 import { useSightingSession } from './use-sighting-session';
 
@@ -264,7 +264,7 @@ export function SimulatorPanel(props: SimulatorPanelProps) {
   const labelStyle = {
     display: 'flex',
     flexDirection: 'column',
-    fontFamily: FONT_STACK,
+    fontFamily: BODY_FONT_STACK,
     fontSize: SIZES.labelPx,
     lineHeight: 1.25,
     color: COLOURS.ink,
@@ -273,7 +273,7 @@ export function SimulatorPanel(props: SimulatorPanelProps) {
     boxSizing: 'border-box',
     height: SIZES.touchPx,
     minWidth: SIZES.touchPx,
-    fontFamily: FONT_STACK,
+    fontFamily: BODY_FONT_STACK,
     fontSize: SIZES.labelPx,
     background: COLOURS.raised,
     color: COLOURS.ink,
@@ -435,6 +435,7 @@ export function SimulatorPanel(props: SimulatorPanelProps) {
                 : null
             }
             tapSigmaPx={props.tapSigmaPx}
+            tapsEnabled
             renderImage={renderImage}
             onAim={frozen ? undefined : onAim}
             onLayout={setLayout}

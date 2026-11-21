@@ -1,6 +1,6 @@
 // The look of the screen (Req 13.1, 13.2, design §7.18, D17): an instrument's, not a dashboard's.
-// Near-black slate surfaces, one brass accent, off-white tabular numerals in the system monospace
-// stack, thin ruled lines. Styles are inline objects built from these constants, so that a test
+// Near-black slate surfaces, one brass accent, off-white tabular numerals in the numeric monospace
+// stack (prose in the system sans, D36), thin ruled lines. Styles are inline objects built from these constants, so that a test
 // can read them (a simulated DOM does no layout, Req 13.12). No web font, no image, no network.
 
 import {
@@ -31,7 +31,11 @@ export const MAP_FIX_COLOUR = MAP_FIX;
 
 export type ColourToken = keyof typeof COLOURS;
 
-export const FONT_STACK =
+/** Prose and the labels of controls (Req 13.4, design D36). */
+export const BODY_FONT_STACK = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+
+/** Readings, coordinates, bearings, distances in figures and codes, with tabular digits. */
+export const NUMERIC_FONT_STACK =
   'ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace';
 
 export const SIZES = {
@@ -99,7 +103,7 @@ export const PALETTE_PAIRS: readonly PalettePair[] = [
 export const HAIRLINE_MIN_RATIO = 3;
 
 export const NUMERAL_STYLE = {
-  fontFamily: FONT_STACK,
+  fontFamily: NUMERIC_FONT_STACK,
   fontVariantNumeric: 'tabular-nums',
   letterSpacing: '0.02em',
   fontStyle: 'normal',

@@ -38,6 +38,21 @@ export const PRIMARY_CONTROL_HEIGHT_PX = 64;
 /** The spacing step and the least gap between neighbouring controls, in CSS pixels. */
 export const SPACING_PX = 8;
 
+/**
+ * The least height of the image in the docked layout, in CSS pixels: 160, the least at which a
+ * crosshair on a smoke column still leaves the surroundings readable. Judgement, to be confirmed
+ * by Device check 11 (Req 19.6).
+ */
+export const DOCKED_IMAGE_MIN_HEIGHT_PX = 160;
+
+/**
+ * The most that the north prompt, the portrait warning and a refusal may take of the docked bar,
+ * as a share of the viewport's height: 0.20 (133 CSS px at 664, five lines of a readout). Chosen so
+ * that the budget of Req 13.15 closes at 390 × 664 with Capture, Back to live and the home
+ * indicator's inset; beyond it the text scrolls inside the bar. Judgement (Req 19.6).
+ */
+export const DOCKED_BAR_TEXT_MAX_SHARE = 0.2;
+
 /** The least contrast ratio of text and information-bearing lines (WCAG AAA). */
 export const MIN_CONTRAST_RATIO = 7;
 

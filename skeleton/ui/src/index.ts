@@ -18,6 +18,8 @@ export {
   MAX_LAYER_FEATURES,
   MAX_MARK_ALTITUDE_RAD,
   MAX_PANEL_ELAPSED_MS,
+  DOCKED_BAR_TEXT_MAX_SHARE,
+  DOCKED_IMAGE_MIN_HEIGHT_PX,
   MAX_PANEL_TICK_MS,
   MIN_CONTRAST_RATIO,
   MIN_READOUT_FONT_PX,
@@ -153,7 +155,13 @@ export { useSightingSession } from './components/use-sighting-session';
 export type { SightingSession, SightingSessionDeps } from './components/use-sighting-session';
 export { observeElementSize, useElementSize } from './components/dom-size';
 export type { ObserveElementSize } from './components/dom-size';
-export { COLOURS, FONT_STACK, PALETTE_PAIRS, SIZES } from './components/theme';
+export {
+  BODY_FONT_STACK,
+  COLOURS,
+  NUMERIC_FONT_STACK,
+  PALETTE_PAIRS,
+  SIZES,
+} from './components/theme';
 export type { PalettePair } from './components/theme';
 export { CameraImage } from './components/CameraImage';
 export { CaptureSummary } from './components/CaptureSummary';
@@ -173,6 +181,7 @@ export { Readout } from './components/Readout';
 export { Reticle } from './components/Reticle';
 export { SceneImage } from './components/SceneImage';
 export { SightingScreen } from './components/SightingScreen';
+export type { SightingLayout } from './components/SightingScreen';
 export { SimulatorPanel } from './components/SimulatorPanel';
 export type { SimulatorContext } from './components/SimulatorPanel';
 export { YawStatusBar } from './components/YawStatusBar';
