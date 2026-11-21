@@ -13,7 +13,7 @@ Entry for the Kiroween 2026 hackathon, category **Skeleton Crew**: one lean skel
 | Piece | What it does | Who it is for |
 |---|---|---|
 | `skeleton/` (Alidade) | Reads sensors, lets the user sight a target through the camera, turns sightings into a position fix with an uncertainty ellipse, draws it on a map, and ships a simulator | Developers building any sighting app |
-| `apps/vigia` | Several people point their phones at a smoke column; crossing their bearings locates the fire. Overlays satellite hotspots and wind | Rural residents, volunteer firefighters, emergency dispatchers |
+| `apps/vigia` | Several people point their phones at a smoke column; crossing their bearings locates the fire. Overlays wind; satellite hotspots are a second release (Vigia Requirement 12) | Rural residents, volunteer firefighters, emergency dispatchers |
 | `apps/nonius` | Measures the altitude of the Sun or stars and fixes the user's own position without GPS | Sailors, navigation students and teachers |
 
 The two apps are duals of the same problem and share one solver:

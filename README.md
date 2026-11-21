@@ -9,13 +9,21 @@ It is one skeleton and two apps that are duals of one problem:
 
 Entry for Kiroween 2026, category Skeleton Crew.
 
+![The Alidade skeleton: Core, Sensors and UI at the bottom; Vigia adds the bearing model and Nonius its own altitude model](docs/skeleton.svg)
+
+The skeleton is three packages. Each app adds one thing on top: a measurement model that tells the shared solver what its observations are. To add your own, start from one of the three real extension points:
+[`measurement-model.ts`](skeleton/core/src/measurement-model.ts) (the interface),
+[`bearing-model.ts`](skeleton/core/src/bearing-model.ts) (Vigia's, in Core) and
+[`altitude-model.ts`](apps/nonius/src/math/fix/altitude-model.ts) (Nonius's, in the app).
+
 ## Try it
 
 | What                | Link                                                                                      |
 | ------------------- | ----------------------------------------------------------------------------------------- |
+| Landing page        | <https://johnnybazzinga.github.io/alidade/>                                               |
 | Vigia               | <https://johnnybazzinga.github.io/alidade/vigia/> (on a laptop add `?mode=simulator`)     |
 | Nonius              | <https://johnnybazzinga.github.io/alidade/nonius/> (choose Simulator on the first screen) |
-| Skeleton playground | <https://johnnybazzinga.github.io/alidade/>                                               |
+| Skeleton playground | <https://johnnybazzinga.github.io/alidade/playground/>                                    |
 
 Every scene in the simulators is made up. Neither app calls or notifies anyone.
 
@@ -30,20 +38,21 @@ Every scene in the simulators is made up. Neither app calls or notifies anyone.
 | [`apps/nonius`](apps/nonius)             | Sun sights, the phone's altitude error, and a position fix without GPS.                                                                   |
 | [`tools/kiro-guard`](tools/kiro-guard)   | Hook commands for Kiro. They refuse calls the project forbids and report the state of the repository.                                     |
 | [`tools/alidade-mcp`](tools/alidade-mcp) | An MCP server over stdio that exposes the skeleton's math to an agent as three tools.                                                     |
+| [`site`](site)                           | The landing page of the published site: one static page, no script, no request.                                                           |
 | [`probe`](probe)                         | The first sensor probe, written before the skeleton: a throwaway page that compared phone readings with the Sun. Not a workspace package. |
-| [`docs`](docs)                           | `privacy.md`: what leaves the phone, channel by channel.                                                                                  |
+| [`docs`](docs)                           | `privacy.md`: what leaves the phone, channel by channel. `skeleton.svg`: the diagram above.                                               |
 
 ## The skeleton as a skeleton
 
 Nonius was built after Vigia without changing the source of `skeleton/core` or `skeleton/sensors`.
-To check it, find the commit of Nonius's spec and compare:
+To check it, one command finds the commit that added Nonius's requirements and compares the two
+source folders with the current ones, leaving out the test files:
 
 ```
-git log --oneline -- .kiro/specs/nonius          # the oldest line is 93e6b6b
-git diff 93e6b6b HEAD -- skeleton/core/src skeleton/sensors/src ':!*.test.ts'
+git diff $(git log --format=%h --diff-filter=A -1 -- .kiro/specs/nonius/requirements.md) HEAD -- skeleton/core/src skeleton/sensors/src ':!*.test.ts'
 ```
 
-The second command prints nothing. The same diff without the last pathspec shows one change: four
+It prints nothing. The same diff without the last pathspec shows one change: four
 lines in `skeleton/core/src/observation.test.ts`, where the last commit replaced a real place in a
 test position with a synthetic one.
 
@@ -98,7 +107,7 @@ Counts below were made on commit 3af3440 from files in this repository.
   `fix_from_bearings`, `magnetic_declination`, `local_offset`. It is registered in
   `.kiro/settings/mcp.json`.
 
-How the work was divided. Kiro (kiro-cli) wrote every spec, every line of code and every test in this repository, working task by task from the specs. An orchestrating agent, Claude Code, driven by the author, wrote the prompts to Kiro, reviewed each checkpoint independently (its own numerical experiments, screenshots of the built pages in a headless browser), amended requirements when a review found a gap, approved Kiro's commands through a filter, and made the commits. The author chose the idea, made the product decisions, and tested the apps on real phones.
+How the work was divided. Kiro (kiro-cli) wrote every spec, every line of code and every test in this repository, working task by task from the specs. An orchestrating agent, Claude Code, driven by the author, wrote the prompts to Kiro, reviewed each checkpoint independently (its own numerical experiments, screenshots of the built pages in a headless browser), amended requirements when a review found a gap, approved Kiro's commands through a filter, and made the commits. The author chose the idea, made the product decisions, and tested the skeleton's sighting flow on an iPhone: the three permissions, the camera with the crosshair, orientation at 60 Hz, three compass directions matching Apple's Compass app, a first real bearing captured, and the map drawn over OpenStreetMap. The two-phone Vigia flow and Nonius's Sun sights on real phones are still to be filmed.
 
 ## Run it
 

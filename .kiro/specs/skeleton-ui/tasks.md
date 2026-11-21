@@ -211,7 +211,7 @@ into the skeleton-sensors requirements.
       part of P-16.8.
     - _Requirements: 21.1_
 
-- [ ] 8. Checkpoint: geometry and messages
+- [x] 8. Checkpoint: geometry and messages
   - `test:deep` for the properties of tasks 3 to 6 (P-3.9, P-3.10, P-3.11, P-4.6, P-4.7, P-5.7 to
     P-5.15, P-6.4, P-6.5, P-13.10 at their counts), then the root checks. Report cases, discards
     and worst errors, and the cost probe of task 7.2 with a proposal for the counts of the capped
@@ -648,7 +648,7 @@ into the skeleton-sensors requirements.
     rules win over the library's stylesheet in a real browser, that the strip is one line at 390 px
     with the trial's attribution, and that the observers now sit above it.
 
-- [ ] 32. `DeviceSighting` takes the kind of capture (2026-11-20; the lead's decision 6 of the Nonius review, G1 of the Nonius requirements; amendment of Req 18.10 proposed to the lead, design D32 extended)
+- [x] 32. `DeviceSighting` takes the kind of capture (2026-11-20; the lead's decision 6 of the Nonius review, G1 of the Nonius requirements; amendment of Req 18.10 proposed to the lead, design D32 extended)
   - Added for Nonius, which sights an altitude through the same component. The change: one
     optional property, `kind: SessionKind` (`'bearing'` or `'altitude'`), default `'bearing'`,
     passed to `useSightingSession` in place of the literal `'bearing'`; like `parameters`, it must
@@ -657,7 +657,7 @@ into the skeleton-sensors requirements.
     the property on `DeviceSightingProps`, no new dependency. Vigia passes nothing and is unchanged.
     Tests before code; `timeout` in front of every test run, no `pkill`, no commit; every full test
     run keeps its whole output in a file.
-  - [ ] 32.1 Tests first, seen to fail: `src/components/DeviceSighting.test.tsx`, with the Simulator
+  - [x] 32.1 Tests first, seen to fail: `src/components/DeviceSighting.test.tsx`, with the Simulator
     as the Sensor source (a script of UI's catalogue scene `sun`), `FakeTimer`, `FakeCameraSurface`
     and a recording wrapper around the source: with `kind: 'altitude'`, one tap starts the camera
     and asks for motion, the Session given to `onSession` has `kind: 'altitude'`, the crosshair's
@@ -666,12 +666,12 @@ into the skeleton-sensors requirements.
     `kind`, the Session is a `bearing` Session and `startPosition` is called, as today. The existing
     tests of the file pass unchanged.
     - _Requirements: 18.10 (as amended)_
-  - [ ] 32.2 Code: `DeviceSighting.tsx` (the property and its documentation comment); the README's
+  - [x] 32.2 Code: `DeviceSighting.tsx` (the property and its documentation comment); the README's
     section on `DeviceSighting` (one sentence on `kind`); `coverage.md` (row 18.10 names the new
     tests); design D32 (one sentence: the kind of capture is a property, default `bearing`). The
     Playground's integration tests and every Vigia test pass unchanged.
     - _Requirements: 18.10 (as amended), 1.6, 1.7_
-  - [ ] 32.3 Checkpoint: `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm format:check` from the root,
+  - [x] 32.3 Checkpoint: `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm format:check` from the root,
     and `pnpm --filter @alidade/ui build:playground` once. One mutation check: the literal `'bearing'`
     put back in place of `kind` fails the new altitude tests. Report and stop.
 

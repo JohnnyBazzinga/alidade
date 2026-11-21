@@ -85,8 +85,8 @@ three hotspot reasons wait for the lead's word after the wind checkpoint).
 
 ## Tasks
 
-- [ ] 1. Scaffold the package (design §3, §5, §13; D1, D19, D21)
-  - [ ] 1.1 Create `apps/vigia` without the QR dependency
+- [x] 1. Scaffold the package (design §3, §5, §13; D1, D19, D21)
+  - [x] 1.1 Create `apps/vigia` without the QR dependency
     - `package.json`: name `@alidade/vigia`, `private`, `type: module`, no `exports` and no `index.ts`
       (the entry is `src/main.tsx`, Req 1.8); scripts `test` (`vitest run`), `test:deep`
       (`vitest run --config vitest.deep.config.ts`), `typecheck` (`tsc --noEmit -p tsconfig.json`),
@@ -108,7 +108,7 @@ three hotspot reasons wait for the lead's word after the wind checkpoint).
       task 13.9. `vitest.deep.config.ts` for the `*.property.test.ts` files of `math` and `adapters`, the
       second count, no file parallelism, no time limit.
     - _Requirements: 1.1, 1.8, 20.1, 20.5, 21.7_
-  - [ ] 1.2 Smoke tests of the unverified assumptions, each a throwaway file (design §13, D1)
+  - [x] 1.2 Smoke tests of the unverified assumptions, each a throwaway file (design §13, D1)
     - (a) `projects` with `extends: true` inherits `provide`: a test in each project reads
       `inject('propertyRuns')`; if not, repeat the `provide` line per project. (b) A trivial component
       renders under jsdom with Testing Library, and `tsc` accepts `jsx: react-jsx`. (c) `import.meta.glob`
@@ -118,12 +118,12 @@ three hotspot reasons wait for the lead's word after the wind checkpoint).
       resolves from the three packages. Report each result, delete the throwaway files, **stop on any
       mismatch**.
     - _Requirements: 1.1, 1.2, 21.7_
-  - [ ] 1.3 Install `uqr` (the one new dependency, approved by the lead)
+  - [x] 1.3 Install `uqr` (the one new dependency, approved by the lead)
     - From `apps/vigia`: `pnpm add -E uqr@0.1.3`. Record `npm view uqr time --json` for that version, the
       exit code, the diff of `package.json` and `pnpm-lock.yaml`, and that nothing else was added. Do not
       import it yet (task 11.6).
     - _Requirements: 20.2, 20.4_
-  - [ ] 1.4 Test support, copied from UI's (not exported; design §5, UI D20)
+  - [x] 1.4 Test support, copied from UI's (not exported; design §5, UI D20)
     - `src/test-support/`: `fast-check-setup.ts` (the one place that sets `numRuns`, `cappedRuns`,
       `isDeepRun`), `property-report.ts` (`checkProperty`, `ErrorTracker`), `deep-same.ts`, `fake-timer.ts`,
       `seeded-normal.ts` (a 32-bit integer generator with Box–Muller, the seed an argument), and
@@ -131,14 +131,14 @@ three hotspot reasons wait for the lead's word after the wind checkpoint).
       either side of every limit of `VigiaParameters`). Each with its own small test, so that no helper
       is vacuous (a deliberately failing property is reported as failing).
     - _Requirements: 21.1, 21.5_
-  - [ ] 1.5 The ESLint block, once, in the root `eslint.config.js` (design §13)
+  - [x] 1.5 The ESLint block, once, in the root `eslint.config.js` (design §13)
     - For `apps/vigia/**/*.{ts,tsx}`: `@typescript-eslint/no-explicit-any` and the two `react-hooks` rules
       as errors; for `apps/vigia/src/**/math/**/*.ts` and `apps/vigia/src/overlays/**/math/**/*.ts` also
       `@typescript-eslint/no-non-null-assertion` as an error. Confirm with a throwaway file in each place
       (an `any`, a `!` in a `math/` folder, a conditional hook) that `pnpm lint` fails; delete them. This
       is the only edit outside `apps/vigia` and `docs/`.
     - _Requirements: 1.8_
-  - [ ] 1.6 The skeleton of `purity.test.ts` (design §5, the table of rules)
+  - [x] 1.6 The skeleton of `purity.test.ts` (design §5, the table of rules)
     - Read every `src` file with `import.meta.glob(..., { query: '?raw' })`, with comments and strings
       removed as UI's does (`code` and `bare`), the fixed file list (empty but for itself), and **every rule
       of the §5 table** written as data: the pattern, where it applies, and a probe (a copy of a real source
@@ -148,10 +148,10 @@ three hotspot reasons wait for the lead's word after the wind checkpoint).
       equal to `skeleton/ui/package.json`'s, `uqr` `0.1.3` the only dependency beyond them; `.env.example`
       without values and no `.env*` file but the example; the ESLint block exists.
     - _Requirements: 1.1 to 1.9, 11.1, 11.6, 20.1 to 20.5_
-  - [ ] 1.7 `pnpm test`, `pnpm typecheck`, `pnpm lint` and `pnpm format:check` pass on the empty package, from the root, output kept in files.
+  - [x] 1.7 `pnpm test`, `pnpm typecheck`, `pnpm lint` and `pnpm format:check` pass on the empty package, from the root, output kept in files.
 
-- [ ] 2. Results, reasons, messages, parameters (D2, D18, D20; §6, §7.20)
-  - [ ] 2.1 Tests first: `result.test.ts`, `reasons.test.ts`, `math/messages.test.ts`
+- [x] 2. Results, reasons, messages, parameters (D2, D18, D20; §6, §7.20)
+  - [x] 2.1 Tests first: `result.test.ts`, `reasons.test.ts`, `math/messages.test.ts`
     - The closed set: `VIGIA_REASONS` is `UI_REASONS` plus exactly the **22** of Req 2.2 (69 in all; the
       three hotspot reasons are not in it); `MESSAGES` has exactly the keys of `VIGIA_REASONS`; the 47 UI
       rows equal UI's `messageFor`; each of the 22 rows obeys UI's rules (one sentence of at most 160
@@ -159,12 +159,12 @@ three hotspot reasons wait for the lead's word after the wind checkpoint).
       `[object`, naming what the user can act on, Req 2.4); a type-level test that a new reason without a
       row does not compile (`// @ts-expect-error` on a copy of the union). All fail.
     - _Requirements: 2.2, 2.3, 2.4, 21.4_
-  - [ ] 2.2 Code: `result.ts`, `reasons.ts`, `math/messages.ts`
+  - [x] 2.2 Code: `result.ts`, `reasons.ts`, `math/messages.ts`
     - `VigiaResult`, `VigiaFailure`, `VigiaOnlyReason` (22), `VIGIA_ONLY_REASONS`, `VIGIA_REASONS`,
       `MESSAGES`, `messageFor` (the table of D2, every row as written there, `uiRows()` built once with one
       cast inside and a run-time test of its keys).
     - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
-  - [ ] 2.3 Tests first: `math/degrees.test.ts`, `defaults.test.ts`, `math/parameters.test.ts`, `math/privacy-table.test.ts`
+  - [x] 2.3 Tests first: `math/degrees.test.ts`, `defaults.test.ts`, `math/parameters.test.ts`, `math/privacy-table.test.ts`
     - `toDeg`/`fromDeg` over Core's `degToRad`/`radToDeg`; every constant of Req 19.1 that the first
       release builds (`MAX_INCIDENT_AGE_MS` 30 min, `INCIDENT_RETENTION_MS` 24 h, `CLOCK_SKEW_TOLERANCE_MS`
       2 min, `MAX_SIGHTINGS_PER_INCIDENT` 32, `PLAUSIBLE_RANGE_M` 50 000, `LONG_ELLIPSE_RATIO` 3,
@@ -180,11 +180,11 @@ three hotspot reasons wait for the lead's word after the wind checkpoint).
       of its limit; `PRIVACY_TABLE` has the nine rows of Req 15.3, in order (the Hotspots row marked
       "second release"). All fail.
     - _Requirements: 1.7, 15.3, 19.1 to 19.4_
-  - [ ] 2.4 Code: `math/degrees.ts`, `defaults.ts`, `math/parameters.ts`, `math/privacy-table.ts`
+  - [x] 2.4 Code: `math/degrees.ts`, `defaults.ts`, `math/parameters.ts`, `math/privacy-table.ts`
     - The hotspot parameters are **not** built (they come with the hotspot Overlay). `defaultParameters()`
       is called only in `main.tsx`, `simulation/` and tests (a purity rule).
     - _Requirements: 19.1 to 19.4, 15.3_
-  - [ ] 2.5 P-2.6: the hostile totality, as a registry
+  - [x] 2.5 P-2.6: the hostile totality, as a registry
     - Tests first: `src/hostile-totality.property.test.ts` runs every function named in a list
       `HOSTILE_LIST` (a record of name, function and argument generator) over `hostile*` inputs: no throw,
       every number finite, and a parameter that is `NaN`, infinite, not positive or inconsistent is
@@ -196,16 +196,16 @@ three hotspot reasons wait for the lead's word after the wind checkpoint).
     - Property **P-2.6** (Req 2.1, 2.6, 19.3): 200 in `pnpm test`, 10 000 in `test:deep`.
     - _Requirements: 2.1, 2.6, 19.3_
 
-- [ ] 3. Time, identifiers, the sighting code and the link (D5, D6, D13, D22; §7.1 to §7.3, §7.13, §8)
-  - [ ] 3.1 Tests first: `math/civil-time.test.ts`
+- [x] 3. Time, identifiers, the sighting code and the link (D5, D6, D13, D22; §7.1 to §7.3, §7.13, §8)
+  - [x] 3.1 Tests first: `math/civil-time.test.ts`
     - `clockTextUtc(1 790 000 000 000)` is `14:13 UTC`; `ageText` at 59 999, 60 000, 3 599 999,
       3 600 000, 172 799 999 and 172 800 000 ms. (`utcMsFromCivil` and its examples come with the hotspot
       Overlay, second release: not here.) All fail.
     - _Requirements: 3.6, 14.1_
-  - [ ] 3.2 Code: `math/civil-time.ts` (`clockTextUtc`, `ageText`; integer arithmetic, no `Date`)
+  - [x] 3.2 Code: `math/civil-time.ts` (`clockTextUtc`, `ageText`; integer arithmetic, no `Date`)
     - `utcMsFromCivil` is not built: it comes with the hotspot Overlay (design D22, §7.1).
     - _Requirements: 1.2_
-  - [ ] 3.3 Tests first: `math/incident/ids.test.ts`, `math/incident/sighting.test.ts`, P-3.9
+  - [x] 3.3 Tests first: `math/incident/ids.test.ts`, `math/incident/sighting.test.ts`, P-3.9
     - Examples: constant bytes (all `0x00`, all `0xFF`) give valid ids; 17 bytes fail with
       `invalid_number`, `field: 'bytes'`; `incidentIdFromBytes` never starts with `Z` in `device` mode over
       10 000 byte strings of the extremes and always does in `simulation` mode; `isIncidentId`,
@@ -216,9 +216,9 @@ three hotspot reasons wait for the lead's word after the wind checkpoint).
     - Generators (`test-support/generators.ts`, each stating its domain): `byteSource`, `symbols(n)`,
       `codeBearing`, `sightingArb` (design §11).
     - _Requirements: 3.4, 3.9, 4.1_
-  - [ ] 3.4 Code: `math/incident/ids.ts`, `math/incident/sighting.ts` (`Sighting`, `withSightingId`; `canonicalise` and `captureToSighting` are added in 3.9)
+  - [x] 3.4 Code: `math/incident/ids.ts`, `math/incident/sighting.ts` (`Sighting`, `withSightingId`; `canonicalise` and `captureToSighting` are added in 3.9)
     - _Requirements: 3.4, 3.9, 4.1_
-  - [ ] 3.5 Tests first: the alphabet and the check, `math/code/alphabet.test.ts`, `math/code/gf31-check.test.ts`
+  - [x] 3.5 Tests first: the alphabet and the check, `math/code/alphabet.test.ts`, `math/code/gf31-check.test.ts`
     - The 31 symbols (`23456789ABCDEFGHJKMNPQRSTUVWXYZ`, none of `0 1 I L O`), `groupCode` (ten groups of
       five, hyphen-joined), `stripCode` (whitespace and hyphens); the check over GF(31) with
       `g(x) = x⁴ + x + 1`: its four symbols for the three worked examples' payloads equal `B8GH`, `FSJE`,
@@ -226,9 +226,9 @@ three hotspot reasons wait for the lead's word after the wind checkpoint).
       swap of two unequal neighbours, every change of two adjacent symbols, of three and of four, never passes
       (the proof of §8.4 as a test). All fail.
     - _Requirements: 8.2, 8.6_
-  - [ ] 3.6 Code: `math/code/alphabet.ts`, `math/code/gf31-check.ts`
+  - [x] 3.6 Code: `math/code/alphabet.ts`, `math/code/gf31-check.ts`
     - _Requirements: 8.2, 8.6_
-  - [ ] 3.7 Tests first: `math/code/sighting-code.test.ts` against `fixtures/sighting-codes.json`, P-8.8, P-8.9, P-8.10
+  - [x] 3.7 Tests first: `math/code/sighting-code.test.ts` against `fixtures/sighting-codes.json`, P-8.8, P-8.9, P-8.10
     - `fixtures/sighting-codes.json` (read-only, synthetic): the three Sightings A, B, C of §8.7 with their
       expected codes and their expected decoded values. Examples: each encodes to exactly its code and
       decodes to exactly its values; the damage examples of §8.7 (the 8th symbol replaced, the 20th and
@@ -248,12 +248,12 @@ three hotspot reasons wait for the lead's word after the wind checkpoint).
       2 000; (b) strings of 0 to 10 000 characters never throw and the success rate is reported, 200 /
       10 000). All fail.
     - _Requirements: 8.1 to 8.11_
-  - [ ] 3.8 Code: `math/code/sighting-code.ts` (`encodeSighting`, `decodeSighting`, `CODE_LENGTH`; §8.1 to §8.5)
+  - [x] 3.8 Code: `math/code/sighting-code.ts` (`encodeSighting`, `decodeSighting`, `CODE_LENGTH`; §8.1 to §8.5)
     - Mixed-radix payload as a `BigInt`, 44 digits, the quantisations of §8.1, the decoder's order of §8.5
       (length limit, strip, alphabet, ≥ 6 symbols, check, version and kind, length 50, `N` below the
       product, `parseBearing`).
     - _Requirements: 8.1 to 8.7_
-  - [ ] 3.9 Canonical Sighting and link: tests first, then code
+  - [x] 3.9 Canonical Sighting and link: tests first, then code
     - Tests: `canonicalise` is idempotent and a fixed point (P-8.9 uses it); `captureToSighting` with 18
       bytes, the id replaced, the Sighting local and in the open Incident; a capture whose encoding fails is
       returned as the failure; `math/code/code-link.test.ts` (the 109-character address gives a 160-
@@ -266,9 +266,9 @@ three hotspot reasons wait for the lead's word after the wind checkpoint).
       Then code: `canonicalise`, `captureToSighting` in `sighting.ts`; `math/code/code-link.ts`
       (`buildSightingLink`, `extractSightingCode`).
     - _Requirements: 3.4, 8.4, 8.9, 10.2, 10.4, 10.9_
-  - [ ] 3.10 The Math files of this group join the hostile list (P-2.6) and the purity file list.
+  - [x] 3.10 The Math files of this group join the hostile list (P-2.6) and the purity file list.
 
-- [ ] 4. Checkpoint: the sighting code (stops for review)
+- [x] 4. Checkpoint: the sighting code (stops for review)
   - `test:deep` for P-2.6, P-3.9, P-8.8, P-8.9, P-8.10 (a) and (b), P-10.9 at their counts, then the
     root checks. The report contains: for each property the cases, discards and worst errors, the measured
     milliseconds a case (P-8.10 (a) decodes about 1 700 codes a case: say what 2 000 cases cost) and the
@@ -279,8 +279,8 @@ three hotspot reasons wait for the lead's word after the wind checkpoint).
     version read before the check (P-8.10 fails); the `uqr` install record of 1.3; the state of every flag
     of the design that this group touches (C, F19). **Stop for review.**
 
-- [ ] 5. The Incident reducer, the merge and the stored format (D3, D4, D7; §7.4, §7.5)
-  - [ ] 5.1 Tests first: `math/incident/incident-state.test.ts`, `merge.test.ts`, `apply-action.test.ts`, `storage-format.test.ts`
+- [x] 5. The Incident reducer, the merge and the stored format (D3, D4, D7; §7.4, §7.5)
+  - [x] 5.1 Tests first: `math/incident/incident-state.test.ts`, `merge.test.ts`, `apply-action.test.ts`, `storage-format.test.ts`
     - Examples of design §12: each action's effect and failure (§7.4 table); the duplicate keeps
       `receivedUtcMs`, `hidden` and `shared` and returns the same object; a conflict keeps the held entry and
       records both codes; the 33rd entry is `incident_full`; `addReceived` into an unknown Incident without
@@ -298,14 +298,14 @@ three hotspot reasons wait for the lead's word after the wind checkpoint).
       `parseStoredState(serialiseState(s))` gives `loaded` with an equal state and `dropped = 0`. 200 / 2 000.
       All fail.
     - _Requirements: 4.1 to 4.7, 5.6, 9.4, 9.5_
-  - [ ] 5.2 Code: `math/incident/incident-state.ts`, `merge.ts`, `apply-action.ts`, `storage-format.ts`
+  - [x] 5.2 Code: `math/incident/incident-state.ts`, `merge.ts`, `apply-action.ts`, `storage-format.ts`
     - Types and reducer of §6; `mergeSighting` with the outcomes `duplicate`, `conflict`, `full`, `added`;
       `serialiseState`, `parseStoredState` with the steps of §7.5; entries ordered by `sightingId`.
     - _Requirements: 4.1 to 4.7, 9.5, 9.6_
-  - [ ] 5.3 The files of this group join the hostile list and the purity file list.
+  - [x] 5.3 The files of this group join the hostile list and the purity file list.
 
-- [ ] 6. The assessment (D8; §7.6, §7.7)
-  - [ ] 6.1 Tests first: `math/assessment/assess.test.ts`, `statements.test.ts`, P-5.10 to P-5.13
+- [x] 6. The assessment (D8; §7.6, §7.7)
+  - [x] 6.1 Tests first: `math/assessment/assess.test.ts`, `statements.test.ts`, P-5.10 to P-5.13
     - Examples: one per set-aside cause and per case of the fixed order (a hidden Sighting that is also too
       old is `hidden_by_user`); the "only one candidate" reference to `nowUtcMs`; two old Sightings both
       used; the `invalid_observation` loop through an internal function with a fake solve result (the model
@@ -326,15 +326,15 @@ three hotspot reasons wait for the lead's word after the wind checkpoint).
       Generators `consistentBearings`, `sightingSet`. **If P-5.13 fails it is information about the argument
       or the tolerance: stop and classify it (Req 5.13).** All fail.
     - _Requirements: 5.1 to 5.13_
-  - [ ] 6.2 Code: `math/assessment/assess.ts`, `statements.ts`
+  - [x] 6.2 Code: `math/assessment/assess.ts`, `statements.ts`
     - `assess` (order, hidden, implausible, too old, solve with `outlierRejection: true`, causes,
       `checkLevel`, `disagreement` with Core's exported `OUTLIER_STUDENTISED_RESIDUAL`), `orderEntries`, the
       statements of §7.7.
     - _Requirements: 5.1 to 5.9_
-  - [ ] 6.3 The files of this group join the hostile list and the purity file list. Mutation check: the third Bearing marked as the culprit of a disagreement (P-5.13 and the examples fail).
+  - [x] 6.3 The files of this group join the hostile list and the purity file list. Mutation check: the third Bearing marked as the culprit of a disagreement (P-5.13 and the examples fail).
 
-- [ ] 7. The words, the Geometry class, the advice, the map model (D9, D10; §7.8 to §7.11, §7.18)
-  - [ ] 7.1 Tests first: `math/fix/format.test.ts`, P-6.2
+- [x] 7. The words, the Geometry class, the advice, the map model (D9, D10; §7.8 to §7.11, §7.18)
+  - [x] 7.1 Tests first: `math/fix/format.test.ts`, P-6.2
     - Examples: `lengthText95` at 9.99, 10, 10.01, 994.9, 995, 999.99, 1 000, 1 000.01, 2 041, 1e6, 1e6 + 1
       (rounded up, never down); `positionDecimals` at the four step values and their neighbours; `positionText`
       with the printing bound; `compassWord8` at 22.4°, 22.5°, 337.4°, 337.5°; `axisWords`. Property **P-6.2**
@@ -342,10 +342,10 @@ three hotspot reasons wait for the lead's word after the wind checkpoint).
       `d` whose step is at most `b`, or 4; `lengthText95(x)` is at least `x` and exceeds it by less than its
       step), 200 / 100 000. All fail.
     - _Requirements: 6.2, 6.3_
-  - [ ] 7.2 Code: `math/fix/format.ts`, `math/texts.ts` (the fixed sentences: limits, guidance, the not-calling statement; the statements by count are in `statements.ts`)
+  - [x] 7.2 Code: `math/fix/format.ts`, `math/texts.ts` (the fixed sentences: limits, guidance, the not-calling statement; the statements by count are in `statements.ts`)
     - `metresPerDegree` from Core's `greatCircleDistanceM` of one degree; no Earth radius of Vigia's own.
     - _Requirements: 6.2, 14.5, 16.1, 16.2_
-  - [ ] 7.3 Tests first: `math/fix/geometry-class.test.ts`, `from-you.test.ts`, P-7.8, P-6.9
+  - [x] 7.3 Tests first: `math/fix/geometry-class.test.ts`, `from-you.test.ts`, P-7.8, P-6.9
     - Examples: the class at the ratios and at the warning; `halfIntervalM` at `θ = 0`, `π/2`, `π/4`; a phone
       at the Fix's position gives the `coincident_positions` sentence; the distance is never produced without
       its interval. Properties: **P-7.8** (Req 7.1, 7.8: `fixCase`; `poor` iff `poor_geometry` or elongation
@@ -353,9 +353,9 @@ three hotspot reasons wait for the lead's word after the wind checkpoint).
       (Req 6.4, 6.9: `b95 ≤ h ≤ a95`, equal to the largest extent of UI's `fixFeatures` polygon within
       `1e-3 · a95`, `a95` at `θ = 0` and `b95` at `θ = π/2` within `1e-9 · a95`), 200 / 5 000. All fail.
     - _Requirements: 6.4, 6.9, 7.1, 7.8_
-  - [ ] 7.4 Code: `math/fix/geometry-class.ts`, `from-you.ts`
+  - [x] 7.4 Code: `math/fix/geometry-class.ts`, `from-you.ts`
     - _Requirements: 6.4, 7.1_
-  - [ ] 7.5 Tests first: `math/fix/fix-words.test.ts` against `fixtures/emergency-texts.json` (the Fix part), P-6.8, P-6.10
+  - [x] 7.5 Tests first: `math/fix/fix-words.test.ts` against `fixtures/emergency-texts.json` (the Fix part), P-6.8, P-6.10
     - Fixtures (read-only, synthetic): three Fixes (a round 40 m ellipse near `30° N, 40° W`, the `two-posts`
       Fix of 765 m by 204 m, a 12 km one) with the exact expected `fixWords`. Properties: **P-6.8** (Req 6.2,
       6.3, 6.8: Fixes of `consistentBearings(2 … 12)` through `assess`; the text holds `lengthText95` of both
@@ -365,9 +365,9 @@ three hotspot reasons wait for the lead's word after the wind checkpoint).
       `ellipse95` and the Ellipse within `1e-9`; the words' axes are `ellipse95` of the Fix's own Ellipse; a
       mutated scale fails), 200 / 5 000. All fail.
     - _Requirements: 6.1 to 6.3, 6.7, 6.8, 6.10_
-  - [ ] 7.6 Code: `math/fix/fix-words.ts` (`fixWords`; the warning sentence uses `POOR_GEOMETRY_CROSSING_RAD` through `toDeg`)
+  - [x] 7.6 Code: `math/fix/fix-words.ts` (`fixWords`; the warning sentence uses `POOR_GEOMETRY_CROSSING_RAD` through `toDeg`)
     - _Requirements: 6.2, 6.3, 6.7, 16.1, 16.4_
-  - [ ] 7.7 Tests first: `math/fix/advice.test.ts`, P-7.7
+  - [x] 7.7 Tests first: `math/fix/advice.test.ts`, P-7.7
     - Examples: the example of Req 7.9 (two observers 800 m east and west of a target 3 000 m north: the
       advised directions within 5° of 90° and 270°, the distance within 20 % of 3 000 m); `2 · atan(0.35 / 2)`
       within `0.2°` of 20° and the sentence contains "a third"; the advice for a round Fix, for none and for one
@@ -377,14 +377,14 @@ three hotspot reasons wait for the lead's word after the wind checkpoint).
       `1e-6`, and at most the area before; counter: cases in which the advised direction gave the smallest area
       among 36 directions within 1 %), 200 / 2 000. All fail.
     - _Requirements: 7.2 to 7.7, 7.9_
-  - [ ] 7.8 Code: `math/fix/advice.ts` (`nextSightingAdvice`, `adviceWords`), `math/fix/map-model.ts` (`mapModel`) with `map-model.test.ts` first
+  - [x] 7.8 Code: `math/fix/advice.ts` (`nextSightingAdvice`, `adviceWords`), `math/fix/map-model.ts` (`mapModel`) with `map-model.test.ts` first
     - Map model tests: the set-aside lines and markers; `lineLengthM` at its two clamps; the layers of the
       model plus the wind Overlay's two are four, at most `MAX_APP_LAYERS` (the wind's two are asserted in 17).
     - _Requirements: 5.5, 7.2 to 7.6, 18.3, 18.4_
-  - [ ] 7.9 The files of this group join the hostile list and the purity file list. Mutation check: the position decimals read the other way (P-6.2 and P-6.8 fail).
+  - [x] 7.9 The files of this group join the hostile list and the purity file list. Mutation check: the position decimals read the other way (P-6.2 and P-6.8 fail).
 
-- [ ] 8. The Emergency text (D11; §7.12)
-  - [ ] 8.1 Tests first: `math/fix/emergency-text.test.ts` against `fixtures/emergency-texts.json` (the text part), P-14.8, P-14.9, P-16.4
+- [x] 8. The Emergency text (D11; §7.12)
+  - [x] 8.1 Tests first: `math/fix/emergency-text.test.ts` against `fixtures/emergency-texts.json` (the text part), P-14.8, P-14.9, P-16.4
     - Fixtures (read-only): the three Fixes with the exact `emergencyText` in each mode (device, simulation,
       with and without the own position), the one-Sighting text, the `SIMULATION:` line, the text of a failed
       `ellipse95`; no observer position, Sighting id, Incident id or code in any. Properties: **P-14.8** (Req
@@ -397,12 +397,12 @@ three hotspot reasons wait for the lead's word after the wind checkpoint).
       or a distance holds its uncertainty in the same sentence; checked by splitting at `. `), 200 / 5 000.
       All fail.
     - _Requirements: 14.1 to 14.10, 16.4_
-  - [ ] 8.2 Code: `math/fix/emergency-text.ts`
+  - [x] 8.2 Code: `math/fix/emergency-text.ts`
     - The worst case of 730 characters computed from the longest string of each line (a test builds it).
     - _Requirements: 14.1 to 14.9_
-  - [ ] 8.3 The file joins the hostile list and the purity file list. Mutation check: an observer's position in the text without the switch (P-14.8 and the fixture fail).
+  - [x] 8.3 The file joins the hostile list and the purity file list. Mutation check: an observer's position in the text without the switch (P-14.8 and the fixture fail).
 
-- [ ] 9. Checkpoint: the Math of the core flow (stops for review)
+- [x] 9. Checkpoint: the Math of the core flow (stops for review)
   - `test:deep` for P-4.7, P-5.10, P-5.11, P-5.12, P-5.13, P-6.2, P-6.8, P-6.9, P-6.10, P-7.7, P-7.8, P-14.8,
     P-14.9, P-16.4 and P-2.6 (with the hostile list so far) at their counts, then the root checks. The report
     contains: for each property the cases, discards and worst errors, the measured cost and a proposal for
@@ -413,8 +413,8 @@ three hotspot reasons wait for the lead's word after the wind checkpoint).
     skeleton threshold exists (the purity rule); the hostile list's size against the exported names. **Stop
     for review.**
 
-- [ ] 10. The Network gate and the Host list (D14; §7.14, §7.15 `windPoint`)
-  - [ ] 10.1 Tests first: `math/network/host-list.test.ts`, `gate-decision.test.ts`, `request-boxes.test.ts`, P-11.9 (decision)
+- [x] 10. The Network gate and the Host list (D14; §7.14, §7.15 `windPoint`)
+  - [x] 10.1 Tests first: `math/network/host-list.test.ts`, `gate-decision.test.ts`, `request-boxes.test.ts`, P-11.9 (decision)
     - Examples (design §12): each look-alike of Req 11.9 refused with its field (`example.com.evil.test`,
       `example.com@evil.test`, upper case, trailing dot, an IDN look-alike, a port, userinfo, `http`, a
       fragment, a missing, repeated or extra query parameter, a path of the wrong shape, a non-canonical form);
@@ -427,10 +427,10 @@ three hotspot reasons wait for the lead's word after the wind checkpoint).
       query the entry's and the input canonical; the wind builder's URLs are always accepted, 200 / 100 000.
       All fail.
     - _Requirements: 11.1 to 11.4, 11.9, 13.2_
-  - [ ] 10.2 Code: `math/network/host-list.ts` (the entries `tiles` and `wind`, with purpose, Source's name, what the request carries in words and as the exact path and query, terms link left as a parameter for the owner, key flags; `buildHostList`), `gate-decision.ts` (`decideRequest`, §7.14 steps 1 to 6), `request-boxes.ts` (`windPoint` only)
+  - [x] 10.2 Code: `math/network/host-list.ts` (the entries `tiles` and `wind`, with purpose, Source's name, what the request carries in words and as the exact path and query, terms link left as a parameter for the owner, key flags; `buildHostList`), `gate-decision.ts` (`decideRequest`, §7.14 steps 1 to 6), `request-boxes.ts` (`windPoint` only)
     - The only module that names a host (a purity rule). The hotspot entry is not written.
     - _Requirements: 11.2, 11.3, 11.9, 13.2_
-  - [ ] 10.3 Tests first: `adapters/network-gate.test.ts`, P-11.9 (gate), with a `FakeFetch` and the `FakeTimer`
+  - [x] 10.3 Tests first: `adapters/network-gate.test.ts`, P-11.9 (gate), with a `FakeFetch` and the `FakeTimer`
     - A refused URL never calls the fake fetch; every call has `credentials: 'omit'`, `referrerPolicy:
       'no-referrer'`, `redirect: 'error'`, `method: 'GET'`, `cache: 'no-store'` and no header; a rejected
       fetch, an abort by the `FakeTimer`, a status 503, a body over the limit (streamed and aborted at the
@@ -438,12 +438,12 @@ three hotspot reasons wait for the lead's word after the wind checkpoint).
       `too-large`; no unhandled rejection. Property **P-11.9** (gate half): the injected fetch is called if and
       only if the decision accepts, and then with exactly those options, 200 / 2 000. All fail.
     - _Requirements: 11.1, 11.3, 11.7, 11.9_
-  - [ ] 10.4 Code: `adapters/network-gate.ts` (`createNetworkGate(fetchLike, hostList, parameters, timer)`, the only module that names `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource`, `sendBeacon`)
+  - [x] 10.4 Code: `adapters/network-gate.ts` (`createNetworkGate(fetchLike, hostList, parameters, timer)`, the only module that names `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource`, `sendBeacon`)
     - _Requirements: 1.3, 11.1, 11.7_
-  - [ ] 10.5 Join the hostile list and the purity file list. Mutation check: a host list entry that accepts a prefix (P-11.9 fails).
+  - [x] 10.5 Join the hostile list and the purity file list. Mutation check: a host list entry that accepts a prefix (P-11.9 fails).
 
-- [ ] 11. The Adapters, the Transports and the QR (D12, D13, D4; §7.19; §3.2)
-  - [ ] 11.1 Tests first: `adapters/storage.test.ts`, `clipboard.test.ts`, `random.test.ts`, `page-address.test.ts` against fakes of the browser objects
+- [x] 11. The Adapters, the Transports and the QR (D12, D13, D4; §7.19; §3.2)
+  - [x] 11.1 Tests first: `adapters/storage.test.ts`, `clipboard.test.ts`, `random.test.ts`, `page-address.test.ts` against fakes of the browser objects
     - Storage: reads and writes the one key and the backup key; a throwing `setItem` (quota) is
       `storage_unavailable`; the memory storage has `persistent: false` and never touches `localStorage`;
       **no `storage` event handler** (there is no `onExternalChange`, Req 4.4). Clipboard: `copyText` with and
@@ -453,10 +453,10 @@ three hotspot reasons wait for the lead's word after the wind checkpoint).
       `random_unavailable`. Page: `address()`, `fragment()`, `replaceAddress` (the fake history receives the
       address without fragment, `state` `null`), `onFragmentChange` on `hashchange`. All fail.
     - _Requirements: 1.3, 4.4, 10.3, 14.4_
-  - [ ] 11.2 Code: `adapters/storage.ts`, `clipboard.ts`, `random.ts`, `page-address.ts`; test-support fakes `fake-storage`, `fake-clipboard`, `fake-random`, `fake-page`, `recording-gate`
+  - [x] 11.2 Code: `adapters/storage.ts`, `clipboard.ts`, `random.ts`, `page-address.ts`; test-support fakes `fake-storage`, `fake-clipboard`, `fake-random`, `fake-page`, `recording-gate`
     - Each takes the browser object it wraps as an argument and reads no global.
     - _Requirements: 1.3, 4.4_
-  - [ ] 11.3 Tests first: `adapters/transport/memory-network.test.ts`, `manual-transport.test.ts`, P-9.6, P-9.7
+  - [x] 11.3 Tests first: `adapters/transport/memory-network.test.ts`, `manual-transport.test.ts`, P-9.6, P-9.7
     - Examples: one send to three phones with the default plan; each plan (loss `[]`, duplication
       `copies: 2`, reordering by delays); `stop()` leaves the network; the text is never parsed (arbitrary
       text is delivered as it is). Properties (files in `adapters/transport/`, project `adapters`):
@@ -467,20 +467,20 @@ three hotspot reasons wait for the lead's word after the wind checkpoint).
       built differently), 200 / 2 000; **P-9.7** (Req 9.7: codes of other Incident ids mixed in; an
       Incident's set holds only its own), 200 / 2 000. All fail.
     - _Requirements: 9.1, 9.2, 9.5 to 9.7, 9.9_
-  - [ ] 11.4 Code: `math/transport/transport.ts` (types only), `adapters/transport/memory-network.ts`, `manual-transport.ts`, test-support `relay-like-transport.ts`
+  - [x] 11.4 Code: `math/transport/transport.ts` (types only), `adapters/transport/memory-network.ts`, `manual-transport.ts`, test-support `relay-like-transport.ts`
     - _Requirements: 9.1, 9.2, 9.9_
-  - [ ] 11.5 Tests first: `adapters/qr-encoder.test.ts` (against a fake `uqr` first)
+  - [x] 11.5 Tests first: `adapters/qr-encoder.test.ts` (against a fake `uqr` first)
     - The matrix is square with `size = 4 · version + 17`; a 77-character link gives version 5; a
       161-character link is refused with `link_too_long`; the same link gives the same matrix; a throwing
       encoder is a failure value. Fails.
     - _Requirements: 10.5, 10.6, 20.4_
-  - [ ] 11.6 Code: `adapters/qr-encoder.ts` (the only module that imports `uqr`; error correction level M, byte mode, an `encode` result turned into a `QrMatrix`)
+  - [x] 11.6 Code: `adapters/qr-encoder.ts` (the only module that imports `uqr`; error correction level M, byte mode, an `encode` result turned into a `QrMatrix`)
     - Rerun the test against the real package; report the version it chose for the two links and that
       `size = 4 · version + 17` holds (this checks the capacities of §3.2; F19).
     - _Requirements: 10.5, 10.6_
-  - [ ] 11.7 Join the hostile list and the purity file list (including the rule that `uqr` is imported only in `adapters/qr-encoder.ts`).
+  - [x] 11.7 Join the hostile list and the purity file list (including the rule that `uqr` is imported only in `adapters/qr-encoder.ts`).
 
-- [ ] 12. Checkpoint: the Adapters (does not stop)
+- [x] 12. Checkpoint: the Adapters (does not stop)
   - `test:deep` for P-9.6, P-9.7 and P-11.9 (both halves) at their counts, then the root checks. Report
     cases, discards and the measured cost; the QR versions of 11.6; the hostile list's size.
 
@@ -562,8 +562,8 @@ three hotspot reasons wait for the lead's word after the wind checkpoint).
     - _Requirements: 1.10_
   - [x] 13.10 The files of this group join the purity file list; the screens are checked at 360 CSS pixels in a component test for the touch-target sizes and the colours of UI's `COLOURS` and `SIZES`.
 
-- [ ] 14. The Simulation shell, the four scenes and the reviewer's path (D16; §10)
-  - [ ] 14.1 Tests first: `math/scenes/smoke-scenes.test.ts`
+- [x] 14. The Simulation shell, the four scenes and the reviewer's path (D16; §10)
+  - [x] 14.1 Tests first: `math/scenes/smoke-scenes.test.ts`
     - Each of the four scenes (`two-posts`, `three-posts`, `four-posts-one-wrong`, `almost-in-line`) passes
       UI's `checkScene`; a Simulator is created for every Station (the script validates); **through `assess`,
       `four-posts-one-wrong` sets `southwest` aside as `outlier`, and the same 12° on `side` is not set
@@ -571,9 +571,9 @@ three hotspot reasons wait for the lead's word after the wind checkpoint).
       with the semi-axes within 10 % of the probe's (765 m by 204 m; 262 m by 204 m; 8 635 m by 241 m).
       Fails.
     - _Requirements: 17.2, 17.8_
-  - [ ] 14.2 Code: `math/scenes/smoke-scenes.ts` (`smokeScenes()` through UI's `sceneFromOffsets` and `scriptForStation`, offsets of §10, the Target "Smoke column")
+  - [x] 14.2 Code: `math/scenes/smoke-scenes.ts` (`smokeScenes()` through UI's `sceneFromOffsets` and `scriptForStation`, offsets of §10, the Target "Smoke column")
     - _Requirements: 17.2_
-  - [ ] 14.3 Tests first: `components/simulation/SimulationShell.test.tsx`, `simulated-phone.test.ts`
+  - [x] 14.3 Tests first: `components/simulation/SimulationShell.test.tsx`, `simulated-phone.test.ts`
     - One phone for each Station with its own store, memory storage and transport endpoint; the Station the
       panel is on is the phone in hand and changing it changes the screens while the others keep their
       sightings; the Clock is the largest `nowUtcMs` any Session has reported, never decreasing; the Incident
@@ -581,9 +581,9 @@ three hotspot reasons wait for the lead's word after the wind checkpoint).
       as text only, to the others' Inboxes; no link, no QR, no system share; the banner on every screen.
       Fails.
     - _Requirements: 17.1, 17.4, 17.5_
-  - [ ] 14.4 Code: `components/simulation/SimulationShell.tsx`, `simulated-phone.ts`, and `main.tsx` (the composition root: the real Adapters, the tile source from the environment checked against the Host list, `createRoot`, the maplibre stylesheet imported once, the Simulation mode chosen by `hasDeviceOrientation`)
+  - [x] 14.4 Code: `components/simulation/SimulationShell.tsx`, `simulated-phone.ts`, and `main.tsx` (the composition root: the real Adapters, the tile source from the environment checked against the Host list, `createRoot`, the maplibre stylesheet imported once, the Simulation mode chosen by `hasDeviceOrientation`)
     - _Requirements: 11.4, 17.1, 17.5, 18.2_
-  - [ ] 14.5 The reviewer's integration test: `components/simulation/SimulationShell.integration.test.tsx`
+  - [x] 14.5 The reviewer's integration test: `components/simulation/SimulationShell.integration.test.tsx`
     - With `FakeTimer`, `FakeMapLibre`, memory storage, the memory network and the **refusing** Network gate
       (every call recorded and refused), for each of the four scenes copied with noise 0: choose the scene,
       Start, Freeze, Capture (once by the crosshair and once by a Mark on the smoke's pixel), answer "same
@@ -597,7 +597,7 @@ three hotspot reasons wait for the lead's word after the wind checkpoint).
       ellipse; a third runs the flow while `navigator.onLine` is `false` (the QR is shown and said not to work
       offline); a fourth, in the `no-overlays` project, runs the same flow with the Overlays module empty.
     - _Requirements: 3.3, 17.3, 17.6, 17.7, 21.2_
-  - [ ] 14.6 The statistical test: `test-support/capture-from-script.ts` and P-17.9
+  - [x] 14.6 The statistical test: `test-support/capture-from-script.ts` and P-17.9
     - Tests first for the harness (the seed is an argument; the same seed gives the same runs; the harness's
       rule: the bound is **applied to a scene only when at least 100 of its non-`poor` runs exist, and not at
       99**). **P-17.9** (Req 17.9): the four scenes, each Station's `northErrorRad` drawn per run from a normal
@@ -612,9 +612,9 @@ three hotspot reasons wait for the lead's word after the wind checkpoint).
       question U2). 400 runs per scene in `pnpm test` and in `test:deep` (the deep run adds a second pass of
       4 000 for the report).
     - _Requirements: 17.9_
-  - [ ] 14.7 The files of this group join the purity file list. Every scene, Station, code and Position is synthetic (the purity test scans `smoke-scenes.ts` for coordinates away from the origin's offsets).
+  - [x] 14.7 The files of this group join the purity file list. Every scene, Station, code and Position is synthetic (the purity test scans `smoke-scenes.ts` for coordinates away from the origin's offsets).
 
-- [ ] 15. Checkpoint: the reviewer's path (stops for review)
+- [x] 15. Checkpoint: the reviewer's path (stops for review)
   - The reviewer's path works end to end on a laptop with no sensor and no network, before the wind Overlay.
     `test:deep` for P-9.6, P-9.7, P-10.10, P-15.9 and P-17.9, then the root checks. The report contains: the
     four scenes through the integration test (the Fix's words, the advice, the set-aside cause for each);
@@ -626,12 +626,12 @@ three hotspot reasons wait for the lead's word after the wind checkpoint).
     the files built against the design's 78 (73 before the wind Overlay's five, with the registry and the
     shared Overlay parts counted). **Stop for review.**
 
-- [ ] 16. The privacy document and the README (D20; Req 11.6, O2)
-  - [ ] 16.1 Tests first: `math/privacy-table.test.ts` (the Markdown part)
+- [x] 16. The privacy document and the README (D20; Req 11.6, O2)
+  - [x] 16.1 Tests first: `math/privacy-table.test.ts` (the Markdown part)
     - `docs/privacy.md`'s Markdown table parses to the same nine rows as `PRIVACY_TABLE`, cell by cell; a
       changed cell in either fails. Fails (no document yet).
     - _Requirements: 15.3_
-  - [ ] 16.2 Write `docs/privacy.md` (repository root, judge-facing) and the README of the package
+  - [x] 16.2 Write `docs/privacy.md` (repository root, judge-facing) and the README of the package
     - `docs/privacy.md`: the table of Req 15.3 and a paragraph for each row. `apps/vigia/README.md`: what it
       is, how to build, the two variables of `.env.example`, **two paragraphs on hosting** (which hosts the
       page contacts, the Host list's with the Tile source's; which headers the host should send:
@@ -642,8 +642,8 @@ three hotspot reasons wait for the lead's word after the wind checkpoint).
       checked against the code by the test of 16.1 and the scans of task 1.6.
     - _Requirements: 10.7, 11.6, 15.3, 15.4_
 
-- [ ] 17. The wind Overlay (D15; §7.16; Req 13; the checkpoint after which the Overlays may be cut)
-  - [ ] 17.1 Tests first: `overlays/wind/math/wind-parse.test.ts`, `wind-words.test.ts`, `wind-features.test.ts`, P-13.6
+- [x] 17. The wind Overlay (D15; §7.16; Req 13; the checkpoint after which the Overlays may be cut)
+  - [x] 17.1 Tests first: `overlays/wind/math/wind-parse.test.ts`, `wind-words.test.ts`, `wind-features.test.ts`, P-13.6
     - Fixture `fixtures/open-meteo-sample.json` (synthetic, read-only, built by hand from the documented field
       names). Examples: each of the five needed fields missing in turn is refused naming it; a unit other than
       `m/s` refused; `compassWord8` boundaries; the words say forecast or old exactly when `valid` and `now`
@@ -654,27 +654,27 @@ three hotspot reasons wait for the lead's word after the wind checkpoint).
       direction in `[0, 2π)`, speed `≥ 0`; the compass word is that of the 45° sector), 200 / 10 000. All
       fail.
     - _Requirements: 13.1 to 13.6_
-  - [ ] 17.2 Code: `overlays/wind/math/wind-parse.ts`, `wind-words.ts`, `wind-features.ts`
+  - [x] 17.2 Code: `overlays/wind/math/wind-parse.ts`, `wind-words.ts`, `wind-features.ts`
     - The two layers `wind` and `wind-head`; `fit` not set.
     - _Requirements: 13.2 to 13.6, 18.4_
-  - [ ] 17.3 Tests first: `overlays/wind/components/wind-controller.test.ts`, with a fixture `fetchLike` behind the real gate and the real Host list
+  - [x] 17.3 Tests first: `overlays/wind/components/wind-controller.test.ts`, with a fixture `fetchLike` behind the real gate and the real Host list
     - Off at start and no request; `setEnabled(true)` makes one request and `refresh()` one more and nothing
       else does (a `FakeTimer` advanced for an hour makes none); a failure shows its Message and leaves the
       layers empty; `update(context)` recomputes the layers with no request; in Simulation mode the fixture is
       read and no key is needed. Fails.
     - _Requirements: 13.1, 13.7, 17.4_
-  - [ ] 17.4 Code: `overlays/wind/components/wind-controller.ts`, `wind-definition.ts`; the registry line in `overlays/index.ts`
+  - [x] 17.4 Code: `overlays/wind/components/wind-controller.ts`, `wind-definition.ts`; the registry line in `overlays/index.ts`
     - The layers of the model plus the wind's are four of the eight `MAX_APP_LAYERS` allow (the test of 7.8
       now sums the real ids).
     - _Requirements: 1.10, 13.1, 13.7, 18.4_
-  - [ ] 17.5 Wiring and the cut
+  - [x] 17.5 Wiring and the cut
     - The Map screen shows the wind panel; the wind switch joins P-15.9's actions (no position in a request
       other than the one rounded point, no code anywhere); the integration test of 14.5 runs once more with
       the wind switched on (the fixture, no network). **The cut test:** the `no-overlays` project passes
       with the wind Overlay present and the registry replaced by the empty one.
     - _Requirements: 1.10, 13.1, 15.9, 17.4_
 
-- [ ] 18. Final checkpoint (stops for review)
+- [x] 18. Final checkpoint (stops for review)
   - `test:deep` for **every** property of design §11 that the first release has, at its stated count (the
     **27 properties** with their **29 tests**: P-2.6, P-3.9, P-4.7, P-5.10, P-5.11, P-5.12, P-5.13, P-6.2,
     P-6.8, P-6.9, P-6.10, P-7.7, P-7.8, P-8.8, P-8.9, P-8.10 (two tests), P-9.6, P-9.7, P-10.9, P-10.10,
@@ -769,3 +769,7 @@ three hotspot reasons wait for the lead's word after the wind checkpoint).
     (hosting), `docs/privacy.md` (the Tiles row and paragraph), design D14, §5 and §13. The Network gate keeps
     `no-referrer`, unchanged, with its tests. Req 15.3's own table still has the old Tiles row: the lead's to amend.
   - [x] 22.3 The root checks.
+
+---
+
+_Note of the lead, 2026-11-21._ The ticks of 1.2, 1.7, the mutation checks of 6.3, 7.9, 8.3 and 10.5, and the checkpoints 4, 9, 12, 15 and 18 were set by the lead from the reports of the build sessions, which ran them and which leave no trace in the repository: throwaway smoke tests deleted after they ran, mutations reverted after they failed their tests, deep runs kept outside the repository. Each checkpoint ends in a commit whose message names its task groups. Task 5.1's examples of the Incident state live in `apply-action.test.ts` and `incident-state.property.test.ts`; no separate `incident-state.test.ts` was written.
