@@ -15,10 +15,10 @@ import { unwrapOk } from './test-support/result-helpers';
 
 const rad = (angleDeg: number): number => (angleDeg * Math.PI) / 180;
 
-/** A sighting towards the south-west, 2° 1-sigma, 5 m position accuracy. */
+/** A sighting from the catalogue origin towards the south-west, 2° 1-sigma, 5 m position accuracy. */
 const known: Bearing = {
   id: 'obs-1',
-  observer: { latRad: rad(30.0000), lonRad: rad(-40.0000) },
+  observer: { latRad: rad(30), lonRad: rad(-40) },
   positionAccuracyM: 5,
   timeUtcMs: 1_763_193_600_000,
   azimuthRad: rad(225),
@@ -154,8 +154,8 @@ describe('serialiseBearing', () => {
     expect(wire.v).toBe(1);
     expect(wire.kind).toBe('bearing');
     expect(wire.id).toBe('obs-1');
-    expect(wire.observer.latDeg).toBeCloseTo(30.0000, 12);
-    expect(wire.observer.lonDeg).toBeCloseTo(-40.0000, 12);
+    expect(wire.observer.latDeg).toBeCloseTo(30, 12);
+    expect(wire.observer.lonDeg).toBeCloseTo(-40, 12);
     expect(wire.positionAccuracyM).toBe(5);
     expect(wire.timeUtcMs).toBe(1_763_193_600_000);
     expect(wire.azimuthDeg).toBeCloseTo(225, 12);

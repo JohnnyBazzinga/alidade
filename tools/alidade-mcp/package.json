@@ -1,0 +1,22 @@
+{
+  "name": "@alidade/mcp",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A hand-written MCP server over stdio that exposes Alidade's core and sensors math as tools.",
+  "scripts": {
+    "build": "vite build",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@alidade/core": "workspace:*",
+    "@alidade/sensors": "workspace:*"
+  },
+  "devDependencies": {
+    "fast-check": "4.10.2",
+    "typescript": "6.0.3",
+    "vite": "8.3.8",
+    "vitest": "5.1.0"
+  }
+}

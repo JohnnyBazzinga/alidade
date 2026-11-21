@@ -214,6 +214,43 @@ importers:
         specifier: 5.1.0
         version: 5.1.0(jsdom@30.1.3)(vite@8.3.8)
 
+  tools/alidade-mcp:
+    dependencies:
+      '@alidade/core':
+        specifier: workspace:*
+        version: link:../../skeleton/core
+      '@alidade/sensors':
+        specifier: workspace:*
+        version: link:../../skeleton/sensors
+    devDependencies:
+      fast-check:
+        specifier: 4.10.2
+        version: 4.10.2
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vite:
+        specifier: 8.3.8
+        version: 8.3.8
+      vitest:
+        specifier: 5.1.0
+        version: 5.1.0(jsdom@30.1.3)(vite@8.3.8)
+
+  tools/kiro-guard:
+    devDependencies:
+      fast-check:
+        specifier: 4.10.2
+        version: 4.10.2
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vite:
+        specifier: 8.3.8
+        version: 8.3.8
+      vitest:
+        specifier: 5.1.0
+        version: 5.1.0(jsdom@30.1.3)(vite@8.3.8)
+
 packages:
 
   '@asamuzakjp/css-color@7.1.9':

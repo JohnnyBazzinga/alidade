@@ -15,6 +15,9 @@ One repository, pnpm workspaces. The Skeleton Crew category requires the two app
 /apps
   /vigia               wildfire smoke triangulation
   /nonius              celestial position fix
+/tools
+  /kiro-guard          @alidade/kiro-guard  Kiro hook commands: refuses forbidden tool calls, reports repository state, checks specs
+  /alidade-mcp         @alidade/mcp         MCP server over stdio: core and sensors math as tools for an agent
 /docs                  judge-facing docs and recorded sighting fixtures
 LICENSE                open source licence, detectable by GitHub
 README.md
@@ -30,6 +33,7 @@ apps/*  ->  skeleton/ui  ->  skeleton/sensors  ->  skeleton/core
 - `skeleton/*` never imports from `apps/*`.
 - The two apps never import from each other.
 - `skeleton/core` imports nothing outside itself.
+- `tools/*` are development tools for Kiro, not part of the product. `tools/alidade-mcp` imports `@alidade/core` and `@alidade/sensors` only; `tools/kiro-guard` imports only Node. Nothing in `skeleton/` or `apps/` imports from `tools/`.
 
 ## Conventions
 

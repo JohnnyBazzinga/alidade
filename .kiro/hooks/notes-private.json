@@ -1,0 +1,16 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Keep notes/ private",
+      "description": "Refuses any tool call that reads or writes the private folder notes/, in any agent.",
+      "trigger": "PreToolUse",
+      "matcher": "*",
+      "action": {
+        "type": "command",
+        "command": "node tools/kiro-guard/src/main.ts pre-tool-use --only notes-private"
+      },
+      "timeout": 10
+    }
+  ]
+}

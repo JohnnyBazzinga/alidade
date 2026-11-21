@@ -1,0 +1,13 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Math tests on save",
+      "description": "Runs the tests of a saved math file (apps/*/src/math, skeleton/*/src/math) under timeout 300.",
+      "trigger": "PostFileSave",
+      "matcher": "(^|/)(apps|skeleton)/[^/]+/src/math/.+\\.ts$",
+      "action": { "type": "command", "command": "node tools/kiro-guard/src/main.ts math-tests" },
+      "timeout": 330
+    }
+  ]
+}

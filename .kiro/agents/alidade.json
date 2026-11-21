@@ -1,0 +1,52 @@
+{
+  "name": "alidade",
+  "description": "Works on the Alidade skeleton and the Vigia and Nonius apps under the project's steering, with hooks that refuse the calls the project forbids.",
+  "prompt": "You work on Alidade: a skeleton (skeleton/) and two apps (apps/) that turn a phone into a sighting instrument.\nThe steering files in your context are binding, above all the units and sign conventions of math-conventions.\nUse pnpm only, never npm or yarn, and pin exact versions.\nThe folder notes/ is private: never read, list or write it, and never ask for its contents.\nNever commit or push; list the changed files in your report.\nPut timeout in front of every test run. Never start a dev server or a watch mode, and never use pkill.\nCheck numbers with the alidade MCP tools (fix_from_bearings, magnetic_declination, local_offset) instead of from memory.\nHooks refuse some calls on purpose. Read the reason they give and do what it says.",
+  "tools": ["read", "write", "shell", "@alidade"],
+  "includeMcpJson": true,
+  "resources": [
+    "file://.kiro/steering/math-conventions.md",
+    "file://.kiro/steering/product.md",
+    "file://.kiro/steering/structure.md",
+    "file://.kiro/steering/tech.md",
+    "file://.kiro/steering/testing.md"
+  ],
+  "toolsSettings": {
+    "write": { "allowedPaths": ["./**"], "deniedPaths": ["notes/**"] },
+    "read": { "deniedPaths": ["notes/**"] },
+    "shell": { "deniedCommands": ["git commit .*", "git push .*", "pkill .*"] }
+  },
+  "permissions": {
+    "rules": [
+      { "capability": "fs_write", "match": ["./**"], "effect": "allow" },
+      { "capability": "fs_read", "match": ["notes/**"], "effect": "deny" },
+      { "capability": "fs_write", "match": ["notes/**"], "effect": "deny" },
+      {
+        "capability": "shell",
+        "match": ["git commit *", "git push *", "pkill *"],
+        "effect": "deny"
+      }
+    ]
+  },
+  "hooks": [
+    {
+      "name": "repo-state",
+      "trigger": "SessionStart",
+      "action": { "type": "command", "command": "node tools/kiro-guard/src/main.ts session-start" },
+      "timeout": 10
+    },
+    {
+      "name": "guard",
+      "trigger": "PreToolUse",
+      "matcher": "*",
+      "action": { "type": "command", "command": "node tools/kiro-guard/src/main.ts pre-tool-use" },
+      "timeout": 10
+    },
+    {
+      "name": "root-checks",
+      "trigger": "Stop",
+      "action": { "type": "command", "command": "node tools/kiro-guard/src/main.ts stop" },
+      "timeout": 10
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Check the format of a requirements file",
+      "description": "Checks a saved .kiro/specs/<name>/requirements.md against the format of the existing specifications.",
+      "trigger": "PostFileSave",
+      "matcher": "(^|/)\\.kiro/specs/[^/]+/requirements\\.md$",
+      "action": { "type": "command", "command": "node tools/kiro-guard/src/main.ts check-spec" },
+      "timeout": 10
+    }
+  ]
+}

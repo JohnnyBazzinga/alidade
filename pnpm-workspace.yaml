@@ -1,6 +1,7 @@
 packages:
   - 'skeleton/*'
   - 'apps/*'
+  - 'tools/*'
 # Dependencies must have been published at least 14 days (20160 minutes) before they are installed,
 # transitive ones included (skeleton-ui Req 20.6). Strict, because the setting is explicit.
 minimumReleaseAge: 20160

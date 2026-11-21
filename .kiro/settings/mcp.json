@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "alidade": {
+      "command": "node",
+      "args": ["tools/alidade-mcp/dist/server.mjs"],
+      "autoApprove": ["fix_from_bearings", "magnetic_declination", "local_offset"]
+    }
+  }
+}
