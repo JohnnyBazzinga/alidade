@@ -136,4 +136,54 @@ describe('site/index.html', () => {
     expect(style).toMatch(/font-size:\s*(?:1[6-9]|[2-9]\d)px/);
     expect(style).toContain(`min-height: ${SIZES.touchPx}px`);
   });
+
+  it('has no line of the diagram wider than its box, with a margin of 12 px', () => {
+    const svg = DIAGRAM ?? '';
+    const rects = [
+      ...svg.matchAll(
+        /<rect\s+x="([\d.]+)"\s+y="([\d.]+)"\s+width="([\d.]+)"\s+height="([\d.]+)"/g,
+      ),
+    ].map((m) => ({ x: Number(m[1]), y: Number(m[2]), w: Number(m[3]), h: Number(m[4]) }));
+    const lines = [...svg.matchAll(/<text\s+([^>]*)>([^<]*)<\/text>/g)].map((m) => {
+      const attrs = m[1] ?? '';
+      const num = (name: string): number =>
+        Number(new RegExp(`\\b${name}="([\\d.]+)"`).exec(attrs)?.[1]);
+      return {
+        x: num('x'),
+        y: num('y'),
+        size: num('font-size'),
+        middle: /text-anchor="middle"/.test(attrs),
+        text: m[2] ?? '',
+      };
+    });
+    expect(lines.length).toBeGreaterThan(15);
+    const MARGIN_PX = 12;
+    for (const line of lines) {
+      expect(Number.isFinite(line.size), line.text).toBe(true);
+      // A monospace glyph is about 0.6 em wide, the bold ones too.
+      const widthPx = line.text.length * line.size * 0.6;
+      const left = line.middle ? line.x - widthPx / 2 : line.x;
+      const right = left + widthPx;
+      const boxes = rects
+        .filter((r) => line.x >= r.x && line.x <= r.x + r.w && line.y > r.y && line.y < r.y + r.h)
+        .sort((a, b) => a.w * a.h - b.w * b.h);
+      const box = boxes[0];
+      expect(box, line.text).toBeDefined();
+      if (!box) continue;
+      expect(right, line.text).toBeLessThanOrEqual(box.x + box.w - MARGIN_PX);
+      expect(left, line.text).toBeGreaterThanOrEqual(box.x + MARGIN_PX);
+      expect(line.y, line.text).toBeLessThanOrEqual(box.y + box.h - 6);
+    }
+  });
+
+  it('says what each app adds, and what the bearing model is', () => {
+    const svg = DIAGRAM ?? '';
+    expect(svg).not.toContain('adds: the bearing model');
+    expect(svg).toContain("uses Core's bearing model;");
+    expect(svg).toContain('adds sharing and incidents');
+    expect(svg).toContain('adds Sun altitude model');
+    expect(svg).toContain('and calibration');
+    expect(svg).toContain('→ one unknown smoke');
+    expect(svg).toContain('→ one unknown observer');
+  });
 });

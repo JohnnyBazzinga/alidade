@@ -9,9 +9,9 @@ It is one skeleton and two apps that are duals of one problem:
 
 Entry for Kiroween 2026, category Skeleton Crew.
 
-![The Alidade skeleton: Core, Sensors and UI at the bottom; Vigia adds the bearing model and Nonius its own altitude model](docs/skeleton.svg)
+![The Alidade skeleton: Core, Sensors and UI at the bottom; Vigia uses Core's bearing model and adds sharing and incidents; Nonius adds a Sun altitude model and calibration](docs/skeleton.svg)
 
-The skeleton is three packages. Each app adds one thing on top: a measurement model that tells the shared solver what its observations are. To add your own, start from one of the three real extension points:
+The skeleton is three packages. Each app brings a measurement model that tells the shared solver what its observations are. Vigia uses the bearing model that Core ships and adds sharing and incidents; Nonius adds its own altitude model and the calibration of the phone's altitude error. To add your own, start from one of the three real extension points:
 [`measurement-model.ts`](skeleton/core/src/measurement-model.ts) (the interface),
 [`bearing-model.ts`](skeleton/core/src/bearing-model.ts) (Vigia's, in Core) and
 [`altitude-model.ts`](apps/nonius/src/math/fix/altitude-model.ts) (Nonius's, in the app).
