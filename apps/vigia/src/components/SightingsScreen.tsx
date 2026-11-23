@@ -11,6 +11,8 @@ import { accuracyText, directionText, positionText } from '../math/fix/format';
 import { compareIds, type Conflict, type SightingEntry } from '../math/incident/incident-state';
 import { FailureNotice } from './FailureNotice';
 import { useEnvironment } from './environment';
+import { ROLE_VARS } from '@alidade/ui';
+import { InlineIcon, NavRow } from './cards/parts';
 import { LOOK } from './look';
 import { SightingRow } from './SightingRow';
 import { useStore, useVigia } from './store';
@@ -68,14 +70,14 @@ export function SightingsScreen({ onShare, onInbox }: SightingsScreenProps) {
   const store = useStore();
   const { open, nowUtcMs } = useVigia();
   const addButton = (
-    <button type="button" onClick={onInbox} style={LOOK.button}>
+    <NavRow icon="inbox" onClick={onInbox}>
       Add a sighting someone sent me
-    </button>
+    </NavRow>
   );
   if (open === null) {
     return (
       <section data-testid="sightings-screen" style={LOOK.stack}>
-        <div style={LOOK.panel}>
+        <div style={LOOK.card}>
           <h1 style={LOOK.title}>No smoke yet</h1>
           <p style={LOOK.text}>{checkStatement('none')}</p>
         </div>
@@ -98,7 +100,13 @@ export function SightingsScreen({ onShare, onInbox }: SightingsScreenProps) {
   return (
     <section data-testid="sightings-screen" style={LOOK.stack}>
       <h1 style={LOOK.title}>Sightings of this smoke</h1>
-      <p style={LOOK.text}>{checkStatement(assessment.checkLevel)}</p>
+      {/* The statement by count, as a warning card above the cards (Req 22.7). */}
+      <div style={LOOK.statusCard('warning')}>
+        <p style={{ ...LOOK.text, color: ROLE_VARS.warnInk }}>
+          <InlineIcon name="warning" colour={ROLE_VARS.warnIcon} />
+          {checkStatement(assessment.checkLevel)}
+        </p>
+      </div>
       <ol style={{ ...LOOK.stack, margin: 0, padding: 0 }}>
         {rows.map((row, index) => {
           const id = row.entry.sighting.sightingId;

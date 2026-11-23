@@ -188,6 +188,8 @@ The repository root needs no new dependency. Its `eslint.config.js` gains one bl
 
 ## 5. Module layout
 
+*(Task groups 24 and 25, 2026-11-23: `components/art/` (AppMark, Landscape, Header, IdleScene, Schematic, art-colours), `components/cards/parts.tsx` (InlineIcon, IconRow, NavRow), `components/header-context.tsx`, `components/theme-choice.ts`, `components/HowToCards.tsx`.)*
+
 ```
 apps/vigia/
   package.json                    name @alidade/vigia; private; scripts test, test:deep, typecheck, build, dev (dev is never run by a task)

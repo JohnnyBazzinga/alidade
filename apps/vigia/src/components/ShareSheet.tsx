@@ -25,11 +25,12 @@ import {
   SHARE_SEND_LABEL,
 } from '../math/texts';
 import type { VigiaFailure, VigiaResult } from '../result';
-import { NUMERIC_FONT_STACK } from '@alidade/ui';
+import { Icon, NUMERIC_FONT_STACK, ROLE_VARS } from '@alidade/ui';
 import { useEnvironment } from './environment';
 import { FailureNotice } from './FailureNotice';
 import { Disclosure } from './Disclosure';
-import { LOOK } from './look';
+import { InlineIcon } from './cards/parts';
+import { LOOK, SHAPE } from './look';
 import { QrImage } from './QrImage';
 import { useStore, useVigia } from './store';
 import { useOpenAtTop } from './use-open-at-top';
@@ -145,6 +146,7 @@ export function ShareSheet({ sightingId, onClose, onPrivacy }: ShareSheetProps) 
             }
             style={LOOK.button}
           >
+            <Icon name="copy" />
             Copy text
           </button>
         </>
@@ -157,9 +159,23 @@ export function ShareSheet({ sightingId, onClose, onPrivacy }: ShareSheetProps) 
     return (
       <section ref={viewRef} data-testid="qr-view" style={LOOK.stack}>
         <button type="button" onClick={() => setQr(null)} style={LOOK.button}>
+          <Icon name="chevron-left" />
           Back
         </button>
-        <QrImage matrix={qr} link={link.value} />
+        {/* The QR on a white card, black on white in every theme (Req 22.10). */}
+        <div
+          data-part="qr-card"
+          style={{
+            padding: 16,
+            background: ROLE_VARS.qrLight,
+            borderRadius: SHAPE.cardRadius,
+            border: `1px solid ${ROLE_VARS.rule}`,
+            boxShadow: SHAPE.shadow,
+            color: ROLE_VARS.qrDark,
+          }}
+        >
+          <QrImage matrix={qr} link={link.value} />
+        </div>
         <p style={LOOK.text}>{QR_ONE_LINE_TEXT}</p>
       </section>
     );
@@ -170,14 +186,21 @@ export function ShareSheet({ sightingId, onClose, onPrivacy }: ShareSheetProps) 
       {!inApp && <h1 style={LOOK.title}>Share this sighting</h1>}
       {direction.ok && <p style={LOOK.readout}>Toward {direction.value} (true north)</p>}
       {entry.hidden && (
-        <p data-testid="hidden-mark" style={LOOK.alertText}>
-          You hid this one: it is not used on this phone. The person you send it to will not know
-          that you hid it.
-        </p>
+        <div style={LOOK.statusCard('warning')}>
+          <p data-testid="hidden-mark" style={LOOK.alertText}>
+            <InlineIcon name="hide" colour={ROLE_VARS.warnIcon} />
+            You hid this one: it is not used on this phone. The person you send it to will not know
+            that you hid it.
+          </p>
+        </div>
       )}
-      <p data-testid="leaves-statement" style={LOOK.text}>
-        {LEAVES_STATEMENT_TEXT}
-      </p>
+      {/* The statement before a code leaves the phone, as an info card (Req 15.2, 22.10). */}
+      <div style={LOOK.statusCard('info')}>
+        <p data-testid="leaves-statement" style={{ ...LOOK.text, color: ROLE_VARS.infoInk }}>
+          <InlineIcon name="info" colour={ROLE_VARS.infoIcon} />
+          {LEAVES_STATEMENT_TEXT}
+        </p>
+      </div>
       <Disclosure testId="code-holds-details" summary="What the code holds">
         <p data-testid="code-holds" style={LOOK.text}>
           {CODE_HOLDS_TEXT}
@@ -201,8 +224,11 @@ export function ShareSheet({ sightingId, onClose, onPrivacy }: ShareSheetProps) 
               setQr(matrix.value);
               record('qr', 'qr', 'The QR code is on the screen.');
             }}
-            style={LOOK.primaryButton}
+            style={LOOK.optionButton}
           >
+            <span style={LOOK.iconTile}>
+              <Icon name="qr" />
+            </span>
             {SHARE_QR_LABEL}
           </button>
           <OutcomeLine outcome={outcomes.qr} />
@@ -218,8 +244,11 @@ export function ShareSheet({ sightingId, onClose, onPrivacy }: ShareSheetProps) 
                     environment.clipboard.copyText(link.value),
                   )
             }
-            style={LOOK.primaryButton}
+            style={LOOK.optionButton}
           >
+            <span style={LOOK.iconTile}>
+              <Icon name="link" />
+            </span>
             {SHARE_SEND_LABEL}
           </button>
           <OutcomeLine outcome={outcomes.link} />
@@ -242,8 +271,11 @@ export function ShareSheet({ sightingId, onClose, onPrivacy }: ShareSheetProps) 
                     );
                   });
                 }}
-                style={LOOK.primaryButton}
+                style={LOOK.optionButton}
               >
+                <span style={LOOK.iconTile}>
+                  <Icon name="send" />
+                </span>
                 Send to {peer.label}
               </button>
               <OutcomeLine outcome={outcomes[`peer:${peer.id}`]} />

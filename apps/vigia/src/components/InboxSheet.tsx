@@ -25,6 +25,8 @@ import type { VigiaFailure } from '../result';
 import { Disclosure } from './Disclosure';
 import { FailureNotice } from './FailureNotice';
 import { useEnvironment } from './environment';
+import { Icon, ROLE_VARS } from '@alidade/ui';
+import { InlineIcon } from './cards/parts';
 import { LOOK } from './look';
 import { useStore, useVigia } from './store';
 import { useOpenAtTop } from './use-open-at-top';
@@ -103,8 +105,20 @@ function Card({
             : 'This phone holds a different sighting under the same identifier.'}
         </p>
       )}
-      {incidentMode(incidentId) === 'simulation' && <p style={LOOK.alertText}>{SIMULATED_TEXT}</p>}
-      <p style={LOOK.alertText}>{INBOX_WARNING_LINE_TEXT}</p>
+      {incidentMode(incidentId) === 'simulation' && (
+        <div style={LOOK.statusCard('info')}>
+          <p style={{ ...LOOK.text, color: ROLE_VARS.infoInk }}>
+            <InlineIcon name="info" colour={ROLE_VARS.infoIcon} />
+            {SIMULATED_TEXT}
+          </p>
+        </div>
+      )}
+      <div style={LOOK.statusCard('warning')}>
+        <p style={LOOK.alertText}>
+          <InlineIcon name="warning" colour={ROLE_VARS.warnIcon} />
+          {INBOX_WARNING_LINE_TEXT}
+        </p>
+      </div>
       <Disclosure testId="why-check" summary="Why check this?">
         <p style={LOOK.text}>{NO_PROOF_TEXT}</p>
         <p style={LOOK.text}>{JOIN_HIDE_TEXT}</p>
@@ -113,18 +127,25 @@ function Card({
       <div style={LOOK.controls}>
         {asksSameSmoke ? (
           <>
+            {/* Two equal answers (Req 4.8, 22.10): one style, each with its icon, neither preselected. */}
             <button
               type="button"
               onClick={() => onConfirm({ kind: 'join', code: item.code })}
-              style={LOOK.button}
+              style={LOOK.optionButton}
             >
+              <span style={LOOK.iconTile}>
+                <Icon name="smoke" />
+              </span>
               It is the same smoke as the one I have open
             </button>
             <button
               type="button"
               onClick={() => onConfirm({ kind: 'open', code: item.code })}
-              style={LOOK.button}
+              style={LOOK.optionButton}
             >
+              <span style={LOOK.iconTile}>
+                <Icon name="pins" />
+              </span>
               It is a different smoke
             </button>
           </>
@@ -180,7 +201,10 @@ function ConfirmView({
   };
   return (
     <section ref={ref} data-testid="confirm-view" role="group" style={LOOK.alertPanel}>
-      <p style={LOOK.text}>{join ? JOIN_CONFIRM_TEXT : OPEN_NEW_CONFIRM_TEXT}</p>
+      <p style={{ ...LOOK.text, color: ROLE_VARS.warnInk }}>
+        <InlineIcon name="warning" colour={ROLE_VARS.warnIcon} />
+        {join ? JOIN_CONFIRM_TEXT : OPEN_NEW_CONFIRM_TEXT}
+      </p>
       {failure !== null && <FailureNotice failure={failure} />}
       <div style={LOOK.controls}>
         <button type="button" onClick={confirm} style={LOOK.button}>
@@ -252,9 +276,12 @@ export function InboxSheet({ onClose, onTaken }: InboxSheetProps) {
     <section ref={top} data-testid="inbox-sheet" style={LOOK.stack}>
       {!inApp && <h1 style={LOOK.title}>Add a sighting someone sent me</h1>}
       {addressHoldsCode && (
-        <p data-testid="address-holds-code" style={LOOK.alertText}>
-          {ADDRESS_HOLDS_CODE_TEXT}
-        </p>
+        <div style={LOOK.statusCard('warning')}>
+          <p data-testid="address-holds-code" style={LOOK.alertText}>
+            <InlineIcon name="warning" colour={ROLE_VARS.warnIcon} />
+            {ADDRESS_HOLDS_CODE_TEXT}
+          </p>
+        </div>
       )}
       {receiveFailure !== null && (
         <div data-testid="receive-failure">
@@ -263,8 +290,13 @@ export function InboxSheet({ onClose, onTaken }: InboxSheetProps) {
       )}
       {inbox.length === 0 ? (
         <>
-          <p style={LOOK.alertText}>{INBOX_WARNING_LINE_TEXT}</p>
-          <div style={LOOK.panel}>{pasteBox}</div>
+          <div style={LOOK.statusCard('warning')}>
+            <p style={LOOK.alertText}>
+              <InlineIcon name="warning" colour={ROLE_VARS.warnIcon} />
+              {INBOX_WARNING_LINE_TEXT}
+            </p>
+          </div>
+          <div style={LOOK.card}>{pasteBox}</div>
         </>
       ) : (
         <>

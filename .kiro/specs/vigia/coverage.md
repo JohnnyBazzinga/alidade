@@ -36,14 +36,14 @@ P-8.10, P-9.6, P-9.7, P-10.9, P-10.10, P-11.9, P-13.6, P-14.8, P-14.9, P-15.9, P
 | 3.3 | components/SightScreen |
 | 3.4 | adapters/random, components/SightScreen, components/store, math/incident/ids, math/incident/ids.property, math/incident/sighting |
 | 3.5 | components/SightScreen |
-| 3.6 | components/SightScreen, components/SightingsScreen, math/civil-time, math/fix/format |
-| 3.7 | components/SightScreen (the line and "How to aim"), components/common-parts (GuidanceBlock) |
+| 3.6 | components/SightScreen, components/SightingsScreen, components/question-sigma (the one rule), math/civil-time, math/fix/format |
+| 3.7 | components/SightScreen (the line and "How to aim"), components/SightScreen.look (the aiming row), components/common-parts (GuidanceBlock) |
 | 3.8 | components/SightScreen, components/store, math/incident/sighting |
 | 3.9 | math/incident/ids.property, math/incident/sighting |
 | 3.10 | components/simulation/sight-first-screen (device mode, docked: the column, the budget at 390 × 664 and 375 × 667), components/App (the route has no padding) |
 | 4.1 | adapters/random, math/incident/ids |
 | 4.2 | components/InboxSheet, components/SightScreen (a capture with no smoke open starts it), components/flow-next-step, components/store, math/incident/apply-action |
-| 4.3 | components/SightScreen (the question as a view of its own), components/store, math/texts |
+| 4.3 | components/SightScreen (the question as a view of its own, neither answer preselected), components/store, math/texts |
 | 4.4 | adapters/storage, components/store |
 | 4.5 | components/SmokeScreen, components/store, math/incident/apply-action, math/incident/storage-format |
 | 4.6 | math/incident/merge |
@@ -81,7 +81,7 @@ P-8.10, P-9.6, P-9.7, P-10.9, P-10.10, P-11.9, P-13.6, P-14.8, P-14.9, P-15.9, P
 | 7.1 | math/fix/geometry-class, math/fix/geometry.property |
 | 7.2 | components/SmokeScreen, math/fix/advice |
 | 7.3 | components/SmokeScreen, math/fix/advice |
-| 7.4 | components/SmokeScreen, math/fix/advice |
+| 7.4 | components/SmokeScreen, components/SmokeScreen.look (the card with the schematic), math/fix/advice |
 | 7.5 | components/SmokeScreen, math/fix/advice |
 | 7.6 | math/fix/advice |
 | 7.7 | math/fix/advice.property |
@@ -203,4 +203,19 @@ P-8.10, P-9.6, P-9.7, P-10.9, P-10.10, P-11.9, P-13.6, P-14.8, P-14.9, P-15.9, P
 | 21.5 | *not cited:* purity (no clock, random or network in the Math layer), test-support/fake-* and seeded-normal (seeds and times are arguments) |
 | 21.6 | *not cited:* the shrunk counterexamples kept as examples (math/incident/join: seeds 456561989 and 679858833; components/store.property: seed 1160607519); the fixtures are synthetic and no test writes them |
 | 21.7 | *not cited:* package.json (`test` is `vitest run`); no task starts a server or a watch mode |
+| 22.1 | components/SmokeScreen.look, components/SightScreen.look, components/field-screens.look (the departures: inks, sizes, the header, equal answers) |
+| 22.2 | components/art/Header, components/App (the header by route), components/header-context |
+| 22.3 | components/theme-choice |
+| 22.4 | components/look, components/no-colour-literals; skeleton-ui components/theme/palette (the pairs) |
+| 22.5 | components/TabBar |
+| 22.6 | components/SmokeScreen.look, components/SmokeScreen.first-view, components/SmokeScreen |
+| 22.7 | components/field-screens.look (Sightings), components/SightingsScreen |
+| 22.8 | components/SightScreen.look, components/simulation/sight-first-screen (the budget) |
+| 22.9 | components/SightScreen (the question), components/question-sigma, components/header-context |
+| 22.10 | components/field-screens.look (Share, QR, Emergency, privacy, Delete), components/InboxSheet, components/ShareSheet |
+| 22.11 | components/SmokeScreen.look, components/field-screens.look, components/TabBar; skeleton-ui components/Icon, components/icon-use, components/Disclosure |
+| 22.12 | components/art/Schematic |
+| 22.13 | skeleton-ui components/ImageSurface (the frame), components/SightScreen.look |
+| 22.14 | the tests above; the pixels and the references are Device checks 12 to 14 of skeleton-ui |
+| 22.15 | math/texts (word for word) |
 | 21.8 | components/simulation/sight-first-screen (rewritten), components/SmokeScreen.first-view, components/ShareSheet, components/InboxSheet, components/SightScreen, components/flow-next-step, components/look |

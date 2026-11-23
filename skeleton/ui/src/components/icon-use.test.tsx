@@ -2,9 +2,12 @@
 // same; no button and no link is an icon alone; only the components draw icons (not the Math layer,
 // not the Adapters). A scan of the package's source, and a check of a rendered tree.
 
-import { render } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { fireEvent, render } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import { fakeObserver } from '../test-support/fake-observe';
+import { PARAMETERS, sessionInState } from '../test-support/session-fixtures';
 import { Icon } from './Icon';
+import { SightingScreen } from './SightingScreen';
 
 /** The buttons and links of a rendered tree whose only content is an icon (no text). */
 export function iconOnlyControls(root: ParentNode): string[] {
@@ -82,5 +85,51 @@ describe('the source of the UI (Req 22.8)', () => {
       .filter(([, source]) => /\bfrom\s+'lucide-react'/.test(source))
       .map(([path]) => path.replace(/^.*\/src\//, 'src/'));
     expect(found).toEqual(['src/components/Icon.tsx']);
+  });
+});
+
+// The rendered screens (task 35.10's mutation check showed the source scan misses a button whose
+// attributes hold an arrow function): no control of the sighting screen is an icon alone.
+describe('the rendered sighting screen (Req 22.8)', () => {
+  it('has no control that is an icon alone, in every state, docked and in flow, and in "Other ways"', () => {
+    for (const layout of ['docked', 'flow'] as const) {
+      for (const state of [
+        'permission',
+        'starting',
+        'live',
+        'frozen',
+        'captured',
+        'failed',
+      ] as const) {
+        const { container, unmount, queryByRole } = render(
+          <SightingScreen
+            session={sessionInState(state, 'bearing').session}
+            parameters={PARAMETERS}
+            onRequestPermission={vi.fn()}
+            onAction={vi.fn()}
+            sourceSize={{ widthSourcePx: 720, heightSourcePx: 1280 }}
+            fit="cover"
+            calibration={null}
+            tapSigmaPx={Number.NaN}
+            observe={fakeObserver({ widthPx: 390, heightPx: 664 }).observe}
+            renderImage={() => <div />}
+            layout={layout}
+            controlIcons={{
+              start: 'camera',
+              capture: 'camera',
+              unfreeze: 'video',
+              'north-compass': 'compass',
+            }}
+          />,
+        );
+        expect(iconOnlyControls(container), `${layout} ${state}`).toEqual([]);
+        const other = queryByRole('button', { name: 'Other ways to set north' });
+        if (other !== null) {
+          fireEvent.click(other);
+          expect(iconOnlyControls(container), `${layout} ${state} other ways`).toEqual([]);
+        }
+        unmount();
+      }
+    }
   });
 });

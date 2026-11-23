@@ -206,6 +206,7 @@ export function SightScreen({
     <section data-testid="sight-screen" style={LOOK.stack}>
       <div style={LOOK.controls}>
         <button type="button" onClick={onBack} style={LOOK.button}>
+          <Icon name="chevron-left" />
           Back
         </button>
       </div>

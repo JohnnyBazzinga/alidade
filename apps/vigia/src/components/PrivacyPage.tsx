@@ -3,9 +3,10 @@
 // each row is a block that names its four cells.
 
 import { PRIVACY_TABLE } from '../math/privacy-table';
+import { Icon } from '@alidade/ui';
+import { useHeader } from './header-context';
 import { LOOK } from './look';
 
-import { useHeader } from './header-context';
 export function PrivacyPage({ onBack }: { readonly onBack: () => void }) {
   // In the App the compact header carries the title (Req 22.2).
   const inApp = useHeader(null);
@@ -13,6 +14,7 @@ export function PrivacyPage({ onBack }: { readonly onBack: () => void }) {
     <section data-testid="privacy-page" style={LOOK.stack}>
       <div style={LOOK.controls}>
         <button type="button" onClick={onBack} style={LOOK.button}>
+          <Icon name="chevron-left" />
           Back
         </button>
       </div>

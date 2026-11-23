@@ -13,10 +13,11 @@ import { checkStatement } from '../math/assessment/statements';
 import { emergencyText } from '../math/fix/emergency-text';
 import { EMERGENCY_NOT_CALLING_TEXT } from '../math/texts';
 import type { VigiaFailure } from '../result';
-import { COLOURS, SIZES } from '@alidade/ui';
+import { COLOURS, Icon, ROLE_VARS, SIZES } from '@alidade/ui';
+import { InlineIcon } from './cards/parts';
 import { useEnvironment } from './environment';
 import { FailureNotice } from './FailureNotice';
-import { LOOK } from './look';
+import { LOOK, SHAPE } from './look';
 import { PrimaryAction } from './PrimaryAction';
 import { useVigia } from './store';
 
@@ -59,7 +60,13 @@ export function EmergencyScreen() {
 
   return (
     <section data-testid="emergency-screen" style={LOOK.stack}>
-      <p style={{ ...LOOK.readout, fontWeight: 700 }}>{EMERGENCY_NOT_CALLING_TEXT}</p>
+      {/* The danger card of Req 14.5, first (Req 22.10). */}
+      <div style={LOOK.statusCard('danger')}>
+        <p style={{ ...LOOK.statement, fontWeight: 700, color: ROLE_VARS.dangerInk }}>
+          <InlineIcon name="shield" colour={ROLE_VARS.dangerIcon} />
+          {EMERGENCY_NOT_CALLING_TEXT}
+        </p>
+      </div>
       {open !== null && !open.assessment.ok && <FailureNotice failure={open.assessment} />}
       {text === null && <p style={LOOK.text}>{checkStatement('none')}</p>}
       {text !== null && !text.ok && <FailureNotice failure={text} />}
@@ -73,11 +80,14 @@ export function EmergencyScreen() {
             aria-labelledby="vigia-emergency-text-title"
             style={{
               ...LOOK.readout,
+              margin: 0,
               whiteSpace: 'pre-wrap',
               userSelect: 'text',
-              padding: SIZES.gapPx,
-              background: COLOURS.panel,
-              border: `1px solid ${COLOURS.rule}`,
+              padding: 16,
+              background: ROLE_VARS.card,
+              border: `1px solid ${ROLE_VARS.rule}`,
+              borderRadius: SHAPE.cardRadius,
+              boxShadow: SHAPE.shadow,
             }}
           >
             {text.value}
@@ -109,7 +119,7 @@ export function EmergencyScreen() {
                 flexShrink: 0,
                 whiteSpace: 'nowrap',
                 fontWeight: 700,
-                color: includeOwnPosition ? COLOURS.brass : COLOURS.inkDim,
+                color: includeOwnPosition ? ROLE_VARS.accent : COLOURS.inkDim,
               }}
             >
               {includeOwnPosition ? 'On' : 'Off'}
@@ -134,6 +144,7 @@ export function EmergencyScreen() {
                 onClick={() => onCopy(text.value)}
                 style={LOOK.primaryButton}
               >
+                <Icon name="copy" />
                 {simulation ? 'Copy the simulation text' : 'Copy the text'}
               </button>
             </div>
