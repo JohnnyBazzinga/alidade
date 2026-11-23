@@ -135,11 +135,15 @@ describe('the question with a smoke open is a view of its own (Req 4.3)', () => 
     expect(dialog.textContent).toContain(TWO_SMOKES_TEXT);
     const same = within(dialog).getByRole('button', { name: 'The same smoke' });
     const other = within(dialog).getByRole('button', { name: 'A different smoke' });
-    expect(same.dataset.preselected).toBe('true');
-    expect(other.dataset.preselected).toBe('false');
+    // Requirement change (Req 4.3 as amended 2026-11-22, Req 22.1 (d), 22.9): neither answer is
+    // preselected; the two are of one style, at least 64, each with its icon.
     for (const b of [same, other]) {
-      expect(Number.parseFloat(b.style.minHeight)).toBeGreaterThanOrEqual(48);
+      expect(b.dataset.preselected).toBeUndefined();
+      expect(b.dataset.primary).toBeUndefined();
+      expect(Number.parseFloat(b.style.minHeight)).toBeGreaterThanOrEqual(64);
+      expect(b.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true');
     }
+    expect(same.getAttribute('style')).toBe(other.getAttribute('style'));
     expect(s.entries()).toBe(2);
   });
 
@@ -154,8 +158,18 @@ describe('the question with a smoke open is a view of its own (Req 4.3)', () => 
     const buttons = [...dialog.querySelectorAll('button')];
     const same = buttons.find((b) => b.textContent === 'The same smoke') as HTMLElement;
     expect(same.compareDocumentPosition(why) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
-    // The bearing's own 1-sigma stays visible, outside the disclosure (Req 13.6).
-    expect(dialog.textContent).toMatch(/1-sigma ±/);
+    // The bearing's own 1-sigma stays visible, outside the disclosure (Req 13.6), labelled
+    // (Req 22.9, a requirement change: the card's labels replace the summary's headline).
+    const card = s.getByTestId('bearing-card');
+    expect(card.querySelector('[data-part="sigma-label"]')?.textContent).toBe(
+      'Uncertainty (1-sigma)',
+    );
+    expect(card.querySelector('[data-part="sigma-value"]')?.textContent).toMatch(/^±\d+\.\d°$/);
+    expect(card.querySelector('[data-part="bearing-label"]')?.textContent).toBe('Bearing');
+    expect(card.querySelector('[data-part="bearing-value"]')?.textContent).toMatch(
+      /^\d+\.\d° true$/,
+    );
+    expect(why.closest('details')?.compareDocumentPosition(card) ?? 0).not.toBe(0);
   });
 
   it('"the same smoke" adds it to the open smoke, and nothing was added before the tap', async () => {
@@ -170,7 +184,9 @@ describe('the question with a smoke open is a view of its own (Req 4.3)', () => 
     expect(s.calls[0]).toMatch(/^added:/);
   });
 
-  it('with an old smoke open: "a different smoke" is preselected, and choosing it starts one', async () => {
+  // Requirement change (Req 4.3 as amended 2026-11-22): the age of the open smoke no longer changes
+  // the view; choosing "a different smoke" still starts one.
+  it('with an old smoke open: neither answer is preselected, and "a different smoke" starts one', async () => {
     const maxAgeMs = createFakeEnvironment().environment.parameters.maxIncidentAgeMs;
     const old = postsIncident(['west', 'east'], (_p, i) => ({
       bearing: { timeUtcMs: 1_790_000_000_000 - maxAgeMs - 60_000 * (i + 1) },
@@ -178,12 +194,9 @@ describe('the question with a smoke open is a view of its own (Req 4.3)', () => 
     const s = mount({ stored: storedWith([old]) });
     await s.captureOnCrosshair();
     const dialog = s.getByTestId('confirm-smoke');
-    expect(
-      within(dialog).getByRole('button', { name: 'A different smoke' }).dataset.preselected,
-    ).toBe('true');
-    expect(within(dialog).getByRole('button', { name: 'The same smoke' }).dataset.preselected).toBe(
-      'false',
-    );
+    for (const name of ['A different smoke', 'The same smoke']) {
+      expect(within(dialog).getByRole('button', { name }).dataset.preselected).toBeUndefined();
+    }
     fireEvent.click(within(dialog).getByRole('button', { name: 'A different smoke' }));
     expect(s.store.getSnapshot().state.incidents).toHaveLength(2);
     expect(s.entries()).toBe(1);

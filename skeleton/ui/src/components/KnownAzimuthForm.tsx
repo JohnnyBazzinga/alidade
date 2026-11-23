@@ -8,7 +8,7 @@ import { parseDegrees } from '../math/display-format';
 import type { UiFailure } from '../result';
 import { controlStyle } from './ControlBar';
 import { FailureNotice } from './FailureNotice';
-import { COLOURS, BODY_FONT_STACK, SIZES } from './theme';
+import { COLOURS, BODY_FONT_STACK, ROLE_VARS, SIZES } from './theme';
 
 export interface KnownAzimuthFormProps {
   readonly onSubmit: (from: Extract<YawSource, { kind: 'knownAzimuth' }>) => void;
@@ -24,8 +24,9 @@ const inputStyle = {
   fontSize: SIZES.labelPx,
   background: COLOURS.bg,
   color: COLOURS.ink,
-  border: `1px solid ${COLOURS.rule}`,
-  borderRadius: 0,
+  // An input's outline carries meaning (Req 22.3: 3:1); in Instrument it is today's rule, radius 0.
+  border: `1px solid ${ROLE_VARS.ruleStrong}`,
+  borderRadius: 'var(--alidade-button-radius)',
 } as const;
 
 export function KnownAzimuthForm({ onSubmit }: KnownAzimuthFormProps) {

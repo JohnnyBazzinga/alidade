@@ -5,6 +5,7 @@
 // It carries nothing of the Playground: the caller says what to do with the Session and the size
 // of the stream.
 
+import type { IconName } from './Icon';
 import type { SensorResult, SensorSource } from '@alidade/sensors';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
@@ -56,6 +57,12 @@ export interface DeviceSightingProps {
   readonly aim?: ReactNode;
   /** Docked: rows at the end of the middle part. */
   readonly extra?: ReactNode;
+  /** Docked, before Start only: a picture in the camera's place (Req 22.15). */
+  readonly idleImage?: ReactNode;
+  /** Docked, before Start only: the app's words in place of the screen's (Vigia Req 22.8). */
+  readonly intro?: ReactNode;
+  /** The application's icon for a control, by its id. */
+  readonly controlIcons?: Readonly<Partial<Record<string, IconName>>>;
 }
 
 const NO_REQUEST: CameraStartRequest = {};
@@ -134,6 +141,9 @@ export function DeviceSighting(props: DeviceSightingProps) {
       {...(props.top === undefined ? {} : { top: props.top })}
       {...(props.aim === undefined ? {} : { aim: props.aim })}
       {...(props.extra === undefined ? {} : { extra: props.extra })}
+      {...(props.idleImage === undefined ? {} : { idleImage: props.idleImage })}
+      {...(props.intro === undefined ? {} : { intro: props.intro })}
+      {...(props.controlIcons === undefined ? {} : { controlIcons: props.controlIcons })}
       renderImage={(_layout, frozen) => <CameraImage stream={stream} frozen={frozen} fit="cover" />}
     />
   );

@@ -43,12 +43,13 @@ import { DOCKED_IMAGE_MIN_HEIGHT_PX } from '../defaults';
 import { ControlBar, controlStyle, DockedBar, type ControlSpec } from './ControlBar';
 import type { ObserveElementSize } from './dom-size';
 import { FailureNotice } from './FailureNotice';
-import { ImageSurface, type AimGesture } from './ImageSurface';
+import { Brackets, ImageSurface, type AimGesture } from './ImageSurface';
 import { KnownAzimuthForm } from './KnownAzimuthForm';
 import { LimitsNote } from './LimitsNote';
 import { Disclosure } from './Disclosure';
+import { Icon, type IconName } from './Icon';
 import { Readout } from './Readout';
-import { BODY_FONT_STACK, COLOURS, SIZES } from './theme';
+import { BODY_FONT_STACK, COLOURS, ROLE_VARS, SIZES } from './theme';
 import { YawStatusBar } from './YawStatusBar';
 
 export interface SightingScreenProps {
@@ -86,7 +87,56 @@ export interface SightingScreenProps {
   readonly aim?: ReactNode;
   /** Docked: rows at the end of the middle part. */
   readonly extra?: ReactNode;
+  /**
+   * Docked, before Start only (Req 22.15): a picture in the place the camera will take, inside a
+   * frame of the theme's image radius with the four brackets. Decorative: no text. Without it the
+   * screen before Start is as it was.
+   */
+  readonly idleImage?: ReactNode;
+  /**
+   * Docked, before Start only: what the screen says before Start, in place of its own sentence and
+   * the limits note (Vigia: a how-to card and a tip card that holds the limits line).
+   */
+  readonly intro?: ReactNode;
+  /** The application's icon for a control, by its id (Vigia Req 22.8: Capture a camera, …). */
+  readonly controlIcons?: Readonly<Partial<Record<string, IconName>>>;
 }
+
+/** The idle image's height: in the middle part, which scrolls, so the budget is unchanged. */
+export const IDLE_IMAGE_HEIGHT = 'clamp(160px, 30svh, 260px)';
+
+/** A card of the "Other ways to set north" view (task 35.6). */
+const wayCard = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: SIZES.gapPx,
+  padding: 12,
+  background: ROLE_VARS.card,
+  border: `1px solid ${ROLE_VARS.rule}`,
+  borderRadius: 'var(--alidade-card-radius)',
+  boxShadow: 'var(--alidade-shadow)',
+} as const;
+
+const wayHeading = {
+  margin: 0,
+  display: 'flex',
+  alignItems: 'center',
+  gap: SIZES.gapPx,
+  fontFamily: BODY_FONT_STACK,
+  fontSize: SIZES.labelPx,
+  fontWeight: 700,
+  lineHeight: 1.25,
+  color: ROLE_VARS.ink,
+} as const;
+
+/** A row that opens another view: its words, then a chevron-right at the end (Req 22.9). */
+const navRowStyle = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: SIZES.gapPx,
+  textAlign: 'start',
+} as const;
 
 export type SightingLayout = 'flow' | 'docked';
 
@@ -218,6 +268,15 @@ export function SightingScreen(props: SightingScreenProps) {
     });
   }
 
+  // The application's icons, added to its controls by id (Req 22.8 of Vigia; none for Nonius).
+  if (props.controlIcons !== undefined) {
+    for (let i = 0; i < controls.length; i += 1) {
+      const c = controls[i] as ControlSpec;
+      const icon = props.controlIcons[c.id];
+      if (icon !== undefined) controls[i] = { ...c, icon };
+    }
+  }
+
   const portrait =
     (state === 'live' || frozen) &&
     portraitProblem(session, parameters) &&
@@ -232,13 +291,14 @@ export function SightingScreen(props: SightingScreenProps) {
     padding: SIZES.gapPx,
   } as const;
 
-  const yawBar = (lineOnly = false) => (
+  const yawBar = (lineOnly = false, inBar = false) => (
     <YawStatusBar
       status={status}
       yawReference={session.yawReference}
       frame={frame}
       headingSigmaRad={parameters.headingSigmaRad}
       lineOnly={lineOnly}
+      inBar={inBar}
     />
   );
 
@@ -322,29 +382,46 @@ export function SightingScreen(props: SightingScreenProps) {
                 gap: SIZES.gapPx,
               }}
             >
-              <button type="button" style={controlStyle(false)} onClick={close}>
+              <button
+                type="button"
+                style={{ ...controlStyle(false), ...navRowStyle, justifyContent: 'flex-start' }}
+                onClick={close}
+              >
+                <Icon name="chevron-left" />
                 Back to the sighting
               </button>
               {state === 'live' && (
-                <button
-                  type="button"
-                  data-control="north-compass"
-                  style={controlStyle(false)}
-                  onClick={() => {
-                    close();
-                    onAction({ kind: 'establishYaw', from: { kind: 'compass' } });
-                  }}
-                >
-                  Set north from the compass
-                </button>
+                <section data-part="way" style={wayCard}>
+                  <h2 style={wayHeading}>
+                    <Icon name="compass" style={{ color: ROLE_VARS.accent }} />
+                    Compass
+                  </h2>
+                  <button
+                    type="button"
+                    data-control="north-compass"
+                    style={controlStyle(false)}
+                    onClick={() => {
+                      close();
+                      onAction({ kind: 'establishYaw', from: { kind: 'compass' } });
+                    }}
+                  >
+                    Set north from the compass
+                  </button>
+                </section>
               )}
+              <section data-part="way" style={wayCard}>
+                <h2 style={wayHeading}>
+                  <Icon name="pin" style={{ color: ROLE_VARS.accent }} />
+                  Known azimuth
+                </h2>
+                <KnownAzimuthForm
+                  onSubmit={(from) => {
+                    close();
+                    onAction({ kind: 'establishYaw', from });
+                  }}
+                />
+              </section>
             </div>
-            <KnownAzimuthForm
-              onSubmit={(from) => {
-                close();
-                onAction({ kind: 'establishYaw', from });
-              }}
-            />
           </div>
         </div>
       );
@@ -368,12 +445,12 @@ export function SightingScreen(props: SightingScreenProps) {
         </p>
       ) : (
         <>
-          {needsPrompt && yawBar()}
-          {portrait && <FailureNotice failure={{ reason: 'portrait_required' }} />}
+          {needsPrompt && yawBar(false, true)}
+          {portrait && <FailureNotice failure={{ reason: 'portrait_required' }} inBar />}
           {state === 'failed' && session.failure !== null && (
-            <FailureNotice failure={session.failure} />
+            <FailureNotice failure={session.failure} inBar />
           )}
-          {notice !== null && <FailureNotice failure={notice} />}
+          {notice !== null && <FailureNotice failure={notice} inBar />}
         </>
       );
     const hasBarText =
@@ -393,12 +470,31 @@ export function SightingScreen(props: SightingScreenProps) {
         {props.top}
         <div data-part="middle" style={middleStyle}>
           {props.aim ?? (state === 'live' ? liveHint : null)}
-          {state === 'permission' && (
+          {state === 'permission' && props.intro === undefined && (
             <p data-part="intro" style={text}>
               {SCREEN_TEXT.permission}
             </p>
           )}
-          {state === 'permission' && limits}
+          {state === 'permission' && props.intro === undefined && limits}
+          {state === 'permission' && props.intro}
+          {state === 'permission' && props.idleImage !== undefined && (
+            <div
+              data-part="idle-image"
+              aria-hidden="true"
+              style={{
+                position: 'relative',
+                flex: '0 0 auto',
+                height: IDLE_IMAGE_HEIGHT,
+                margin: `${SIZES.gapPx}px ${SIZES.gapPx * 2}px 0`,
+                overflow: 'hidden',
+                borderRadius: 'var(--alidade-image-radius)',
+                background: ROLE_VARS.raised,
+              }}
+            >
+              {props.idleImage}
+              <Brackets />
+            </div>
+          )}
           {showImage && imageBox}
           {state === 'live' && (
             <Readout readout={session.readout} compact kind={session.kind}>
@@ -424,10 +520,11 @@ export function SightingScreen(props: SightingScreenProps) {
           {askNorth && (
             <button
               type="button"
-              style={{ ...controlStyle(false), margin: SIZES.gapPx }}
+              style={{ ...controlStyle(false), ...navRowStyle, margin: SIZES.gapPx }}
               onClick={() => setOtherWays(true)}
             >
-              Other ways to set north
+              <span>Other ways to set north</span>
+              <Icon name="chevron-right" />
             </button>
           )}
           {props.extra}

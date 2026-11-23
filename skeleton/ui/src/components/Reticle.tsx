@@ -3,7 +3,7 @@
 // centre so that the target is not hidden. Each arm is an outline bar with the core bar inside it.
 
 import type { CSSProperties } from 'react';
-import { COLOURS, SIZES } from './theme';
+import { COLOURS, ROLE_VARS, SIZES } from './theme';
 
 type Side = 'left' | 'right' | 'top' | 'bottom';
 const SIDES: readonly Side[] = ['left', 'right', 'top', 'bottom'];
@@ -58,7 +58,7 @@ export function Reticle() {
             data-side={side}
             style={{
               ...armStyle(side, SIZES.reticleCorePx, SIZES.reticleOutlinePx),
-              background: COLOURS.brass,
+              background: ROLE_VARS.reticleCore,
             }}
           />
         </div>

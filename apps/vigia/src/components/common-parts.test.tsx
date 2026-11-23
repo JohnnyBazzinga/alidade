@@ -1,7 +1,7 @@
 // The common parts of the screens (Req 16.1, 16.2, 17.4, design §9): the limits block, the
 // guidance on how to sight smoke, the Simulation banner and the tab bar.
 
-import { COLOURS, SIZES } from '@alidade/ui';
+import { SIZES } from '@alidade/ui';
 import { fireEvent, render, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { FIX_ASSUMPTION_TEXT, SIMULATION_TEXT, sightingGuidance } from '../math/texts';
@@ -105,9 +105,8 @@ describe('TabBar (design §9)', () => {
     );
     for (const tab of getAllByRole('tab')) {
       expect(Number.parseFloat(tab.style.minHeight)).toBeGreaterThanOrEqual(SIZES.touchPx);
-      expect(Object.values(COLOURS).map((c) => c.toLowerCase())).toContain(
-        rgbToHex(tab.style.color),
-      );
+      // A role of the theme (Req 22.5: tabInk, or tabActive for the current tab).
+      expect(['var(--alidade-tabInk)', 'var(--alidade-tabActive)']).toContain(tab.style.color);
     }
   });
 
@@ -119,10 +118,3 @@ describe('TabBar (design §9)', () => {
     expect(within(smoke).getByTestId('inbox-badge').textContent).toBe('2');
   });
 });
-
-/** `rgb(r, g, b)` as jsdom writes a colour, to `#rrggbb`. */
-function rgbToHex(rgb: string): string {
-  const m = /^rgb\((\d+), (\d+), (\d+)\)$/.exec(rgb);
-  if (m === null) return rgb.toLowerCase();
-  return `#${[m[1], m[2], m[3]].map((v) => Number(v).toString(16).padStart(2, '0')).join('')}`;
-}

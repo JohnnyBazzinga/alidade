@@ -9,6 +9,13 @@
       body {
         margin: 0;
       }
+      /* A disclosure draws its own chevron (skeleton-ui Req 22.9): no marker of the browser's. */
+      summary {
+        list-style: none;
+      }
+      summary::-webkit-details-marker {
+        display: none;
+      }
     </style>
   </head>
   <body>

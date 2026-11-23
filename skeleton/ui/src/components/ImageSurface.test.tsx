@@ -146,3 +146,67 @@ describe('ImageSurface (Req 13.8, 17.10, 17.11, design D22)', () => {
     expect(observer.listeners()).toBe(0);
   });
 });
+
+// Req 22.10 (2026-11-22, the lead's new look): the camera's frame. Four corner brackets, each an L of
+// two arms of 24, a core of 3 over an outline of 1 on each side, in the constant roles of the
+// Reticle, inside the element, decorative, clear of the centre; the radius of the theme.
+describe('ImageSurface, the camera’s frame (Req 22.10)', () => {
+  const brackets = (surface: HTMLElement) => [
+    ...surface.querySelectorAll<HTMLElement>('[data-part="bracket"]'),
+  ];
+
+  it('has the theme’s image radius, which clips the image', () => {
+    const { surface } = setup();
+    expect(surface.style.borderRadius).toBe('var(--alidade-image-radius)');
+    expect(surface.style.overflow).toBe('hidden');
+  });
+
+  it('draws four brackets, one in each corner, decorative and never in the way of a tap', () => {
+    const { surface } = setup();
+    const layer = surface.querySelector<HTMLElement>('[data-part="brackets"]');
+    expect(layer?.getAttribute('aria-hidden')).toBe('true');
+    expect(layer?.style.pointerEvents).toBe('none');
+    expect(layer?.style.position).toBe('absolute');
+    expect(layer?.style.inset).toBe('0px');
+    const all = brackets(surface);
+    expect(all.map((b) => b.dataset.corner).sort()).toEqual(['bl', 'br', 'tl', 'tr']);
+    for (const b of all) {
+      expect(b.style.pointerEvents).toBe('none');
+      expect(b.style.position).toBe('absolute');
+      expect(b.style.width).toBe('24px');
+      expect(b.style.height).toBe('24px');
+      const arms = [...b.querySelectorAll<HTMLElement>('[data-part="arm"]')];
+      expect(arms).toHaveLength(2);
+      const lengths = arms.map((a) => [a.style.width, a.style.height].sort().join(' '));
+      expect(lengths).toEqual(['24px 3px', '24px 3px']);
+      for (const a of arms) {
+        expect(a.style.background).toBe('var(--alidade-reticleCore)');
+        expect(a.style.boxShadow).toBe('0 0 0 1px var(--alidade-reticleOutline)');
+      }
+    }
+  });
+
+  it('lies inside the element, at least 32 from its centre at the smallest image (351 by 160)', () => {
+    const { surface } = setup();
+    const widthPx = 351;
+    const heightPx = 160;
+    for (const b of brackets(surface)) {
+      const corner = b.dataset.corner ?? '';
+      const insetX = Number.parseFloat(corner.endsWith('l') ? b.style.left : b.style.right);
+      const insetY = Number.parseFloat(corner.startsWith('t') ? b.style.top : b.style.bottom);
+      expect(insetX).toBeGreaterThanOrEqual(1);
+      expect(insetY).toBeGreaterThanOrEqual(1);
+      // The bracket's point nearest the centre is its inner corner, `inset + 24` from the edges.
+      const dx = widthPx / 2 - (insetX + 24);
+      const dy = heightPx / 2 - (insetY + 24);
+      expect(Math.hypot(Math.max(dx, 0), Math.max(dy, 0))).toBeGreaterThanOrEqual(32);
+    }
+  });
+
+  it('keeps the Reticle and the Mark above the brackets, unchanged', () => {
+    const { surface, getByTestId } = setup();
+    const children = [...surface.children];
+    const layer = surface.querySelector('[data-part="brackets"]') as Element;
+    expect(children.indexOf(layer)).toBeLessThan(children.indexOf(getByTestId('reticle')));
+  });
+});

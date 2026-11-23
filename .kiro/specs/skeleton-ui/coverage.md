@@ -132,9 +132,9 @@ Criteria no test cites by number are listed with what covers them.
 | 12.9 | math/session/capture, math/session/step.property |
 | 12.10 | math/session/capture, math/session/freeze.property |
 | 13.1 | components/Reticle |
-| 13.2 | components/theme, math/contrast, math/map/map-style |
+| 13.2 | components/theme, components/theme/palette (every pair of every theme), math/contrast, math/map/map-style |
 | 13.3 | components/MarkRing |
-| 13.4 | components/Readout, components/SightingScreen, components/theme (the two stacks, the sizes and the palette typed in the test) |
+| 13.4 | components/Readout (the readout cards: numeral 32, the words 20), components/StatusCard (the headline 20, the instruction 16), components/SightingScreen, components/theme (the two stacks, the sizes and the palette typed in the test) |
 | 13.5 | components/CaptureSummary, math/session/capture-details, math/session/capture-details.property |
 | 13.6 | components/CaptureSummary, components/FixSummary, components/MapView |
 | 13.7 | components/ControlBar |
@@ -227,7 +227,7 @@ Criteria no test cites by number are listed with what covers them.
 | 19.6 | defaults (the test of the two constants) |
 | 20.1 | purity |
 | 20.2 | *not cited:* purity (exactly the five runtime dependencies); the justifications are in design §3 |
-| 20.3 | *not cited:* purity (the dependency list is exact); review |
+| 20.3 | *not cited:* purity (the dependency list is exact, six packages since Req 20.7); review |
 | 20.4 | purity |
 | 20.5 | purity |
 | 20.6 | *not cited:* design §3 records each publication date; checked by hand at each install (tasks 1.2 to 1.4); not testable |
@@ -238,3 +238,21 @@ Criteria no test cites by number are listed with what covers them.
 | 21.5 | *not cited:* messages (completeness), step.property (P-8.10) |
 | 21.6 | *not cited:* the kept counterexamples: scene (P-16.9 horizon), components/MarkRing (the Mark at the corner, found by the Playground test) |
 | 21.7 | *not cited:* `package.json` scripts (`vitest run`, no watch); no task runs `dev` |
+| 13.11 | components/theme/palette (each pair at its threshold, every theme), components/theme.test (Instrument's pairs) |
+| 13.13 | components/SightingScreen.layout, components/SightingScreen.docked (the brackets are the only other thing out of the flow, inside the image or the idle frame) |
+| 20.7 | purity (six runtime packages), components/Icon (every name exists in the installed package), components/icon-use (lucide-react imported by Icon.tsx alone) |
+| 22.1 | components/theme/themes (three themes, every role, no theme known to a component: the literal scan) |
+| 22.2 | components/theme/themes (the roles, Instrument's values typed, the constant roles equal), components/theme.test (the aliases) |
+| 22.3 | components/theme/palette (text 7, icons and outlines 3, the gradients' ends, a role without a pair fails) |
+| 22.4 | components/theme/apply-theme, components/theme/theme-change (redraw on a change; the map needs none), components/theme/var-in-jsdom (the spike) |
+| 22.5 | components/theme/colour-scheme |
+| 22.6 | components/theme/no-colour-literals |
+| 22.7 | components/theme/themes (shapes, gradients, the three flags) |
+| 22.8 | components/Icon, components/icon-use |
+| 22.9 | components/Disclosure (the chevron of each state; every details of the package through it), components/SightingScreen.docked-parts (the chevron-right of "Other ways", the chevron-left of Back) |
+| 22.10 | components/ImageSurface (the radius and the four brackets) |
+| 22.11 | components/Readout (two cards), components/SightingScreen.docked-budget (their heights) |
+| 22.12 | components/CaptureSummary (sigmaText) |
+| 22.13 | components/StatusCard (Field, Field night, Instrument; FailureNotice and YawStatusBar through it) |
+| 22.14 | playground/theme-entry, the Nonius suite unchanged (task 35.8) |
+| 22.15 | components/SightingScreen.idle-image |

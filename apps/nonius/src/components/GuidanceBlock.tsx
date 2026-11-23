@@ -1,6 +1,7 @@
 // How to sight the Sun (Req 4.2): in view before the first sight of a set, then on a card one tap
 // away. It is always reachable.
 
+import { Disclosure } from '@alidade/ui';
 import { LOOK } from './look';
 
 export const GUIDANCE: readonly string[] = [
@@ -25,12 +26,10 @@ export function GuidanceBlock({ collapsed }: { readonly collapsed: boolean }) {
   return (
     <section data-testid="guidance" style={LOOK.panel}>
       {collapsed ? (
-        <details>
-          <summary style={{ ...LOOK.text, minHeight: 48, display: 'flex', alignItems: 'center' }}>
-            {TITLE}
-          </summary>
+        // The UI's disclosure: its chevron says whether it is open (skeleton-ui Req 22.9).
+        <Disclosure summary={TITLE} summaryStyle={LOOK.text}>
           {sentences}
-        </details>
+        </Disclosure>
       ) : (
         <>
           <h2 style={LOOK.title}>{TITLE}</h2>

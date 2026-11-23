@@ -26,10 +26,23 @@ export function asFailure(f: FailureLike): UiFailure {
   };
 }
 
-export function FailureNotice({ failure }: { readonly failure: FailureLike }) {
+export function FailureNotice({
+  failure,
+  inBar = false,
+}: {
+  readonly failure: FailureLike;
+  /** In the docked bar: the compact card of D37.11. */
+  readonly inBar?: boolean;
+}) {
   const message = messageFor(asFailure(failure));
   return (
-    <StatusCard tone="warning" role="alert" testId="failure-notice" headline={message.whatHappened}>
+    <StatusCard
+      tone="warning"
+      role="alert"
+      testId="failure-notice"
+      headline={message.whatHappened}
+      inBar={inBar}
+    >
       {message.whatToDo}
     </StatusCard>
   );

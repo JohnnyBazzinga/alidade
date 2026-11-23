@@ -6,7 +6,8 @@
 
 import type { ReactNode } from 'react';
 import { DOCKED_BAR_TEXT_MAX_SHARE } from '../defaults';
-import { BODY_FONT_STACK, COLOURS, SIZES } from './theme';
+import { Icon, type IconName } from './Icon';
+import { BODY_FONT_STACK, COLOURS, ROLE_VARS, SIZES } from './theme';
 
 export interface ControlSpec {
   readonly id: string;
@@ -15,6 +16,8 @@ export interface ControlSpec {
   /** Freeze, Capture and Start: 64 CSS px tall, brass. */
   readonly primary?: boolean;
   readonly disabled?: boolean;
+  /** An icon before the word, chosen by the application (Vigia Req 22.8); the word is the name. */
+  readonly icon?: IconName;
 }
 
 export function controlStyle(primary: boolean) {
@@ -26,10 +29,12 @@ export function controlStyle(primary: boolean) {
     padding: `0 ${SIZES.gapPx * 2}px`,
     fontFamily: BODY_FONT_STACK,
     fontSize: SIZES.labelPx,
-    borderRadius: 0,
-    border: `1px solid ${primary ? COLOURS.brass : COLOURS.rule}`,
-    background: primary ? COLOURS.brass : COLOURS.raised,
-    color: primary ? COLOURS.brassInk : COLOURS.ink,
+    // Roles and shapes of the theme (Req 22.4, 22.7): in Instrument the primary fill is the flat
+    // brass, `ruleStrong` is today's rule and the radius is 0, so the control is as before.
+    borderRadius: 'var(--alidade-button-radius)',
+    border: `1px solid ${primary ? ROLE_VARS.primary : ROLE_VARS.ruleStrong}`,
+    background: primary ? 'var(--alidade-primary-fill)' : ROLE_VARS.raised,
+    color: primary ? ROLE_VARS.primaryInk : ROLE_VARS.ink,
     flex: primary ? '1 1 100%' : '1 1 auto',
   } as const;
 }
@@ -45,8 +50,19 @@ function Buttons({ controls }: { readonly controls: readonly ControlSpec[] }) {
           data-primary={c.primary === true ? 'true' : 'false'}
           disabled={c.disabled === true}
           onClick={c.onPress}
-          style={controlStyle(c.primary === true)}
+          style={
+            c.icon === undefined
+              ? controlStyle(c.primary === true)
+              : {
+                  ...controlStyle(c.primary === true),
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: SIZES.gapPx,
+                }
+          }
         >
+          {c.icon !== undefined && <Icon name={c.icon} />}
           {c.label}
         </button>
       ))}

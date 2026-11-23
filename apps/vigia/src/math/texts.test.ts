@@ -12,6 +12,15 @@ import {
   NOT_CALLING_TEXT,
   sightingGuidance,
   TWO_SMOKES_TEXT,
+  BEARING_LABEL,
+  HOW_TO_STEPS,
+  HOW_TO_TITLE,
+  QR_VIEW_TITLE,
+  QUESTION_TITLE,
+  SCHEMATIC_TEXT,
+  TAGLINE_TEXT,
+  TIP_TITLE,
+  UNCERTAINTY_LABEL,
 } from './texts';
 
 describe('the fixed sentences (Req 6.3, 14.5, 16.1, 16.2, 4.3)', () => {
@@ -126,6 +135,43 @@ describe('the sentences of the flow on a phone (Req 3.7, 4.8, 4.12, 6.12, 10.7, 
       LEAVES_STATEMENT_TEXT,
     ]) {
       expect(t).not.toMatch(/\d{3}|tel:|dial|NaN|undefined|null/i);
+    }
+  });
+});
+
+// Req 22.15 (2026-11-22, the lead's new look): the only new strings of the Field look, word for word.
+describe('the strings of the Field look (Req 22.15)', () => {
+  it('has each one word for word', () => {
+    expect(TAGLINE_TEXT).toBe('Help locate smoke with sightings from different places.');
+    expect(QUESTION_TITLE).toBe('New sighting');
+    expect(QR_VIEW_TITLE).toBe('QR code');
+    expect(HOW_TO_TITLE).toBe('How to sight');
+    expect(HOW_TO_STEPS).toEqual([
+      'Hold the phone upright.',
+      'Tap Start.',
+      'Put the crosshair on the base of the smoke.',
+    ]);
+    expect(TIP_TITLE).toBe('Accuracy tip');
+    expect(BEARING_LABEL).toBe('Bearing');
+    expect(UNCERTAINTY_LABEL).toBe('Uncertainty (1-sigma)');
+    expect(SCHEMATIC_TEXT).toEqual({
+      stood: 'Where you stood',
+      next: 'Where to go next',
+      baseline: 'At least 1/3 of the distance',
+      sight: 'Line of sight',
+      smoke: 'Smoke',
+      label: 'Schematic, not to scale: the distance is your estimate, not a measured position.',
+    });
+  });
+
+  it('claims no certainty either (Req 6.3)', () => {
+    for (const text of [
+      TAGLINE_TEXT,
+      ...HOW_TO_STEPS,
+      TIP_TITLE,
+      ...Object.values(SCHEMATIC_TEXT),
+    ]) {
+      expect(text).not.toMatch(/exact|located at|confirmed|precisely/i);
     }
   });
 });

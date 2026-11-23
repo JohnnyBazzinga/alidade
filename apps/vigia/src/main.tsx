@@ -33,6 +33,7 @@ import { createStorageFromHost } from './adapters/storage';
 import { createManualTransport } from './adapters/transport/manual-transport';
 import type { SightingSource, TileSourceNote, VigiaEnvironment } from './components/environment';
 import { Root } from './components/Root';
+import { chooseTheme } from './components/theme-choice';
 import { smokeScenes } from './math/scenes/smoke-scenes';
 import { defaultParameters } from './math/parameters';
 import { HOST_LIST, type HostList } from './math/network/host-list';
@@ -139,6 +140,9 @@ function build(): void {
   const scenes = smokeScenes();
   if (!scenes.ok) throw new Error('the scenes could not be built');
 
+  // Field by day, Field night in dark mode, switched while the app is open (Req 22.3, D25.8).
+  const stopTheme = chooseTheme(document.documentElement, (query) => window.matchMedia(query));
+  window.addEventListener('pagehide', stopTheme, { once: true });
   createRoot(root).render(
     <Root
       startMode={initialMode({

@@ -1,10 +1,13 @@
-// How to sight smoke (Req 3.7, 16.2, as amended 2026-11-21): one visible line, "Aim at the base of
-// the smoke", and a closed disclosure, "How to aim", that holds all the guidance. The line and the
-// disclosure are one row (the summary), at least 48 px tall, the same before and after a capture.
+// The aiming row (Req 3.7, 16.2, 22.8; design D25.5): the crosshair, the one line in view, "Aim at
+// the base of the smoke", and "How to aim" as a pill of `accent` on `infoTint` whose chevron says
+// whether the guidance is open. It is one disclosure: the guidance of Req 16.2 is inside it, one tap
+// away in every state of the Sight screen. The row takes at most 71 CSS pixels at 375 (the slack of
+// skeleton-ui D37.11), counted by `sight-first-screen.test.tsx`.
 
-import { BODY_FONT_STACK, COLOURS, SIZES } from '@alidade/ui';
+import { BODY_FONT_STACK, Icon, ROLE_VARS, SIZES } from '@alidade/ui';
+import { useState } from 'react';
 import { AIM_LINE_TEXT, sightingGuidance } from '../math/texts';
-import { BODY_TEXT_PX, LOOK } from './look';
+import { BODY_TEXT_PX, LOOK, SHAPE } from './look';
 
 export interface GuidanceBlockProps {
   /** A wind reading is shown: the smoke leans downwind (Req 13.5). */
@@ -12,12 +15,13 @@ export interface GuidanceBlockProps {
 }
 
 export function GuidanceBlock({ windShown }: GuidanceBlockProps) {
+  const [open, setOpen] = useState(false);
   return (
     <section
       data-testid="guidance"
-      style={{ padding: `0 ${SIZES.gapPx}px ${SIZES.gapPx}px`, background: COLOURS.bg }}
+      style={{ padding: `0 ${SIZES.gapPx}px ${SIZES.gapPx}px`, background: ROLE_VARS.bg }}
     >
-      <details style={{ border: `1px solid ${COLOURS.rule}`, background: COLOURS.panel }}>
+      <details open={open} onToggle={(e) => setOpen(e.currentTarget.open)}>
         <summary
           style={{
             minHeight: SIZES.touchPx,
@@ -27,16 +31,40 @@ export function GuidanceBlock({ windShown }: GuidanceBlockProps) {
             alignItems: 'center',
             justifyContent: 'space-between',
             columnGap: SIZES.gapPx,
-            padding: `0 ${SIZES.gapPx}px`,
+            rowGap: 4,
+            padding: `2px ${SIZES.gapPx}px`,
+            listStyle: 'none',
             fontFamily: BODY_FONT_STACK,
             fontSize: BODY_TEXT_PX,
             lineHeight: 1.25,
-            color: COLOURS.ink,
+            color: ROLE_VARS.ink,
             cursor: 'pointer',
           }}
         >
-          <span>{AIM_LINE_TEXT}</span>
-          <span style={{ color: COLOURS.brass, textDecoration: 'underline' }}>How to aim</span>
+          <span
+            data-part="aim-line"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: SIZES.gapPx }}
+          >
+            <Icon name="crosshair" style={{ color: ROLE_VARS.accent }} />
+            <span>{AIM_LINE_TEXT}</span>
+          </span>
+          <span
+            data-part="how-to-aim"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+              marginLeft: 'auto',
+              padding: '2px 4px 2px 12px',
+              borderRadius: SHAPE.badgeRadius,
+              background: ROLE_VARS.infoTint,
+              color: ROLE_VARS.accent,
+              fontWeight: 700,
+            }}
+          >
+            How to aim
+            <Icon name={open ? 'chevron-up' : 'chevron-down'} />
+          </span>
         </summary>
         <ul style={{ ...LOOK.stack, margin: 0, padding: `${SIZES.gapPx}px 20px` }}>
           {sightingGuidance(windShown).map((sentence) => (

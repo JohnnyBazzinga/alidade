@@ -31,7 +31,9 @@ import { SightScreen } from './components/SightScreen';
 import { SimulationBanner } from './components/SimulationBanner';
 import { SmokeScreen } from './components/SmokeScreen';
 import { StoreProvider, useVigia, type VigiaStore } from './components/store';
-import { TabBar, type TabId } from './components/TabBar';
+import { TABS, TabBar, type TabId } from './components/TabBar';
+import { Header } from './components/art/Header';
+import { HeaderProvider, type HeaderSpec } from './components/header-context';
 import { PhoneInHandBar, type PhoneInHand } from './components/PhoneInHandBar';
 import { PrimaryRowProvider } from './components/PrimaryAction';
 import { ReviewerPath } from './components/ReviewerPath';
@@ -105,6 +107,25 @@ function ModeControl({
   );
 }
 
+/** The header of a route (Req 22.2): full on Smoke, compact elsewhere, none while sighting. */
+function headerFor(route: Route): HeaderSpec {
+  switch (route.kind) {
+    case 'tab':
+      if (route.tab === 'smoke') return { variant: 'full' };
+      return { variant: 'compact', title: TABS.find((t) => t.id === route.tab)?.label ?? '' };
+    case 'sight':
+      // The camera needs the height (Req 22.2); a view of the Sight route that has a header
+      // (the question after a capture) says so itself.
+      return { variant: 'none' };
+    case 'share':
+      return { variant: 'compact', title: 'Share this sighting' };
+    case 'inbox':
+      return { variant: 'compact', title: 'Add a sighting someone sent me' };
+    case 'privacy':
+      return { variant: 'compact', title: 'What leaves this phone' };
+  }
+}
+
 function Shell({
   hasDeviceOrientation,
   onModeChange,
@@ -117,6 +138,8 @@ function Shell({
   const main = useRef<HTMLElement | null>(null);
   const [primaryRow, setPrimaryRow] = useState<HTMLDivElement | null>(null);
   const slot = useOverlaySlot(OVERLAYS, environment, snapshot.open);
+  // A view may set the header while it is shown (the question after a capture, the QR view).
+  const [headerOverride, setHeaderOverride] = useState<HeaderSpec | null>(null);
 
   // A code that arrived in the page's address opens the Inbox sheet over the Smoke screen.
   useEffect(() => {
@@ -207,6 +230,7 @@ function Shell({
     );
   }
 
+  const header = headerOverride ?? headerFor(route);
   return (
     <div
       data-testid="app-shell"
@@ -219,6 +243,8 @@ function Shell({
         fontFamily: BODY_FONT_STACK,
       }}
     >
+      {header.variant === 'full' && <Header variant="full" />}
+      {header.variant === 'compact' && <Header variant="compact" title={header.title} />}
       {environment.mode === 'simulation' && <SimulationBanner />}
       {environment.mode === 'simulation' && phoneInHand !== undefined && (
         <PhoneInHandBar hand={phoneInHand} />
@@ -236,7 +262,9 @@ function Shell({
           padding: route.kind === 'sight' && environment.mode === 'device' ? 0 : SIZES.gapPx * 1.5,
         }}
       >
-        <PrimaryRowProvider value={primaryRow}>{content}</PrimaryRowProvider>
+        <HeaderProvider value={setHeaderOverride}>
+          <PrimaryRowProvider value={primaryRow}>{content}</PrimaryRowProvider>
+        </HeaderProvider>
       </main>
       <div
         ref={setPrimaryRow}

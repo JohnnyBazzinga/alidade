@@ -142,3 +142,48 @@ describe('CaptureSummary, compact (Req 13.16, 13.6)', () => {
     expect(getByTestId('capture-summary').querySelector('details')).toBeNull();
   });
 });
+
+// Req 22.12 (2026-11-22): the headline's sigma has a rounding that the caller may choose.
+describe('CaptureSummary, the sigma of its headline (Req 22.12)', () => {
+  it('uses the function it is given for the headline’s sigma, and only there', () => {
+    const result = captured('bearing');
+    const { getByTestId } = render(
+      <CaptureSummary
+        result={result}
+        sigmaText={(rad) => `±${Math.ceil((rad * 1800) / Math.PI) / 10}° up`}
+      />,
+    );
+    const headline = getByTestId('capture-summary').querySelector('[data-part="headline"]');
+    expect(headline?.textContent).toMatch(/1-sigma ±\d+(\.\d)?° up$/);
+    expect(
+      getByTestId('capture-summary').querySelector('[data-part="made-of"]')?.textContent,
+    ).not.toContain('up');
+  });
+
+  it('without it, the headline is as before', () => {
+    const result = captured('bearing');
+    const a = render(<CaptureSummary result={result} />);
+    const before = a
+      .getByTestId('capture-summary')
+      .querySelector('[data-part="headline"]')?.textContent;
+    expect(before).toMatch(/^Bearing \d+\.\d° true, 1-sigma ±\d+\.\d°$/);
+    a.unmount();
+    const b = render(<CaptureSummary result={captured('altitude')} />);
+    expect(
+      b.getByTestId('capture-summary').querySelector('[data-part="headline"]')?.textContent,
+    ).toMatch(/^Altitude -?\d+\.\d°, 1-sigma ±\d+\.\d°$/);
+  });
+});
+
+// Vigia task 24.6: a caller that writes the headline itself (Vigia's Bearing card) hides this one;
+// "Why this accuracy?" and what is in it stay.
+describe('CaptureSummary without its headline', () => {
+  it('leaves the headline out and keeps the disclosure', () => {
+    const { getByTestId } = render(
+      <CaptureSummary result={captured('bearing')} compact showHeadline={false} />,
+    );
+    const el = getByTestId('capture-summary');
+    expect(el.querySelector('[data-part="headline"]')).toBeNull();
+    expect(el.querySelector('summary')?.textContent).toBe('Why this accuracy?');
+  });
+});

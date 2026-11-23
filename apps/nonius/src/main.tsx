@@ -11,9 +11,11 @@ import {
   POSITION_STALENESS_MS,
 } from '@alidade/sensors';
 import {
+  applyTheme,
   browserCameraSurface,
   checkTileSource,
   defaultSessionParameters,
+  instrument,
   loadMapLibre,
   type TileSource,
 } from '@alidade/ui';
@@ -104,6 +106,8 @@ function build(): void {
   };
   const scenes = sunScenes(parameters);
   if (!scenes.ok) throw new Error('the scenes could not be built');
+  // Nonius's look is Instrument (skeleton-ui Req 22.14): written on the root before the first render.
+  applyTheme(document.documentElement, instrument);
   createRoot(root).render(
     <Root
       startMode={initialMode({ hasDeviceOrientation: browser.hasDeviceOrientation })}

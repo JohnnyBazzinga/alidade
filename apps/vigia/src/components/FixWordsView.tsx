@@ -16,6 +16,8 @@ import { fromYouWords } from '../math/fix/from-you';
 import { geometryClass } from '../math/fix/geometry-class';
 import type { VigiaParameters } from '../math/parameters';
 import { FailureNotice } from './FailureNotice';
+import { ROLE_VARS } from '@alidade/ui';
+import { IconRow, InlineIcon } from './cards/parts';
 import { LOOK } from './look';
 import type { OwnPosition } from './store';
 
@@ -55,27 +57,39 @@ export function FixWordsView({
         {w.disagreement !== null && (
           <div style={LOOK.alertPanel}>
             <p data-testid="disagreement" style={LOOK.alertText}>
+              <InlineIcon name="warning" colour={ROLE_VARS.warnIcon} />
               {w.disagreement}
             </p>
           </div>
         )}
-        <section data-testid="fix-words" style={LOOK.panel}>
-          <p data-testid="fix-headline" style={{ ...LOOK.readout, fontWeight: 700 }}>
-            {w.headline}
-          </p>
-          <p data-testid="first-basis" style={LOOK.text}>
-            {`Based on ${used} ${used === 1 ? 'sighting' : 'sightings'}.`}
-          </p>
+        {/* The Fix card (Req 22.6): the position with its 95 % radius and how many it rests on. */}
+        <section data-testid="fix-words" style={LOOK.card}>
+          <IconRow icon="pin">
+            <p data-testid="fix-headline" style={{ ...LOOK.readout, fontWeight: 700 }}>
+              {w.headline}
+            </p>
+          </IconRow>
+          <IconRow icon="pins">
+            <p data-testid="first-basis" style={LOOK.text}>
+              {`Based on ${used} ${used === 1 ? 'sighting' : 'sightings'}.`}
+            </p>
+          </IconRow>
         </section>
         {w.warnings.map((warning) => (
-          <p key={warning} data-part="warning" style={LOOK.alertText}>
-            {warning}
-          </p>
+          <div key={warning} style={LOOK.statusCard('warning')}>
+            <p data-part="warning" style={LOOK.alertText}>
+              <InlineIcon name="warning" colour={ROLE_VARS.warnIcon} />
+              {warning}
+            </p>
+          </div>
         ))}
         {poor && (
-          <p data-part="poor-geometry" style={LOOK.alertText}>
-            {w.geometry}
-          </p>
+          <div style={LOOK.statusCard('warning')}>
+            <p data-part="poor-geometry" style={LOOK.alertText}>
+              <InlineIcon name="warning" colour={ROLE_VARS.warnIcon} />
+              {w.geometry}
+            </p>
+          </div>
         )}
       </>
     );

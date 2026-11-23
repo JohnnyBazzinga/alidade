@@ -31,22 +31,31 @@ function northLine(north: CaptureNorth): string {
 export function CaptureSummary({
   result,
   compact = false,
+  sigmaText = deg1,
+  showHeadline = true,
 }: {
   readonly result: CapturedResult;
   /** The headline stays; what it is made of and the limits go under "Why this accuracy?" (Req 13.16). */
   readonly compact?: boolean;
+  /**
+   * Writes the headline's sigma (Req 22.12): an application that rounds a sigma up (Vigia Req 3.6)
+   * gives its own rule; the default rounds to the nearest tenth, as before.
+   */
+  readonly sigmaText?: (sigmaRad: number) => string;
+  /** `false`: a caller that writes the value and its sigma itself shows only what it is made of. */
+  readonly showHeadline?: boolean;
 }) {
   const lines: string[] = [];
   let headline: string;
   if (result.kind === 'bearing') {
-    headline = `Bearing ${formatAzimuthDeg(result.bearing.azimuthRad, 1)}° true, 1-sigma ${deg1(result.bearing.azimuthSigmaRad)}`;
+    headline = `Bearing ${formatAzimuthDeg(result.bearing.azimuthRad, 1)}° true, 1-sigma ${sigmaText(result.bearing.azimuthSigmaRad)}`;
     lines.push(`Hand shake ${deg2(result.azimuthSpreadRad)}: ${SHAKE}`);
     if (result.north !== null) lines.push(northLine(result.north));
     if (result.declination !== null) {
       lines.push(`Declination ${deg2(result.declination.sigmaRad)}: from magnetic to true north.`);
     }
   } else {
-    headline = `Altitude ${formatSignedDeg(result.altitude.apparentAltitudeRad, 1)}°, 1-sigma ${deg1(result.altitude.sigmaRad)}`;
+    headline = `Altitude ${formatSignedDeg(result.altitude.apparentAltitudeRad, 1)}°, 1-sigma ${sigmaText(result.altitude.sigmaRad)}`;
     lines.push(`Hand shake ${deg2(result.altitudeStdDevRad)}: ${SHAKE}`);
     lines.push(
       `Altitude calibration ${deg2(result.altitude.calibration.sigmaRad)}: the uncertainty of the phone\u2019s altitude offset.`,
@@ -79,12 +88,14 @@ export function CaptureSummary({
         padding: SIZES.gapPx,
       }}
     >
-      <p
-        data-part="headline"
-        style={{ margin: 0, fontSize: SIZES.numeralPx, fontFamily: NUMERIC_FONT_STACK }}
-      >
-        {headline}
-      </p>
+      {showHeadline && (
+        <p
+          data-part="headline"
+          style={{ margin: 0, fontSize: SIZES.numeralPx, fontFamily: NUMERIC_FONT_STACK }}
+        >
+          {headline}
+        </p>
+      )}
       {compact ? (
         <Disclosure summary="Why this accuracy?">
           {madeOf}

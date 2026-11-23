@@ -7,6 +7,7 @@
 // by a confirmation view of its own; a success closes the sheet with one line on the Smoke screen.
 
 import { useState } from 'react';
+import { useHeader } from './header-context';
 import { ageText } from '../math/civil-time';
 import { accuracyText, directionText } from '../math/fix/format';
 import { incidentMode } from '../math/incident/ids';
@@ -200,6 +201,8 @@ export function InboxSheet({ onClose, onTaken }: InboxSheetProps) {
   const [pasteFailure, setPasteFailure] = useState<VigiaFailure | null>(null);
   const [confirming, setConfirming] = useState<Confirming | null>(null);
   const top = useOpenAtTop<HTMLElement>('inbox');
+  // In the App the compact header carries the title (Req 22.2).
+  const inApp = useHeader(null);
   const taken = (line: string) => {
     setConfirming(null);
     onTaken?.(line);
@@ -247,7 +250,7 @@ export function InboxSheet({ onClose, onTaken }: InboxSheetProps) {
   );
   return (
     <section ref={top} data-testid="inbox-sheet" style={LOOK.stack}>
-      <h1 style={LOOK.title}>Add a sighting someone sent me</h1>
+      {!inApp && <h1 style={LOOK.title}>Add a sighting someone sent me</h1>}
       {addressHoldsCode && (
         <p data-testid="address-holds-code" style={LOOK.alertText}>
           {ADDRESS_HOLDS_CODE_TEXT}

@@ -54,8 +54,11 @@ export interface StatusCardProps {
   readonly bodyColour?: string;
   /** Extra layout of the card (a line height, a margin); never a colour. */
   readonly style?: CSSProperties;
-  /** Vertical padding of 8, for a card in the docked bar (D37.11); else 12. */
-  readonly tight?: boolean;
+  /**
+   * A card in the docked bar (D37.11): vertical padding 8, no icon column (the icon starts the
+   * headline, inline, so that the words wrap under it), and the rest at a line height of 1.25.
+   */
+  readonly inBar?: boolean;
 }
 
 export function StatusCard({
@@ -69,7 +72,7 @@ export function StatusCard({
   headlineColour,
   bodyColour,
   style,
-  tight = false,
+  inBar = false,
 }: StatusCardProps) {
   const cards = useActiveTheme().flags.cards;
   const attributes = {
@@ -109,7 +112,56 @@ export function StatusCard({
     );
   }
 
-  const padY = tight ? SIZES.gapPx : 12;
+  const iconName = icon ?? TONE_ICONS[tone];
+  if (inBar) {
+    return (
+      <div
+        {...attributes}
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2,
+          background: toneRole(tone, 'Tint'),
+          borderLeft: `4px solid ${toneRole(tone, 'Bar')}`,
+          borderRadius: 'var(--alidade-button-radius)',
+          padding: `${SIZES.gapPx}px 12px`,
+          fontFamily: BODY_FONT_STACK,
+          ...style,
+        }}
+      >
+        <p
+          data-part="headline"
+          style={{
+            margin: 0,
+            color: headColour,
+            fontWeight: 700,
+            fontSize: SIZES.labelPx,
+            lineHeight: 1.25,
+          }}
+        >
+          <Icon
+            name={iconName}
+            style={{
+              display: 'inline-block',
+              verticalAlign: '-5px',
+              marginRight: 6,
+              color: toneRole(tone, 'Icon'),
+            }}
+          />
+          {headline}
+        </p>
+        {hasBody && (
+          <Body
+            data-part="body"
+            style={{ margin: 0, color: restColour, fontSize: STATUS_BODY_PX, lineHeight: 1.25 }}
+          >
+            {children}
+          </Body>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div
       {...attributes}
@@ -120,7 +172,7 @@ export function StatusCard({
         background: toneRole(tone, 'Tint'),
         borderLeft: `4px solid ${toneRole(tone, 'Bar')}`,
         borderRadius: 'var(--alidade-button-radius)',
-        padding: `${padY}px 12px`,
+        padding: '12px',
         fontFamily: BODY_FONT_STACK,
         ...style,
       }}
@@ -133,7 +185,7 @@ export function StatusCard({
           paddingTop: 1,
         }}
       >
-        <Icon name={icon ?? TONE_ICONS[tone]} />
+        <Icon name={iconName} />
       </span>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
         <p

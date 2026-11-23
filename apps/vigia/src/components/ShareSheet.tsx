@@ -8,6 +8,8 @@
 // for each other simulated phone, and the text.
 
 import { useState } from 'react';
+import { useHeader } from './header-context';
+import { QR_VIEW_TITLE } from '../math/texts';
 import type { QrMatrix } from '../adapters/qr-encoder';
 import { groupCode } from '../math/code/alphabet';
 import { buildSightingLink } from '../math/code/code-link';
@@ -62,6 +64,8 @@ export function ShareSheet({ sightingId, onClose, onPrivacy }: ShareSheetProps) 
   const [outcomes, setOutcomes] = useState<Readonly<Record<string, Outcome>>>({});
   const [qr, setQr] = useState<QrMatrix | null>(null);
   const viewRef = useOpenAtTop<HTMLElement>(qr === null ? 'sheet' : 'qr');
+  // The QR view's compact header is titled "QR code" (Req 22.10, 22.15); the sheet's is the route's.
+  const inApp = useHeader(qr === null ? null : { variant: 'compact', title: QR_VIEW_TITLE });
 
   const incident = state.incidents.find((i) =>
     i.entries.some((e) => e.sighting.sightingId === sightingId),
@@ -163,7 +167,7 @@ export function ShareSheet({ sightingId, onClose, onPrivacy }: ShareSheetProps) 
 
   return (
     <section ref={viewRef} data-testid="share-sheet" style={LOOK.stack}>
-      <h1 style={LOOK.title}>Share this sighting</h1>
+      {!inApp && <h1 style={LOOK.title}>Share this sighting</h1>}
       {direction.ok && <p style={LOOK.readout}>Toward {direction.value} (true north)</p>}
       {entry.hidden && (
         <p data-testid="hidden-mark" style={LOOK.alertText}>

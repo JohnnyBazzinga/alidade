@@ -70,6 +70,8 @@ import {
   axisWords,
   compassWord8,
   directionText,
+  sigmaDegUp,
+  sigmaHeadlineText,
   savedLineText,
   lengthText95,
   lengthTextNearest,
@@ -923,6 +925,21 @@ export const HOSTILE_LIST: readonly HostileEntry[] = [
       if (valid) {
         expect(Reflect.get(result as object, 'value')).toMatch(/^\d{1,3}\.\d° ± \d+\.\d°$/);
       }
+    },
+  ),
+  // --- the one rule for a sigma (task 24.6, Req 3.6, 22.9) ---
+  hostileEntry('sigmaDegUp', fc.tuple(hostileNumber()), sigmaDegUp, ([sigmaRad], result) => {
+    const valid = sigmaRad > 0 && sigmaRad <= Math.PI;
+    expect(Reflect.get(result as object, 'ok')).toBe(valid);
+    if (valid) expect(Reflect.get(result as object, 'value')).toMatch(/^\d+\.\d$/);
+  }),
+  hostileEntry(
+    'sigmaHeadlineText',
+    fc.tuple(hostileNumber()),
+    sigmaHeadlineText,
+    ([sigmaRad], result) => {
+      const valid = sigmaRad > 0 && sigmaRad <= Math.PI;
+      expect(result).toMatch(valid ? /^±\d+\.\d°$/ : /^±\?°$/);
     },
   ),
   hostileEntry('accuracyText', fc.tuple(hostileNumber()), accuracyText, ([accuracyM], result) => {

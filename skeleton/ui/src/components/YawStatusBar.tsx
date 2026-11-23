@@ -22,6 +22,8 @@ export interface YawStatusBarProps {
   readonly headingSigmaRad: number;
   /** The line without its prompt: for "Details" in the docked layout (Req 13.16). */
   readonly lineOnly?: boolean;
+  /** In the docked bar: the compact card of D37.11. */
+  readonly inBar?: boolean;
 }
 
 export const ABSOLUTE_NONE_PROMPT = 'Setting north on the Sun or a landmark reduces the error.';
@@ -38,6 +40,7 @@ export function YawStatusBar({
   frame,
   headingSigmaRad,
   lineOnly = false,
+  inBar = false,
 }: YawStatusBarProps) {
   const cards = useActiveTheme().flags.cards;
   const age = formatAge(status.ageMs);
@@ -47,6 +50,8 @@ export function YawStatusBar({
       : ` ${yawReference.northReference} north, ±${formatSignedDeg(yawReference.sigmaRad, 1)}°`;
   let line: string;
   let prompt: string | null = null;
+  /** The Message the prompt is made of, where it is one (the advice of the compass is not). */
+  let reason: 'no_yaw_reference' | 'stale_yaw_reference' | 'frame_reset' | null = null;
   /** The Absolute frame's advice is not a warning: it is drawn without the alert colour. */
   let advice = false;
   switch (status.status) {
@@ -57,7 +62,8 @@ export function YawStatusBar({
         advice = true;
       } else {
         line = 'North is not set.';
-        prompt = promptText('no_yaw_reference');
+        reason = 'no_yaw_reference';
+        prompt = promptText(reason);
       }
       break;
     case 'valid':
@@ -65,11 +71,13 @@ export function YawStatusBar({
       break;
     case 'stale':
       line = `North set ${age} ago,${detail}.`;
-      prompt = promptText('stale_yaw_reference');
+      reason = 'stale_yaw_reference';
+      prompt = promptText(reason);
       break;
     case 'invalidated':
       line = `North set ${age} ago was lost.`;
-      prompt = promptText('frame_reset');
+      reason = 'frame_reset';
+      prompt = promptText(reason);
       break;
   }
   // A status card (Req 22.13): set north, or the compass's advice, is information; the rest is a
@@ -77,16 +85,31 @@ export function YawStatusBar({
   // theme with cards the line is the bold headline in the tone's ink and the prompt the rest.
   const tone = status.status === 'valid' || advice ? 'info' : 'warning';
   const shown = prompt !== null && !lineOnly;
+  const common = {
+    tone,
+    testId: 'yaw-status',
+    data: { status: status.status },
+    inBar,
+    style: {
+      fontVariantNumeric: NUMERAL_STYLE.fontVariantNumeric,
+      letterSpacing: NUMERAL_STYLE.letterSpacing,
+      lineHeight: 1.25,
+    },
+  } as const;
+  // In a theme with cards, a prompt that is a Message is a Message's card (Req 22.13, D37.11): its
+  // first sentence is the headline and its instruction the rest; the line, which says the same
+  // thing in fewer words, is left to "Details".
+  if (cards && shown && reason !== null) {
+    const m = messageFor({ ok: false, reason });
+    return (
+      <StatusCard {...common} headline={<span data-part="prompt-headline">{m.whatHappened}</span>}>
+        <span data-part="prompt">{m.whatToDo}</span>
+      </StatusCard>
+    );
+  }
   return (
     <StatusCard
-      tone={tone}
-      testId="yaw-status"
-      data={{ status: status.status }}
-      style={{
-        fontVariantNumeric: NUMERAL_STYLE.fontVariantNumeric,
-        letterSpacing: NUMERAL_STYLE.letterSpacing,
-        lineHeight: 1.25,
-      }}
+      {...common}
       headline={<span data-part="line">{line}</span>}
       {...(cards ? {} : { headlineColour: COLOURS.ink })}
       {...(cards ? {} : { bodyColour: advice ? COLOURS.inkDim : COLOURS.alert })}

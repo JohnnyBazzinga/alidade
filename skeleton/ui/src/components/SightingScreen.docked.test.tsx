@@ -234,3 +234,30 @@ describe('the bar’s text part (Req 13.14, 13.15)', () => {
     expect(part(starting.bar())?.textContent).toBe('Starting the motion sensors.');
   });
 });
+
+// Req 13.13 as amended 2026-11-22 (task 35.6): out of the flow are the Reticle, the Mark and the four
+// brackets, and only inside the image (or the idle image's frame), which clips them.
+describe('the docked screen: what lies out of the flow (Req 13.13, 22.10, 22.15)', () => {
+  it('only the Reticle, the Mark and the brackets, inside the image or the idle frame', () => {
+    for (const kind of ['bearing', 'altitude'] as const) {
+      for (const state of STATES) {
+        const { screen, unmount } = renderDocked(sessionInState(state, kind).session, {
+          idleImage: <svg data-testid="art" />,
+        });
+        for (const el of screen.querySelectorAll<HTMLElement>('*')) {
+          if (!['absolute', 'fixed', 'sticky'].includes(el.style.position)) continue;
+          const box = el.closest<HTMLElement>(
+            '[data-testid="image-surface"], [data-part="idle-image"]',
+          );
+          expect(box, `${kind} ${state}: ${el.outerHTML.slice(0, 60)}`).not.toBeNull();
+          expect(box?.style.overflow).toBe('hidden');
+          const allowed = el.closest(
+            '[data-testid="reticle"], [data-testid="mark-ring"], [data-part="brackets"]',
+          );
+          expect(allowed, `${kind} ${state}: ${el.outerHTML.slice(0, 60)}`).not.toBeNull();
+        }
+        unmount();
+      }
+    }
+  });
+});

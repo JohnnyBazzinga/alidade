@@ -197,7 +197,7 @@ export { FixSummary } from './components/FixSummary';
 export { ImageSurface } from './components/ImageSurface';
 export type { AimGesture } from './components/ImageSurface';
 export { KnownAzimuthForm } from './components/KnownAzimuthForm';
-export { LimitsNote } from './components/LimitsNote';
+export { LimitsNote, LIMITS_TEXT } from './components/LimitsNote';
 export { MapView } from './components/MapView';
 export { MarkRing } from './components/MarkRing';
 export { Readout } from './components/Readout';

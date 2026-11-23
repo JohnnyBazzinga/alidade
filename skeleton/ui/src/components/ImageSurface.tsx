@@ -23,7 +23,7 @@ import type { Mark } from '../math/session/session';
 import { useElementSize, type ObserveElementSize } from './dom-size';
 import { MarkRing } from './MarkRing';
 import { Reticle } from './Reticle';
-import { COLOURS } from './theme';
+import { COLOURS, ROLE_VARS } from './theme';
 
 /** What the surface reports for aiming (simulator mode only). */
 export type AimGesture =
@@ -134,14 +134,83 @@ export function ImageSurface(props: ImageSurfaceProps) {
         width: '100%',
         height: '100%',
         overflow: 'hidden',
+        borderRadius: 'var(--alidade-image-radius)',
         background: COLOURS.bg,
         touchAction: 'none',
         userSelect: 'none',
       }}
     >
       {props.children(layout)}
+      <Brackets />
       <Reticle />
       {props.mark !== null && layout !== null && <MarkRing mark={props.mark} layout={layout} />}
     </div>
   );
 }
+
+/** The brackets' arm, core and inset (Req 22.10, D37.9): `24 + 8` from each edge at most. */
+export const BRACKET_ARM_PX = 24;
+export const BRACKET_CORE_PX = 3;
+export const BRACKET_INSET_PX = 8;
+
+type Corner = 'tl' | 'tr' | 'bl' | 'br';
+const CORNERS: readonly Corner[] = ['tl', 'tr', 'bl', 'br'];
+
+/**
+ * The camera's frame (Req 22.10): four corner brackets, each an L of two arms, a core in
+ * `reticleCore` over a dark outline of 1 on each side in `reticleOutline`, the Reticle's constant
+ * roles, so that they read on any image. Decorative: hidden from assistive technology, and never in
+ * the way of a tap (`pointer-events: none`). The surface's `overflow: hidden` clips them, as it
+ * clips the Reticle (Req 13.13's exception names them).
+ */
+export function Brackets() {
+  return (
+    <div
+      data-part="brackets"
+      aria-hidden="true"
+      style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
+    >
+      {CORNERS.map((corner) => {
+        const vertical = corner.startsWith('t') ? 'top' : 'bottom';
+        const horizontal = corner.endsWith('l') ? 'left' : 'right';
+        const arm = (widthPx: number, heightPx: number) => (
+          <span
+            data-part="arm"
+            style={{
+              position: 'absolute',
+              [vertical]: 0,
+              [horizontal]: 0,
+              width: widthPx,
+              height: heightPx,
+              background: COLOURS_RETICLE.core,
+              boxShadow: `0 0 0 1px ${COLOURS_RETICLE.outline}`,
+            }}
+          />
+        );
+        return (
+          <span
+            key={corner}
+            data-part="bracket"
+            data-corner={corner}
+            style={{
+              position: 'absolute',
+              [vertical]: BRACKET_INSET_PX,
+              [horizontal]: BRACKET_INSET_PX,
+              width: BRACKET_ARM_PX,
+              height: BRACKET_ARM_PX,
+              pointerEvents: 'none',
+            }}
+          >
+            {arm(BRACKET_ARM_PX, BRACKET_CORE_PX)}
+            {arm(BRACKET_CORE_PX, BRACKET_ARM_PX)}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+const COLOURS_RETICLE = {
+  core: ROLE_VARS.reticleCore,
+  outline: ROLE_VARS.reticleOutline,
+} as const;

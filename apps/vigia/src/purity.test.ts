@@ -110,6 +110,17 @@ const SOURCES: readonly string[] = [
   'src/components/look.ts',
   'src/components/SimulationBanner.tsx',
   'src/components/store.ts',
+  // task group 24 (the Field look)
+  'src/components/art/AppMark.tsx',
+  'src/components/art/art-colours.ts',
+  'src/components/art/Header.tsx',
+  'src/components/art/IdleScene.tsx',
+  'src/components/art/Landscape.tsx',
+  'src/components/art/Schematic.tsx',
+  'src/components/cards/parts.tsx',
+  'src/components/header-context.tsx',
+  'src/components/HowToCards.tsx',
+  'src/components/theme-choice.ts',
   // task 23
   'src/components/use-open-at-top.ts',
   'src/components/TabBar.tsx',

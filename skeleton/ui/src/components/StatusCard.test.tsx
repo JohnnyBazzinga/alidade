@@ -117,8 +117,12 @@ describe('FailureNotice and YawStatusBar through StatusCard (Req 22.13)', () => 
       <YawStatusBar status={status} yawReference={null} frame="relative" headingSigmaRad={0.1} />,
     );
     expect(getByTestId('yaw-status').style.background).toBe('var(--alidade-warnTint)');
-    expect(getByTestId('yaw-status').querySelector('[data-part="line"]')?.textContent).toBe(
-      'North is not set.',
+    // In Field the prompt is the Message's card: its first sentence the bold headline (D37.11).
+    expect(getByTestId('yaw-status').querySelector('[data-part="headline"]')?.textContent).toBe(
+      'The app does not yet know which way north is.',
+    );
+    expect(getByTestId('yaw-status').querySelector('[data-part="prompt"]')?.textContent).toBe(
+      'Set north from the compass, the Sun or a landmark before taking the sighting.',
     );
     rerender(
       <YawStatusBar

@@ -26,6 +26,8 @@ import { useEnvironment } from './environment';
 import { FailureNotice } from './FailureNotice';
 import { FixWordsView } from './FixWordsView';
 import { LimitsBlock } from './LimitsBlock';
+import { Icon, ROLE_VARS } from '@alidade/ui';
+import { IconRow, InlineIcon, NavRow } from './cards/parts';
 import { LOOK } from './look';
 import { PrimaryAction } from './PrimaryAction';
 import { useStore, useVigia, type OpenView, type OwnPosition } from './store';
@@ -91,6 +93,7 @@ function resultParts({
       {diverging && (
         <div style={LOOK.alertPanel}>
           <p data-testid="disagreement" style={LOOK.alertText}>
+            <InlineIcon name="warning" colour={ROLE_VARS.warnIcon} />
             {disagreementStatement('diverging', assessment.checkLevel)}
           </p>
         </div>
@@ -107,18 +110,37 @@ function resultParts({
       )}
       {fix !== null && !fix.ok && <FailureNotice failure={fix} />}
       {usedCount === 0 && view.incident.entries.length > 0 && (
-        <p style={LOOK.statement}>
-          None of these sightings is used; the Sightings tab says why each was set aside.
-        </p>
+        <div style={LOOK.statusCard('warning')}>
+          <p style={{ ...LOOK.statement, color: ROLE_VARS.warnInk, fontWeight: 700 }}>
+            <InlineIcon name="warning" colour={ROLE_VARS.warnIcon} />
+            None of these sightings is used; the Sightings tab says why each was set aside.
+          </p>
+        </div>
       )}
+      {/* The sentence for one, two or three sightings is the warning of the state (Req 22.6). */}
       {checkInFirst && (
-        <p data-testid="check-statement" style={usedCount === 1 ? LOOK.statement : LOOK.text}>
-          {checkStatement(level)}
-        </p>
+        <div style={LOOK.statusCard('warning')}>
+          <p
+            data-testid="check-statement"
+            style={
+              usedCount === 1
+                ? { ...LOOK.statement, color: ROLE_VARS.warnInk }
+                : { ...LOOK.text, color: ROLE_VARS.warnInk }
+            }
+          >
+            <InlineIcon name="warning" colour={ROLE_VARS.warnIcon} />
+            {checkStatement(level)}
+          </p>
+        </div>
       )}
-      {usedCount > 0 && <p style={LOOK.text}>{COMPASS_ONE_LINE_TEXT}</p>}
+      {usedCount > 0 && (
+        <IconRow icon="compass">
+          <p style={LOOK.text}>{COMPASS_ONE_LINE_TEXT}</p>
+        </IconRow>
+      )}
       {fixOk && onShowMap !== undefined && (
         <button type="button" onClick={onShowMap} style={LOOK.button}>
+          <Icon name="map" />
           Show on map
         </button>
       )}
@@ -205,29 +227,48 @@ export function SmokeScreen({
       onClick={onSight}
       style={!sendIsPrimary ? LOOK.primaryButton : LOOK.button}
     >
+      <Icon name="crosshair" />
       Sight the smoke
     </button>
   );
 
   return (
     <section data-testid="smoke-screen" style={LOOK.stack}>
-      <p data-testid="not-calling" style={{ ...LOOK.text, fontWeight: 700 }}>
-        {NOT_CALLING_TEXT}
-      </p>
-      {statusLine !== undefined && (
-        <p data-testid="status-line" style={LOOK.text}>
-          {statusLine}
+      {/* The danger card (Req 14.5, 22.6): the app calls no one. */}
+      <div style={LOOK.statusCard('danger')}>
+        <p
+          data-testid="not-calling"
+          style={{ ...LOOK.text, fontWeight: 700, lineHeight: 1.35, color: ROLE_VARS.dangerInk }}
+        >
+          <InlineIcon name="shield" colour={ROLE_VARS.dangerIcon} />
+          {NOT_CALLING_TEXT}
         </p>
+      </div>
+      {statusLine !== undefined && (
+        <div style={LOOK.statusCard('info')}>
+          <p data-testid="status-line" style={{ ...LOOK.text, color: ROLE_VARS.infoInk }}>
+            <InlineIcon name="info" colour={ROLE_VARS.infoIcon} />
+            {statusLine}
+          </p>
+        </div>
       )}
       {savedLine !== null && savedLine.ok && (
-        <p data-testid="status-line" style={LOOK.text}>
-          {savedLine.value}
-        </p>
+        <div style={LOOK.statusCard('success')}>
+          <p data-testid="status-line" style={{ ...LOOK.text, color: ROLE_VARS.okInk }}>
+            <InlineIcon name="success" colour={ROLE_VARS.okIcon} />
+            {savedLine.value}
+          </p>
+        </div>
       )}
       {open === null ? (
         <>
-          <div style={LOOK.panel}>
-            <h1 style={LOOK.title}>No smoke yet</h1>
+          <div style={LOOK.card}>
+            <h1 style={{ ...LOOK.title, display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={LOOK.iconTile}>
+                <Icon name="binoculars" />
+              </span>
+              No smoke yet
+            </h1>
             <p style={LOOK.text}>{checkStatement('none')}</p>
           </div>
           {reviewerPath}
@@ -238,9 +279,9 @@ export function SmokeScreen({
         <FailureNotice failure={open.assessment} />
       )}
       {saved !== undefined && savedEntry !== undefined && sightButton}
-      <button type="button" onClick={onInbox} style={LOOK.button}>
+      <NavRow icon="inbox" onClick={onInbox}>
         Add a sighting someone sent me{inbox.length > 0 ? ` (${inbox.length} waiting)` : ''}
-      </button>
+      </NavRow>
       {notices.map((notice) => (
         <FailureNotice
           key={notice.reason}
@@ -249,7 +290,7 @@ export function SmokeScreen({
         />
       ))}
       {open !== null && (
-        <Disclosure summary="Details and limits">
+        <Disclosure summary="Details and limits" icon="info">
           <p style={LOOK.dim}>{startedText(open.incident, nowUtcMs)}</p>
           {open.assessment.ok && (
             <p style={LOOK.text}>
@@ -261,7 +302,7 @@ export function SmokeScreen({
         </Disclosure>
       )}
       {others.length > 0 && (
-        <section data-testid="other-smokes" style={LOOK.panel}>
+        <section data-testid="other-smokes" style={LOOK.card}>
           <h2 style={LOOK.title}>Other smokes on this phone</h2>
           {others.map((incident) => (
             <button
@@ -279,6 +320,7 @@ export function SmokeScreen({
         </section>
       )}
       <Disclosure
+        icon="phone"
         summary={`This phone's data and mode: ${environment.mode === 'simulation' ? 'Simulator' : 'This phone'}`}
       >
         {confirmingDelete ? (
@@ -292,6 +334,7 @@ export function SmokeScreen({
           />
         ) : (
           <button type="button" onClick={() => setConfirmingDelete(true)} style={LOOK.dangerButton}>
+            <Icon name="trash" />
             Delete everything on this phone
           </button>
         )}
@@ -308,6 +351,7 @@ export function SmokeScreen({
             onClick={() => onSend?.(savedEntry.sighting.sightingId)}
             style={LOOK.primaryButton}
           >
+            <Icon name="send" />
             Send this sighting
           </button>
         ) : (

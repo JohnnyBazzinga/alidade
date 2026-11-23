@@ -315,3 +315,50 @@ describe('"Show on map" (Req 6.12)', () => {
     expect(a.getByRole('tab', { name: 'Map' }).getAttribute('aria-selected')).toBe('true');
   });
 });
+
+// Task 24.3 (2026-11-22, the lead's new look; Req 22.2): a header by route, the page's first row.
+describe('the header by route (Req 22.2)', () => {
+  const header = (utils: ReturnType<typeof mount>) => utils.queryByTestId('app-header');
+
+  it('is full on Smoke and compact, titled by the tab label, on the other tabs', () => {
+    const utils = mount();
+    expect(header(utils)?.dataset.variant).toBe('full');
+    for (const tab of ['Sightings', 'Map', 'Emergency']) {
+      utils.tab(tab);
+      expect(header(utils)?.dataset.variant).toBe('compact');
+      expect(header(utils)?.querySelector('h1')?.textContent).toBe(tab);
+      // The title is said once on the screen.
+      expect(utils.getAllByRole('heading', { name: tab, level: 1 })).toHaveLength(1);
+    }
+    utils.tab('Smoke');
+    expect(header(utils)?.dataset.variant).toBe('full');
+  });
+
+  it('is the page’s first row, above the Simulation banner, never a layer', () => {
+    const utils = mount({ mode: 'simulation' });
+    const shell = utils.getByTestId('app-shell');
+    expect(shell.firstElementChild).toBe(header(utils));
+    expect(['', 'static']).toContain((header(utils) as HTMLElement).style.position);
+  });
+
+  it('is none on the docked Sight screen, whose first child is still its top row', () => {
+    const utils = mount();
+    utils.tap('Sight the smoke');
+    expect(utils.getByTestId('sight-screen')).toBeTruthy();
+    expect(header(utils)).toBeNull();
+    // The main column's first row is the screen's own, with Back.
+    const main = utils.getByTestId('app-main');
+    expect(main.querySelector('button')?.textContent).toMatch(/Back/);
+  });
+
+  it('is compact on the privacy page, with its title once', () => {
+    const utils = mount();
+    fireEvent.click(
+      utils.getAllByRole('button', { name: 'What leaves this phone' })[0] as HTMLElement,
+    );
+    expect(header(utils)?.dataset.variant).toBe('compact');
+    expect(
+      utils.getAllByRole('heading', { name: 'What leaves this phone', level: 1 }),
+    ).toHaveLength(1);
+  });
+});

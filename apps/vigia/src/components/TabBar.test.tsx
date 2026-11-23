@@ -7,6 +7,7 @@
 
 import { render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
+import { fakeObserver } from '../test-support/fake-observe';
 import { TabBar, TABS } from './TabBar';
 
 /** The narrowest width the app supports (skeleton-ui Req 13.13). */
@@ -94,5 +95,79 @@ describe('the tab labels at 320 CSS px (task 21.1)', () => {
       return copy;
     });
     expect(fits(tabs, NARROWEST_PX).ok).toBe(false);
+  });
+});
+
+// Task 24.3 (2026-11-22, the lead's new look; Req 22.5): icons above the labels, the active tab in
+// `tabActive` with a 4 px indicator at its top, the labels at 20 from a bar width of 360 and at 16
+// below it, by the width the observer gives; the badge under the Smoke label; the safe area.
+describe('the tab bar in the Field look (Req 22.5)', () => {
+  const bar = (widthPx: number, current: 'smoke' | 'map' = 'smoke', inboxCount = 0) => {
+    const observer = fakeObserver({ widthPx, heightPx: 64 });
+    const utils = render(
+      <TabBar
+        current={current}
+        inboxCount={inboxCount}
+        onSelect={() => undefined}
+        observe={observer.observe}
+      />,
+    );
+    return { ...utils, tabs: utils.getAllByRole('tab') };
+  };
+
+  it('a cloud, a list, a map and a siren above the labels, each hidden from assistive technology', () => {
+    const { tabs } = bar(390);
+    expect(tabs.map((t) => t.querySelector('svg')?.getAttribute('data-icon'))).toEqual([
+      'smoke',
+      'sightings',
+      'map',
+      'siren',
+    ]);
+    for (const t of tabs) {
+      const svg = t.querySelector('svg') as SVGElement;
+      expect(svg.getAttribute('aria-hidden')).toBe('true');
+      // Above the label: the icon comes first in a column.
+      expect(t.style.flexDirection).toBe('column');
+      expect(t.firstElementChild).toBe(svg);
+    }
+  });
+
+  it('the active tab: tabActive, a 4 px indicator at its top, aria-selected; the others tabInk', () => {
+    const { tabs } = bar(390, 'map');
+    const [smoke, , map] = tabs;
+    expect(map?.getAttribute('aria-selected')).toBe('true');
+    expect(map?.style.color).toBe('var(--alidade-tabActive)');
+    expect(map?.style.borderTop).toBe('4px solid var(--alidade-tabActive)');
+    expect(smoke?.style.color).toBe('var(--alidade-tabInk)');
+    expect(smoke?.style.borderTop).toBe('4px solid var(--alidade-tabBar)');
+  });
+
+  it('the labels at 20 from a bar of 360, at 16 below it, and they fit both ways', () => {
+    for (const [widthPx, size] of [
+      [320, 16],
+      [359, 16],
+      [360, 20],
+      [375, 20],
+      [390, 20],
+    ] as const) {
+      for (const count of [0, 12, 100]) {
+        const { tabs, unmount } = bar(widthPx, 'smoke', count);
+        for (const t of tabs) expect(t.style.fontSize, `${widthPx}`).toBe(`${size}px`);
+        const result = fits(tabs, widthPx);
+        expect(result.ok, `${widthPx} ${count}: ${result.detail}`).toBe(true);
+        unmount();
+      }
+    }
+  });
+
+  it('the bar: tabBar, the safe area under it, the badge under the Smoke label in the primary pair', () => {
+    const { getByTestId, tabs } = bar(390, 'smoke', 3);
+    const nav = getByTestId('tab-bar');
+    expect(nav.style.background).toBe('var(--alidade-tabBar)');
+    expect(nav.style.paddingBottom).toBe('calc(0px + env(safe-area-inset-bottom))');
+    const badge = getByTestId('inbox-badge');
+    expect(tabs[0]?.contains(badge)).toBe(true);
+    expect(badge.style.background).toBe('var(--alidade-primary)');
+    expect(badge.style.color).toBe('var(--alidade-primaryInk)');
   });
 });

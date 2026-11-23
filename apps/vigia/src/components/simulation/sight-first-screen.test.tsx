@@ -28,6 +28,77 @@ const px = (value: string): number => {
 };
 
 /** The lines `text` wraps to in `widthPx` at `fontPx` (greedy, at spaces; a long word breaks). */
+/** An icon and its gap (24 + 8, or 24 + 6 inline), counted as words of characters at 0.63 em. */
+const ICON_WORD = '\u25AE\u25AE';
+
+/**
+ * The aiming row (Req 22.8, task 24.5): the crosshair and the line, then the "How to aim" pill. By
+ * the 0.63 em bound they do not share one row at a phone's width, so the summary is two rows: the
+ * line (as tall as its icon, 24) and the pill (its padding of 2 and its chevron, 28), 4 apart.
+ */
+function aimHeight(section: HTMLElement, widthPx: number): number {
+  const summary = section.querySelector('summary') as HTMLElement;
+  const line = summary.querySelector<HTMLElement>('[data-part="aim-line"]') as HTMLElement;
+  const pill = summary.querySelector<HTMLElement>('[data-part="how-to-aim"]') as HTMLElement;
+  const font = px(summary.style.fontSize);
+  const inner =
+    widthPx -
+    px(section.style.paddingLeft) -
+    px(section.style.paddingRight) -
+    px(summary.style.paddingLeft) -
+    px(summary.style.paddingRight);
+  const lineWidth = 24 + 8 + (line.textContent ?? '').length * 0.63 * font;
+  const pillWidth =
+    px(pill.style.paddingLeft) +
+    px(pill.style.paddingRight) +
+    4 +
+    24 +
+    (pill.textContent ?? '').length * 0.63 * font;
+  const lineRow = Math.max(font * Number(summary.style.lineHeight), 24);
+  const pillRow =
+    Math.max(font * Number(summary.style.lineHeight), 24) +
+    px(pill.style.paddingTop) +
+    px(pill.style.paddingBottom);
+  const rows =
+    lineWidth + px(summary.style.columnGap) + pillWidth <= inner
+      ? Math.max(lineRow, pillRow)
+      : lineRow + px(summary.style.rowGap) + pillRow;
+  const summaryHeight = Math.max(
+    px(summary.style.minHeight),
+    rows + px(summary.style.paddingTop) + px(summary.style.paddingBottom),
+  );
+  return summaryHeight + px(section.style.paddingTop) + px(section.style.paddingBottom);
+}
+
+/** The compact readout's cards (skeleton-ui Req 22.11, D37.10): its top padding and the taller card. */
+function readoutHeight(el: HTMLElement, widthPx: number): number {
+  const row = el.querySelector<HTMLElement>('[data-part="cards"]');
+  if (row === null) throw new Error('the readout has no cards');
+  const inner = widthPx - px(el.style.paddingLeft) - px(el.style.paddingRight);
+  const cards = [...row.children] as HTMLElement[];
+  const cardWidth = (inner - px(row.style.gap) * (cards.length - 1)) / cards.length;
+  let tallest = 0;
+  for (const card of cards) {
+    const text = cardWidth - px(card.style.paddingLeft) - px(card.style.paddingRight);
+    const numeral = card.querySelector<HTMLElement>('[data-part="numeral"]');
+    let content: number;
+    if (numeral !== null) {
+      expect(wrapped(numeral.textContent ?? '', text, px(numeral.style.fontSize))).toBe(1);
+      const p = numeral.parentElement as HTMLElement;
+      content =
+        px(numeral.style.fontSize) * Number(numeral.style.lineHeight) + px(p.style.gap) + 25;
+    } else {
+      const s = card.querySelector<HTMLElement>('[data-part="steadiness"]') as HTMLElement;
+      content =
+        wrapped(`${ICON_WORD} ${s.textContent ?? ''}`, text, px(s.style.fontSize)) *
+        px(s.style.fontSize) *
+        Number(s.style.lineHeight);
+    }
+    tallest = Math.max(tallest, content + px(card.style.paddingTop) + px(card.style.paddingBottom));
+  }
+  return px(el.style.paddingTop) + tallest;
+}
+
 function lines(text: string, widthPx: number, fontPx: number, letterSpacingEm = 0): number {
   const perLine = Math.max(1, Math.floor(widthPx / ((ADVANCE_EM + letterSpacingEm) * fontPx)));
   let count = 1;
@@ -208,25 +279,14 @@ function dockedTotal(screen: HTMLElement, widthPx: number, heightPx: number) {
   const middle = screen.querySelector('[data-part="middle"]') as HTMLElement;
   for (const child of middle.children) {
     const el = child as HTMLElement;
-    if (el.dataset.testid === 'guidance') {
-      const summary = el.querySelector('summary') as HTMLElement;
-      add('aim', Math.max(px(summary.style.minHeight), 0) + vertical(el));
-    } else if (el.dataset.part === 'image-box') add('image', px(el.style.minHeight));
-    else if (el.dataset.testid === 'readout') {
-      let h = vertical(el);
-      for (const p of el.querySelectorAll<HTMLElement>(':scope > p')) {
-        const numeral = p.querySelector<HTMLElement>('span');
-        const font = Math.max(
-          px(el.style.fontSize),
-          numeral === null ? 0 : px(numeral.style.fontSize),
-        );
-        h +=
-          wrapped(p.textContent ?? '', widthPx - 16, px(el.style.fontSize)) *
-          font *
-          Number(el.style.lineHeight);
-      }
-      add('readout', h);
-    } else if (el.dataset.part === 'hint' || el.dataset.part === 'intro')
+    if (el.dataset.testid === 'guidance') add('aim', aimHeight(el, widthPx));
+    else if (el.dataset.part === 'image-box') add('image', px(el.style.minHeight));
+    else if (el.dataset.testid === 'readout') add('readout', readoutHeight(el, widthPx));
+    // Before Start only (Req 22.8): the how-to and tip cards and the idle picture scroll in the
+    // middle part; Start is in the docked bar, which the sum below holds.
+    else if (el.dataset.testid === 'how-to' || el.dataset.part === 'idle-image')
+      add('before Start (scrolls)', 0);
+    else if (el.dataset.part === 'hint' || el.dataset.part === 'intro')
       add('hint', textHeight(el, widthPx));
     else if (el.dataset.testid === 'limits-note') add('limits', textHeight(el, widthPx));
     else if (el.dataset.part === 'details' || el.tagName === 'BUTTON') add('below the fold', 0);

@@ -19,8 +19,13 @@ import { storedWith } from '../test-support/render-screen';
 import { createVigiaStore } from './store';
 
 const NARROWEST_PX = 320;
+// The roles are `var()` strings now (skeleton-ui Req 22.4); a resolved colour in a style is the
+// art's plume (design D25.4), the QR's black and white, or a hex token of today's palette.
+import { ART_COLOURS } from './art/art-colours';
 const ALLOWED_COLOURS = new Set(
-  [...Object.values(COLOURS), '#000000', '#FFFFFF'].map((c) => c.toLowerCase()),
+  [...Object.values(COLOURS), ...Object.values(ART_COLOURS), '#000000', '#FFFFFF'].map((c) =>
+    c.toLowerCase(),
+  ),
 );
 
 function hexOf(r: string, g: string, b: string): string {
@@ -66,7 +71,10 @@ function faults(root: HTMLElement): string[] {
     }
   }
   // An icon (skeleton-ui Req 22.8) paints with currentColor and fills nothing: its words' colour.
-  for (const svg of root.querySelectorAll('svg:not([data-icon]) path, svg:not([data-icon]) rect')) {
+  // The art (design D25.4) paints in `style`, from roles: only another picture's fill is read here.
+  for (const svg of root.querySelectorAll(
+    'svg:not([data-icon]):not([data-art]):not([role="img"][aria-label^="Schematic"]) path, svg:not([data-icon]):not([data-art]) rect',
+  )) {
     const fill = (svg.getAttribute('fill') ?? '').toLowerCase();
     if (!ALLOWED_COLOURS.has(fill)) found.push(`svg: fill ${fill}`);
   }

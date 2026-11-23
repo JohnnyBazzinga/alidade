@@ -6,6 +6,7 @@
 
 import { MapView, type AppLayer, type MapLibreLike, type UiFailure } from '@alidade/ui';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useHeader } from './header-context';
 import { mapModel } from '../math/fix/map-model';
 import { useEnvironment } from './environment';
 import { FailureNotice } from './FailureNotice';
@@ -65,10 +66,12 @@ export function MapScreen({ overlays }: { readonly overlays: OverlaySlot | null 
     [drawn, overlayLayers],
   );
   const setAside = open !== null && open.assessment.ok && open.assessment.value.setAside.length > 0;
+  // In the App the compact header carries the title (Req 22.2).
+  const inApp = useHeader(null);
 
   return (
     <section data-testid="map-screen" style={LOOK.stack}>
-      <h1 style={LOOK.title}>Map</h1>
+      {!inApp && <h1 style={LOOK.title}>Map</h1>}
       {open === null && (
         <p style={LOOK.text}>No smoke yet: the map shows the sightings of a smoke.</p>
       )}

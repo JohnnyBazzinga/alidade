@@ -4,7 +4,7 @@
 import { rayOffsetToPoint } from '../math/image-geometry';
 import type { ImageLayout } from '../math/image-layout';
 import type { Mark } from '../math/session/session';
-import { COLOURS, SIZES } from './theme';
+import { COLOURS, ROLE_VARS, SIZES } from './theme';
 
 /** As Req 5.4: a point within this of the Element's edge is on it. */
 const EDGE_TOLERANCE_PX = 1e-9;
@@ -51,7 +51,7 @@ export function MarkRing({ mark, layout }: MarkRingProps) {
           height: innerPx,
           boxSizing: 'border-box',
           borderRadius: '50%',
-          border: `${SIZES.markRingCorePx}px solid ${COLOURS.brass}`,
+          border: `${SIZES.markRingCorePx}px solid ${ROLE_VARS.reticleCore}`,
           outline: `${SIZES.markRingOutlinePx}px solid ${COLOURS.outline}`,
           outlineOffset: -SIZES.markRingCorePx - SIZES.markRingOutlinePx,
         }}

@@ -9,18 +9,27 @@
 // the act. With one open, the question (Req 4.3) is a view of its own that replaces the camera.
 // Nothing is added until it is answered.
 
-import { DeviceSighting, SIZES, type CapturedResult, type Session } from '@alidade/ui';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { newestTimeUtcMs } from '../math/incident/incident-state';
+import { DeviceSighting, Icon, SIZES, type CapturedResult, type Session } from '@alidade/ui';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { SIMULATION_VALUES_TEXT } from '../math/texts';
 import type { VigiaFailure } from '../result';
 import { ConfirmSmokeDialog, type SmokeAnswer } from './ConfirmSmokeDialog';
 import { useEnvironment } from './environment';
 import { FailureNotice } from './FailureNotice';
 import { GuidanceBlock } from './GuidanceBlock';
+import { IdleScene } from './art/IdleScene';
+import { HowToCards } from './HowToCards';
 import { LOOK } from './look';
 import { useStore, useVigia } from './store';
 import { useOpenAtTop } from './use-open-at-top';
+
+/** The icons of the docked bar's controls (Req 22.8, design D25.5), by the UI's control ids. */
+const CONTROL_ICONS = {
+  start: 'camera',
+  'north-compass': 'compass',
+  capture: 'camera',
+  unfreeze: 'video',
+} as const;
 
 export interface SightScreenProps {
   /** A wind reading is shown on the map (Req 13.5): the guidance says that smoke drifts downwind. */
@@ -77,11 +86,8 @@ export function SightScreen({
       : null;
   const smokeOpen = open !== null;
 
-  const preselected = useMemo((): SmokeAnswer => {
-    if (open === null) return 'new';
-    const ageMs = environment.clock() - newestTimeUtcMs(open.incident);
-    return ageMs <= environment.parameters.maxIncidentAgeMs ? 'same' : 'new';
-  }, [open, environment]);
+  // Neither answer is preselected (Req 4.3 as amended 2026-11-22, Req 22.1 (d), 22.9): the age of
+  // the open smoke no longer changes the view.
 
   // No smoke open: the Capture starts the smoke (Req 4.2), once for each captured result.
   useEffect(() => {
@@ -120,9 +126,13 @@ export function SightScreen({
   // The question: a view of its own, in place of the camera.
   if (captured !== null && smokeOpen) {
     return (
-      <section ref={viewRef} data-testid="sight-question" style={LOOK.stack}>
+      // On a phone the Sight route has no padding (the docked column): the question has its own.
+      <section
+        ref={viewRef}
+        data-testid="sight-question"
+        style={{ ...LOOK.stack, padding: source.kind === 'device' ? SIZES.gapPx * 1.5 : 0 }}
+      >
         <ConfirmSmokeDialog
-          preselected={preselected}
           captured={captured}
           failure={failure}
           onAnswer={answer}
@@ -153,6 +163,7 @@ export function SightScreen({
   const back = (
     <div style={{ padding: `${SIZES.gapPx}px ${SIZES.gapPx}px 0` }}>
       <button type="button" onClick={onBack} style={LOOK.button}>
+        <Icon name="chevron-left" />
         Back
       </button>
     </div>
@@ -172,6 +183,9 @@ export function SightScreen({
           layout="docked"
           top={back}
           aim={<GuidanceBlock windShown={windShown} />}
+          intro={<HowToCards />}
+          idleImage={<IdleScene />}
+          controlIcons={CONTROL_ICONS}
           extra={
             noSensorEvent && onTrySimulator !== undefined ? (
               <button

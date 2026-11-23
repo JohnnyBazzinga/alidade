@@ -118,6 +118,36 @@ export const SHARE_QR_LABEL = 'Show QR code (someone beside you)';
 export const SHARE_SEND_LABEL = 'Send link (someone far away)';
 export const SHARE_OTHER_LABEL = 'Other ways (no connection)';
 
+// The Field look (Req 22.15, 2026-11-22): the only strings that the look adds.
+
+/** The full header's tagline (Req 22.2). */
+export const TAGLINE_TEXT = 'Help locate smoke with sightings from different places.';
+/** The compact header's title of the question after a capture (Req 22.9). */
+export const QUESTION_TITLE = 'New sighting';
+/** The compact header's title of the QR view (Req 22.10). */
+export const QR_VIEW_TITLE = 'QR code';
+/** The how-to card before Start (Req 22.8). */
+export const HOW_TO_TITLE = 'How to sight';
+export const HOW_TO_STEPS = [
+  'Hold the phone upright.',
+  'Tap Start.',
+  'Put the crosshair on the base of the smoke.',
+] as const;
+/** The tip card's title; its text is the limits line (Req 22.8). */
+export const TIP_TITLE = 'Accuracy tip';
+/** The labels of the question's Bearing card (Req 22.9). */
+export const BEARING_LABEL = 'Bearing';
+export const UNCERTAINTY_LABEL = 'Uncertainty (1-sigma)';
+/** The schematic's labels and its name (Req 22.12). */
+export const SCHEMATIC_TEXT = {
+  stood: 'Where you stood',
+  next: 'Where to go next',
+  baseline: 'At least 1/3 of the distance',
+  sight: 'Line of sight',
+  smoke: 'Smoke',
+  label: 'Schematic, not to scale: the distance is your estimate, not a measured position.',
+} as const;
+
 /** The largest count `countLineText` writes: far above `MAX_SIGHTINGS_PER_INCIDENT`. */
 const MAX_COUNT_LINE = 1_000_000;
 

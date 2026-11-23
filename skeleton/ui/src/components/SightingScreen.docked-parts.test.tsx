@@ -191,3 +191,39 @@ describe('no instruction to tap where a tap cannot work (Req 13.17, 18.10)', () 
     expect(marked.notice?.reason).toBe('calibration_missing');
   });
 });
+
+// Req 22.9, task 35.6 (2026-11-22, the lead's new look): "Other ways to set north" opens another
+// view, so its row ends in a chevron-right; the view is a column of cards; Back begins with a
+// chevron-left and keeps its word.
+describe('"Other ways to set north" as a view of cards (Req 22.9, task 35.6)', () => {
+  it('the row that opens it ends in a chevron-right and keeps its name', () => {
+    const r = renderScreen(sessionInState('live', 'bearing').session);
+    const open = r.getByRole('button', { name: 'Other ways to set north' });
+    expect(open.lastElementChild?.getAttribute('data-icon')).toBe('chevron-right');
+  });
+
+  it('the view: Back with a chevron-left and its word, then a card for each way', () => {
+    const r = renderScreen(sessionInState('live', 'bearing').session);
+    fireEvent.click(r.getByRole('button', { name: 'Other ways to set north' }));
+    const back = r.getByRole('button', { name: 'Back to the sighting' });
+    expect(back.firstElementChild?.getAttribute('data-icon')).toBe('chevron-left');
+    const ways = [...r.container.querySelectorAll<HTMLElement>('[data-part="way"]')];
+    expect(ways).toHaveLength(2);
+    for (const way of ways) {
+      expect(way.style.background).toBe('var(--alidade-card)');
+      expect(way.style.borderRadius).toBe('var(--alidade-card-radius)');
+    }
+    expect(ways[0]?.querySelector('[data-control="north-compass"]')).not.toBeNull();
+    expect(ways[0]?.querySelector('[data-icon="compass"]')).not.toBeNull();
+    expect(ways[1]?.querySelector('[data-testid="known-azimuth-form"]')).not.toBeNull();
+    expect(ways[1]?.querySelector('[data-icon="pin"]')).not.toBeNull();
+    // Each card says what it is in words beside its icon.
+    for (const way of ways) expect(way.querySelector('h2')?.textContent).not.toBe('');
+  });
+
+  it('while frozen the compass card is not offered (north is set from a live reading)', () => {
+    const r = renderScreen(sessionInState('frozen', 'bearing').session);
+    fireEvent.click(r.getByRole('button', { name: 'Other ways to set north' }));
+    expect(r.container.querySelectorAll('[data-part="way"]')).toHaveLength(1);
+  });
+});

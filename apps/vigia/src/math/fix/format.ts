@@ -182,12 +182,32 @@ export function directionText(azimuthRad: number, sigmaRad: number): VigiaResult
   if (!(Number.isFinite(sigmaRad) && sigmaRad > 0 && sigmaRad <= Math.PI)) {
     return err('invalid_number', { field: 'sigmaRad' });
   }
+  const sigma = sigmaDegUp(sigmaRad);
+  if (!sigma.ok) return sigma;
+  return ok(`${formatAzimuthDeg(azimuthRad, 1)}° ± ${sigma.value}°`);
+}
+
+/**
+ * The one rule for a sigma (Req 3.6, 22.9): degrees to 0.1°, rounded **up** (at least `0.1`), as a
+ * number's text without its unit: `2.1` for `2.04°`, never the nearest tenth. Fails with
+ * `invalid_number` naming `sigmaRad` for a sigma that is not in `(0, π]`.
+ */
+export function sigmaDegUp(sigmaRad: number): VigiaResult<string> {
+  if (!(Number.isFinite(sigmaRad) && sigmaRad > 0 && sigmaRad <= Math.PI)) {
+    return err('invalid_number', { field: 'sigmaRad' });
+  }
   const sigmaDeg = toDeg(sigmaRad);
   if (!sigmaDeg.ok || !Number.isFinite(sigmaDeg.value)) {
     return err('invalid_number', { field: 'sigmaRad' });
   }
   const tenths = Math.max(1, Math.ceil(sigmaDeg.value * 10 - TENTH_SLACK));
-  return ok(`${formatAzimuthDeg(azimuthRad, 1)}° ± ${(tenths / 10).toFixed(1)}°`);
+  return ok((tenths / 10).toFixed(1));
+}
+
+/** A sigma for a headline (UI's `sigmaText`, skeleton-ui Req 22.12): `±2.1°`, by the one rule. */
+export function sigmaHeadlineText(sigmaRad: number): string {
+  const sigma = sigmaDegUp(sigmaRad);
+  return sigma.ok ? `±${sigma.value}°` : '±?°';
 }
 
 /**

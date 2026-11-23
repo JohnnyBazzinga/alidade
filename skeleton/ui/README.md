@@ -117,6 +117,29 @@ The theme exports `BODY_FONT_STACK` (the system sans, for prose and control labe
 `NUMERIC_FONT_STACK` (monospace with tabular digits, for readings, coordinates, bearings and
 codes). `FONT_STACK` no longer exists, so that each use is a decision.
 
+## Two looks, one skeleton: themes as data
+
+A look is a theme: plain data with a value for each role (`bg`, `card`, `ink`, `accent`, `primary`,
+the four status tones with their tint, ink, icon and bar, and so on), the shapes (radii and a
+shadow) and three flags. The package ships three: **Instrument** (dark slate and brass, square
+corners; Nonius and the Playground), **Field** (a light look with rounded cards; Vigia by day) and
+**Field night** (its dark counterpart). An application calls `applyTheme(document.documentElement,
+theme)` once at its start, and `watchColourScheme(window.matchMedia, (dark) => …)` if it wants a
+night theme. `applyTheme` writes every role as a CSS custom property (`--alidade-<role>`); every
+component writes the role's custom property in its inline styles, so a switch changes every component
+at once with no re-render and no `<style>` text. A part that needs a resolved colour reads
+`activeTheme()` or `useActiveTheme()`. Every text pair of every theme is held at 7 : 1 and every
+icon or outline that carries meaning at 3 : 1 by `paletteFor(theme)` and its test, and a scan fails
+on a colour literal outside the theme files.
+
+Icons come from `lucide-react` through `Icon({ name })` and a closed list (`ICON_NAMES`): 24 CSS
+pixels, stroke 2, `currentColor`, hidden from assistive technology, always beside words that say
+the same. `StatusCard` draws a status (a Message, the north prompt) as a card of its tone in a
+theme with cards and as today's block in Instrument; `Disclosure` is the one `details` of the
+package, with a chevron that says whether it is open. The camera image has the theme's radius and
+four corner brackets, and the docked screen takes an `idleImage` and an `intro` for the state
+before Start.
+
 ## No defaults for the camera
 
 The camera's field of view and the tap's 1-sigma are passed in by the caller and never assumed.
