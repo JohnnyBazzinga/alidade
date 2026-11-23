@@ -13,3 +13,6 @@ dist/
 
 # Private working notes and raw measurement data (not part of the project)
 /notes/
+
+# Design references from the lead (not part of the project; private)
+/design-ref/

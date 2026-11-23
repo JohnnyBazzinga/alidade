@@ -11,19 +11,50 @@ import {
 } from '../defaults';
 import { MAP_DARK, MAP_FIX, MAP_LIGHT } from '../math/map/map-style';
 import type { Rgb } from '../math/contrast';
+import { ROLES, roleVar, type Role } from './theme/roles';
+import { instrument } from './theme/themes';
 
+const I = instrument.colours;
+
+/**
+ * Instrument's value of each token (hex): what the pairs of the palette are measured on.
+ */
+/** Instrument's value of each token: what the pairs of the palette are measured on. */
+export const INSTRUMENT_TOKENS = {
+  bg: I.bg,
+  panel: I.card,
+  raised: I.raised,
+  ink: I.ink,
+  inkDim: I.inkDim,
+  brass: I.primary,
+  brassInk: I.primaryInk,
+  alert: I.warnInk,
+  outline: I.reticleOutline,
+  mapInk: I.mapInk,
+  rule: I.rule,
+} as const;
+
+/** `var(--alidade-<role>)` for every role (Req 22.4): what a component writes in an inline style. */
+export const ROLE_VARS = Object.fromEntries(ROLES.map((r) => [r, roleVar(r)])) as Readonly<
+  Record<Role, string>
+>;
+
+/**
+ * Today's tokens, as aliases of roles (Req 22.2): each is the `var()` of its role, so that a theme
+ * chosen by the application reaches every component that uses it.
+ */
 export const COLOURS = {
-  bg: '#0C0F12',
-  panel: '#141A1F',
-  raised: '#1D252C',
-  ink: '#ECE8DC',
-  inkDim: '#AEB6BD',
-  brass: '#E3AE45',
-  brassInk: '#14100A',
-  alert: '#FF9B7A',
-  outline: MAP_DARK,
-  mapInk: MAP_LIGHT,
-  rule: '#6A7884',
+  bg: ROLE_VARS.bg,
+  panel: ROLE_VARS.card,
+  raised: ROLE_VARS.raised,
+  ink: ROLE_VARS.ink,
+  inkDim: ROLE_VARS.inkDim,
+  brass: ROLE_VARS.primary,
+  brassInk: ROLE_VARS.primaryInk,
+  alert: ROLE_VARS.warnInk,
+  outline: ROLE_VARS.reticleOutline,
+  mapInk: ROLE_VARS.mapInk,
+  rule: ROLE_VARS.rule,
 } as const;
 
 /** The brass of the map's Fix is the theme's brass; `theme.test.tsx` checks the two copies. */
@@ -82,20 +113,20 @@ export const PALETTE_PAIRS: readonly PalettePair[] = [
   ...TEXT.flatMap((fg) =>
     SURFACES.map((bg) => ({
       label: `${fg} on ${bg}`,
-      foreground: COLOURS[fg],
-      background: COLOURS[bg],
+      foreground: INSTRUMENT_TOKENS[fg],
+      background: INSTRUMENT_TOKENS[bg],
     })),
   ),
-  { label: 'brassInk on brass', foreground: COLOURS.brassInk, background: COLOURS.brass },
-  { label: 'brass on black', foreground: COLOURS.brass, background: BLACK },
-  { label: 'outline on white', foreground: COLOURS.outline, background: WHITE },
-  { label: 'outline on brass', foreground: COLOURS.outline, background: COLOURS.brass },
-  { label: 'mapInk on black', foreground: COLOURS.mapInk, background: BLACK },
+  { label: 'brassInk on brass', foreground: INSTRUMENT_TOKENS.brassInk, background: INSTRUMENT_TOKENS.brass },
+  { label: 'brass on black', foreground: INSTRUMENT_TOKENS.brass, background: BLACK },
+  { label: 'outline on white', foreground: INSTRUMENT_TOKENS.outline, background: WHITE },
+  { label: 'outline on brass', foreground: INSTRUMENT_TOKENS.outline, background: INSTRUMENT_TOKENS.brass },
+  { label: 'mapInk on black', foreground: INSTRUMENT_TOKENS.mapInk, background: BLACK },
   // The map's attribution (Req 15.2, task 31): `math/map/attribution-style.ts` uses this pair.
   {
     label: 'outline on mapInk (map attribution)',
-    foreground: COLOURS.outline,
-    background: COLOURS.mapInk,
+    foreground: INSTRUMENT_TOKENS.outline,
+    background: INSTRUMENT_TOKENS.mapInk,
   },
 ];
 
