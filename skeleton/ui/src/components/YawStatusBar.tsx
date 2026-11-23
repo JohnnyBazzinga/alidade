@@ -9,7 +9,9 @@ import type { OrientationFrame, YawReference } from '@alidade/sensors';
 import { formatSignedDeg } from '../math/display-format';
 import { messageFor } from '../math/messages';
 import type { YawStatus } from '../math/session/yaw-status';
-import { COLOURS, BODY_FONT_STACK, NUMERAL_STYLE, SIZES } from './theme';
+import { StatusCard } from './StatusCard';
+import { COLOURS, NUMERAL_STYLE } from './theme';
+import { useActiveTheme } from './theme/apply-theme';
 
 export interface YawStatusBarProps {
   readonly status: YawStatus;
@@ -37,6 +39,7 @@ export function YawStatusBar({
   headingSigmaRad,
   lineOnly = false,
 }: YawStatusBarProps) {
+  const cards = useActiveTheme().flags.cards;
   const age = formatAge(status.ageMs);
   const detail =
     yawReference === null
@@ -69,30 +72,27 @@ export function YawStatusBar({
       prompt = promptText('frame_reset');
       break;
   }
+  // A status card (Req 22.13): set north, or the compass's advice, is information; the rest is a
+  // warning. In Instrument the line is in ink and the prompt in the alert colour, as before; in a
+  // theme with cards the line is the bold headline in the tone's ink and the prompt the rest.
+  const tone = status.status === 'valid' || advice ? 'info' : 'warning';
+  const shown = prompt !== null && !lineOnly;
   return (
-    <div
-      data-testid="yaw-status"
-      data-status={status.status}
+    <StatusCard
+      tone={tone}
+      testId="yaw-status"
+      data={{ status: status.status }}
       style={{
-        ...NUMERAL_STYLE,
-        fontFamily: BODY_FONT_STACK,
-        fontSize: SIZES.labelPx,
+        fontVariantNumeric: NUMERAL_STYLE.fontVariantNumeric,
+        letterSpacing: NUMERAL_STYLE.letterSpacing,
         lineHeight: 1.25,
-        background: COLOURS.panel,
-        color: COLOURS.ink,
-        padding: SIZES.gapPx,
-        borderLeft: `3px solid ${status.status === 'valid' || advice ? COLOURS.brass : COLOURS.alert}`,
       }}
+      headline={<span data-part="line">{line}</span>}
+      {...(cards ? {} : { headlineColour: COLOURS.ink })}
+      {...(cards ? {} : { bodyColour: advice ? COLOURS.inkDim : COLOURS.alert })}
     >
-      <p style={{ margin: 0 }} data-part="line">
-        {line}
-      </p>
-      {prompt !== null && !lineOnly && (
-        <p style={{ margin: 0, color: advice ? COLOURS.inkDim : COLOURS.alert }} data-part="prompt">
-          {prompt}
-        </p>
-      )}
-    </div>
+      {shown ? <span data-part="prompt">{prompt}</span> : null}
+    </StatusCard>
   );
 }
 

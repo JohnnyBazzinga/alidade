@@ -1,10 +1,11 @@
 // A failure, shown only through `messageFor` (Req 3.6): what happened and what to do. The reason's
-// code, the field and the error name are never shown.
+// code, the field and the error name are never shown. It is a warning card (Req 22.13): the
+// Message's `whatHappened` is the headline and its `whatToDo` the rest.
 
 import type { UiFailure } from '../result';
 import type { UiReason } from '../reasons';
 import { messageFor } from '../math/messages';
-import { COLOURS, BODY_FONT_STACK, SIZES } from './theme';
+import { StatusCard } from './StatusCard';
 
 export interface FailureLike {
   readonly reason: UiReason;
@@ -28,19 +29,8 @@ export function asFailure(f: FailureLike): UiFailure {
 export function FailureNotice({ failure }: { readonly failure: FailureLike }) {
   const message = messageFor(asFailure(failure));
   return (
-    <div
-      role="alert"
-      data-testid="failure-notice"
-      style={{
-        background: COLOURS.panel,
-        borderLeft: `3px solid ${COLOURS.alert}`,
-        padding: SIZES.gapPx,
-        fontFamily: BODY_FONT_STACK,
-        fontSize: SIZES.labelPx,
-      }}
-    >
-      <p style={{ margin: 0, color: COLOURS.alert }}>{message.whatHappened}</p>
-      <p style={{ margin: 0, color: COLOURS.ink }}>{message.whatToDo}</p>
-    </div>
+    <StatusCard tone="warning" role="alert" testId="failure-notice" headline={message.whatHappened}>
+      {message.whatToDo}
+    </StatusCard>
   );
 }

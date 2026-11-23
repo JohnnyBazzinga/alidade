@@ -65,7 +65,8 @@ function faults(root: HTMLElement): string[] {
       }
     }
   }
-  for (const svg of root.querySelectorAll('svg path, svg rect')) {
+  // An icon (skeleton-ui Req 22.8) paints with currentColor and fills nothing: its words' colour.
+  for (const svg of root.querySelectorAll('svg:not([data-icon]) path, svg:not([data-icon]) rect')) {
     const fill = (svg.getAttribute('fill') ?? '').toLowerCase();
     if (!ALLOWED_COLOURS.has(fill)) found.push(`svg: fill ${fill}`);
   }

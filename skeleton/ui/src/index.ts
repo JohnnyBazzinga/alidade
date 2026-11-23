@@ -160,9 +160,32 @@ export {
   COLOURS,
   NUMERIC_FONT_STACK,
   PALETTE_PAIRS,
+  ROLE_VARS,
   SIZES,
 } from './components/theme';
 export type { PalettePair } from './components/theme';
+// Themes as data (Req 22, design D37): an application chooses its look; a component writes roles.
+export { ROLES, THEMED_ROLES, CONSTANT_ROLES, roleVar } from './components/theme/roles';
+export type { Role, ThemedRole, ConstantRole } from './components/theme/roles';
+export { instrument, field, fieldNight, THEMES } from './components/theme/themes';
+export type { Theme, ThemeId } from './components/theme/themes';
+export {
+  applyTheme,
+  activeTheme,
+  onThemeChange,
+  useActiveTheme,
+} from './components/theme/apply-theme';
+export type { ThemeRoot } from './components/theme/apply-theme';
+export { watchColourScheme, DARK_QUERY } from './components/theme/colour-scheme';
+export type { MatchMedia, MediaQueryListLike } from './components/theme/colour-scheme';
+export { paletteFor, TEXT_MIN_RATIO, ICON_MIN_RATIO } from './components/theme/palette';
+export type { ThemePair } from './components/theme/palette';
+export { Icon, ICON_NAMES, ICON_SIZE_PX } from './components/Icon';
+export type { IconName, IconProps } from './components/Icon';
+export { StatusCard, TONE_ICONS, STATUS_BODY_PX, toneRole } from './components/StatusCard';
+export type { StatusCardProps, StatusTone } from './components/StatusCard';
+export { Disclosure } from './components/Disclosure';
+export type { DisclosureProps } from './components/Disclosure';
 export { CameraImage } from './components/CameraImage';
 export { CaptureSummary } from './components/CaptureSummary';
 export { DeviceSighting } from './components/DeviceSighting';

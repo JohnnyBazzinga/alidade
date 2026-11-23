@@ -195,10 +195,10 @@ describe('the shapes, the gradients and the flags (Req 22.7, Vigia 22.4)', () =>
       expect(theme.shapes.badgeRadiusPx).toBe(999);
       expect(theme.shapes.imageRadiusPx).toBe(16);
       expect(theme.flags.illustrated).toBe(true);
+      // Req 22.13 (amended 2026-11-23): a status is drawn as a card with its tint, icon and headline.
+      expect(theme.flags.cards).toBe(true);
     }
-    expect(field.shapes.shadow).toBe(
-      '0 1px 2px rgba(14,30,51,.06), 0 4px 14px rgba(14,30,51,.08)',
-    );
+    expect(field.shapes.shadow).toBe('0 1px 2px rgba(14,30,51,.06), 0 4px 14px rgba(14,30,51,.08)');
     expect(field.flags.elevated).toBe(true);
     expect(fieldNight.shapes.shadow).toBeNull();
     expect(fieldNight.flags.elevated).toBe(false);
@@ -212,7 +212,7 @@ describe('the shapes, the gradients and the flags (Req 22.7, Vigia 22.4)', () =>
       imageRadiusPx: 0,
       shadow: null,
     });
-    expect(instrument.flags).toEqual({ illustrated: false, elevated: false });
+    expect(instrument.flags).toEqual({ illustrated: false, elevated: false, cards: false });
     expect(instrument.gradients).toEqual({ primary: null, header: null });
   });
 

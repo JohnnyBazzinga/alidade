@@ -6,15 +6,18 @@
 import type { ImageLayout } from '../math/image-layout';
 import type { ProjectedScene } from '../math/scene/project-scene';
 import { COLOURS, BODY_FONT_STACK, SIZES } from './theme';
+import { SCENE_COLOURS } from './theme/scene';
 
 export interface SceneImageProps {
   readonly projected: ProjectedScene | null;
   readonly layout: ImageLayout | null;
 }
 
-const SKY = '#26394A';
-const SUN = '#F6E7A8';
-const TARGET = COLOURS.ink;
+// The image's colours are the same in every theme (theme/scene.ts); the outlines are constant roles.
+// Every paint is set in `style`, which resolves `var()`; a presentation attribute does not (Req 22.4).
+const SKY = SCENE_COLOURS.sky;
+const SUN = SCENE_COLOURS.sun;
+const TARGET = SCENE_COLOURS.target;
 
 export function SceneImage({ projected, layout }: SceneImageProps) {
   const width = layout?.elementWidthPx ?? 0;
@@ -34,7 +37,7 @@ export function SceneImage({ projected, layout }: SceneImageProps) {
           y={layout.topPx}
           width={layout.displayedWidthPx}
           height={layout.displayedHeightPx}
-          fill={SKY}
+          style={{ fill: SKY }}
         />
       )}
       {projected?.horizon != null && (
@@ -44,7 +47,7 @@ export function SceneImage({ projected, layout }: SceneImageProps) {
           y1={projected.horizon.a.yPx}
           x2={projected.horizon.b.xPx}
           y2={projected.horizon.b.yPx}
-          stroke={COLOURS.mapInk}
+          style={{ stroke: COLOURS.mapInk }}
           strokeWidth={2}
         />
       )}
@@ -60,22 +63,25 @@ export function SceneImage({ projected, layout }: SceneImageProps) {
             data-y-px={t.point.yPx}
           >
             {t.kind === 'sun' && t.radiusPx !== null ? (
-              <circle cx={t.point.xPx} cy={t.point.yPx} r={Math.max(t.radiusPx, 3)} fill={SUN} />
+              <circle
+                cx={t.point.xPx}
+                cy={t.point.yPx}
+                r={Math.max(t.radiusPx, 3)}
+                style={{ fill: SUN }}
+              />
             ) : (
               <path
                 d={`M ${t.point.xPx} ${t.point.yPx - 10} L ${t.point.xPx + 7} ${t.point.yPx + 6} L ${t.point.xPx - 7} ${t.point.yPx + 6} Z`}
-                fill={TARGET}
-                stroke={COLOURS.outline}
+                style={{ fill: TARGET, stroke: COLOURS.outline }}
                 strokeWidth={1}
               />
             )}
             <text
               x={t.point.xPx + 12}
               y={t.point.yPx + 4}
-              fill={TARGET}
               fontFamily={BODY_FONT_STACK}
               fontSize={SIZES.labelPx}
-              stroke={COLOURS.outline}
+              style={{ fill: TARGET, stroke: COLOURS.outline }}
               strokeWidth={0.5}
             >
               {t.label}

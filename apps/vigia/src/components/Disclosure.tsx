@@ -1,8 +1,7 @@
-// A disclosure: a `details` element, closed at first, with a summary that is a control of at least
-// 48 px (design D23). The summary says what is inside; what is inside is on the page, so that a
-// test and a reader of the markup find it.
+// A disclosure (design D23), now the UI's (skeleton-ui Req 22.9, D37.8): this file keeps Vigia's
+// framed look and its props until task 24.1 moves every caller to the UI's own.
 
-import { BODY_FONT_STACK, COLOURS, SIZES } from '@alidade/ui';
+import { BODY_FONT_STACK, Disclosure as UiDisclosure, SIZES } from '@alidade/ui';
 import type { ReactNode } from 'react';
 import { BODY_TEXT_PX } from './look';
 
@@ -15,37 +14,20 @@ export interface DisclosureProps {
 
 export function Disclosure({ summary, children, open = false, testId }: DisclosureProps) {
   return (
-    <details
-      {...(testId === undefined ? {} : { 'data-testid': testId })}
+    <UiDisclosure
+      summary={summary}
       open={open}
-      style={{ border: `1px solid ${COLOURS.rule}`, background: COLOURS.panel }}
+      framed
+      {...(testId === undefined ? {} : { testId })}
+      summaryStyle={{ fontFamily: BODY_FONT_STACK, fontSize: BODY_TEXT_PX, fontWeight: 700 }}
+      bodyStyle={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: SIZES.gapPx,
+        padding: `${SIZES.gapPx}px ${SIZES.gapPx * 1.5}px ${SIZES.gapPx * 1.5}px`,
+      }}
     >
-      <summary
-        style={{
-          minHeight: SIZES.touchPx,
-          boxSizing: 'border-box',
-          display: 'flex',
-          alignItems: 'center',
-          padding: `0 ${SIZES.gapPx * 1.5}px`,
-          fontFamily: BODY_FONT_STACK,
-          fontSize: BODY_TEXT_PX,
-          fontWeight: 700,
-          color: COLOURS.brass,
-          cursor: 'pointer',
-        }}
-      >
-        {summary}
-      </summary>
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: SIZES.gapPx,
-          padding: `${SIZES.gapPx}px ${SIZES.gapPx * 1.5}px ${SIZES.gapPx * 1.5}px`,
-        }}
-      >
-        {children}
-      </div>
-    </details>
+      {children}
+    </UiDisclosure>
   );
 }

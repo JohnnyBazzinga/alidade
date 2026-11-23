@@ -15,8 +15,10 @@ import {
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
+  applyTheme,
   browserCameraSurface,
   buildCatalogue,
+  instrument,
   checkTileSource,
   loadMapLibre,
   type TileSource,
@@ -56,6 +58,9 @@ const deps: PlaygroundDeps = {
   catalogue: buildCatalogue(),
   sensorOptions,
 };
+
+// The Playground's look is Instrument (Req 22.14): written on the root before the first render.
+applyTheme(document.documentElement, instrument);
 
 const root = document.getElementById('root');
 if (root !== null) {

@@ -13,6 +13,7 @@ import {
   BODY_FONT_STACK,
   COLOURS,
   HAIRLINE_MIN_RATIO,
+  INSTRUMENT_TOKENS,
   NUMERAL_STYLE,
   NUMERIC_FONT_STACK,
   MAP_FIX_COLOUR,
@@ -36,6 +37,9 @@ function belowMinimum(pairs: readonly PalettePair[]): string[] {
     .map((p) => p.label);
 }
 
+/** Instrument's values: the components write roles (Req 22.2), the pairs are measured on these. */
+const T = INSTRUMENT_TOKENS;
+
 describe('the palette (Req 13.2, 13.11, design §7.18)', () => {
   it('holds 7:1 for every pair', () => {
     expect(belowMinimum(PALETTE_PAIRS)).toEqual([]);
@@ -44,16 +48,16 @@ describe('the palette (Req 13.2, 13.11, design §7.18)', () => {
   it('fails when a pair below 7:1 is added', () => {
     const bad: PalettePair = {
       label: 'rule on raised',
-      foreground: COLOURS.rule,
-      background: COLOURS.raised,
+      foreground: T.rule,
+      background: T.raised,
     };
     expect(belowMinimum([...PALETTE_PAIRS, bad])).toEqual(['rule on raised']);
   });
 
   it('gives the ratios of design §7.18 to two decimals', () => {
-    expect(ratio(COLOURS.ink, COLOURS.bg).toFixed(2)).toBe('15.69');
-    expect(ratio(COLOURS.inkDim, COLOURS.raised).toFixed(2)).toBe('7.56');
-    expect(ratio(COLOURS.rule, COLOURS.raised).toFixed(2)).toBe('3.42');
+    expect(ratio(T.ink, T.bg).toFixed(2)).toBe('15.69');
+    expect(ratio(T.inkDim, T.raised).toFixed(2)).toBe('7.56');
+    expect(ratio(T.rule, T.raised).toFixed(2)).toBe('3.42');
   });
 
   // Task 31 continued (Req 15.2): the map's attribution is the map's dark ink on its light ink.
@@ -61,23 +65,26 @@ describe('the palette (Req 13.2, 13.11, design §7.18)', () => {
     const pair = PALETTE_PAIRS.find((p) => p.label === 'outline on mapInk (map attribution)');
     expect(pair).toEqual({
       label: 'outline on mapInk (map attribution)',
-      foreground: COLOURS.outline,
-      background: COLOURS.mapInk,
+      foreground: T.outline,
+      background: T.mapInk,
     });
-    expect(ratio(COLOURS.outline, COLOURS.mapInk)).toBeGreaterThanOrEqual(MIN_CONTRAST_RATIO);
+    expect(ratio(T.outline, T.mapInk)).toBeGreaterThanOrEqual(MIN_CONTRAST_RATIO);
   });
 
   it('holds the hairline to 3:1 against every surface', () => {
-    for (const surface of [COLOURS.bg, COLOURS.panel, COLOURS.raised]) {
-      expect(ratio(COLOURS.rule, surface)).toBeGreaterThanOrEqual(HAIRLINE_MIN_RATIO);
+    for (const surface of [T.bg, T.panel, T.raised]) {
+      expect(ratio(T.rule, surface)).toBeGreaterThanOrEqual(HAIRLINE_MIN_RATIO);
     }
   });
 
   it('uses the map tokens of the Math layer (design D27.16)', () => {
-    expect(COLOURS.outline).toBe(MAP_DARK);
-    expect(COLOURS.mapInk).toBe(MAP_LIGHT);
-    expect(COLOURS.brass).toBe(MAP_FIX);
-    expect(MAP_FIX_COLOUR).toBe(COLOURS.brass);
+    expect(T.outline).toBe(MAP_DARK);
+    expect(T.mapInk).toBe(MAP_LIGHT);
+    expect(T.brass).toBe(MAP_FIX);
+    expect(MAP_FIX_COLOUR).toBe(T.brass);
+    // Req 22.2: the component writes the role; Instrument's value of the role is the map's token.
+    expect(COLOURS.outline).toBe('var(--alidade-reticleOutline)');
+    expect(COLOURS.mapInk).toBe('var(--alidade-mapInk)');
   });
 
   it('keeps the sizes of Req 13 and 19', () => {
@@ -150,7 +157,21 @@ describe('the two font stacks (Req 13.4, D36)', () => {
   });
 
   it('lowers no size, colour or contrast (values typed here, not read from the theme)', () => {
+    // Req 22.2 (task 35.3): today's tokens are aliases of roles; Instrument keeps today's values.
     expect(COLOURS).toEqual({
+      bg: 'var(--alidade-bg)',
+      panel: 'var(--alidade-card)',
+      raised: 'var(--alidade-raised)',
+      ink: 'var(--alidade-ink)',
+      inkDim: 'var(--alidade-inkDim)',
+      brass: 'var(--alidade-primary)',
+      brassInk: 'var(--alidade-primaryInk)',
+      alert: 'var(--alidade-warnInk)',
+      outline: 'var(--alidade-reticleOutline)',
+      mapInk: 'var(--alidade-mapInk)',
+      rule: 'var(--alidade-rule)',
+    });
+    expect(INSTRUMENT_TOKENS).toEqual({
       bg: '#0C0F12',
       panel: '#141A1F',
       raised: '#1D252C',

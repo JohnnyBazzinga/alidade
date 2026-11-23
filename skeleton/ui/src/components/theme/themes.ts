@@ -29,6 +29,11 @@ export interface Theme {
     readonly illustrated: boolean;
     /** Whether it draws a shadow. */
     readonly elevated: boolean;
+    /**
+     * Whether a status is drawn as a card: the tone's tint, a bar of 4, the tone's icon, a bold
+     * headline and the instruction at 16 (Req 22.13). Instrument draws today's block instead.
+     */
+    readonly cards: boolean;
   };
 }
 
@@ -160,7 +165,7 @@ export const instrument: Theme = {
     imageRadiusPx: 0,
     shadow: null,
   },
-  flags: { illustrated: false, elevated: false },
+  flags: { illustrated: false, elevated: false, cards: false },
 };
 
 export const field: Theme = {
@@ -174,7 +179,7 @@ export const field: Theme = {
     imageRadiusPx: 16,
     shadow: '0 1px 2px rgba(14,30,51,.06), 0 4px 14px rgba(14,30,51,.08)',
   },
-  flags: { illustrated: true, elevated: true },
+  flags: { illustrated: true, elevated: true, cards: true },
 };
 
 export const fieldNight: Theme = {
@@ -188,7 +193,7 @@ export const fieldNight: Theme = {
     imageRadiusPx: 16,
     shadow: null,
   },
-  flags: { illustrated: true, elevated: false },
+  flags: { illustrated: true, elevated: false, cards: true },
 };
 
 export const THEMES: readonly Theme[] = [instrument, field, fieldNight];

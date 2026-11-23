@@ -9,17 +9,14 @@ import {
   PRIMARY_CONTROL_HEIGHT_PX,
   SPACING_PX,
 } from '../defaults';
-import { MAP_DARK, MAP_FIX, MAP_LIGHT } from '../math/map/map-style';
+import { MAP_FIX } from '../math/map/map-style';
 import type { Rgb } from '../math/contrast';
 import { ROLES, roleVar, type Role } from './theme/roles';
 import { instrument } from './theme/themes';
 
 const I = instrument.colours;
 
-/**
- * Instrument's value of each token (hex): what the pairs of the palette are measured on.
- */
-/** Instrument's value of each token: what the pairs of the palette are measured on. */
+/** Instrument's value of each token (hex): what the pairs of the palette are measured on. */
 export const INSTRUMENT_TOKENS = {
   bg: I.bg,
   panel: I.card,
@@ -117,10 +114,18 @@ export const PALETTE_PAIRS: readonly PalettePair[] = [
       background: INSTRUMENT_TOKENS[bg],
     })),
   ),
-  { label: 'brassInk on brass', foreground: INSTRUMENT_TOKENS.brassInk, background: INSTRUMENT_TOKENS.brass },
+  {
+    label: 'brassInk on brass',
+    foreground: INSTRUMENT_TOKENS.brassInk,
+    background: INSTRUMENT_TOKENS.brass,
+  },
   { label: 'brass on black', foreground: INSTRUMENT_TOKENS.brass, background: BLACK },
   { label: 'outline on white', foreground: INSTRUMENT_TOKENS.outline, background: WHITE },
-  { label: 'outline on brass', foreground: INSTRUMENT_TOKENS.outline, background: INSTRUMENT_TOKENS.brass },
+  {
+    label: 'outline on brass',
+    foreground: INSTRUMENT_TOKENS.outline,
+    background: INSTRUMENT_TOKENS.brass,
+  },
   { label: 'mapInk on black', foreground: INSTRUMENT_TOKENS.mapInk, background: BLACK },
   // The map's attribution (Req 15.2, task 31): `math/map/attribution-style.ts` uses this pair.
   {

@@ -7,6 +7,7 @@ import { formatAzimuthDeg, formatSignedDeg } from '../math/display-format';
 import { messageFor } from '../math/messages';
 import type { LiveReadout } from '../math/session/session';
 import { BODY_FONT_STACK, COLOURS, NUMERAL_STYLE, NUMERIC_FONT_STACK, SIZES } from './theme';
+import { Disclosure } from './Disclosure';
 import { FailureNotice } from './FailureNotice';
 
 const STEADINESS_TEXT = {
@@ -44,19 +45,9 @@ export function Readout({ readout, compact = false, kind = 'bearing', children }
       return (
         <div data-testid="readout" style={box}>
           <p style={{ margin: 0 }}>No readings yet.</p>
-          <details data-part="details">
-            <summary
-              style={{
-                minHeight: SIZES.touchPx,
-                display: 'flex',
-                alignItems: 'center',
-                color: COLOURS.brass,
-              }}
-            >
-              Details
-            </summary>
+          <Disclosure summary="Details" part="details">
             {children}
-          </details>
+          </Disclosure>
         </div>
       );
     }
@@ -74,19 +65,9 @@ export function Readout({ readout, compact = false, kind = 'bearing', children }
       ? 'shake not measured'
       : `shake ±${formatSignedDeg(readout.azimuthSpreadRad, 2)}° in azimuth, ±${formatSignedDeg(readout.altitudeStdDevRad, 2)}° in altitude`;
   const detailsBox = (inner: ReactNode) => (
-    <details data-part="details" style={{ marginTop: SIZES.gapPx / 2 }}>
-      <summary
-        style={{
-          minHeight: SIZES.touchPx,
-          display: 'flex',
-          alignItems: 'center',
-          color: COLOURS.brass,
-        }}
-      >
-        Details
-      </summary>
+    <Disclosure summary="Details" part="details" style={{ marginTop: SIZES.gapPx / 2 }}>
       {inner}
-    </details>
+    </Disclosure>
   );
   if (compact) return compactReadout(readout, box, kind, detailsBox, children);
   const staleMessage = readout.stale ? messageFor({ ok: false, reason: 'stale_samples' }) : null;

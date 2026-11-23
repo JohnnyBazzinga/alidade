@@ -9,7 +9,8 @@ function fakeMatchMedia(initial: boolean) {
   const queries: string[] = [];
   const mql = {
     matches: initial,
-    addEventListener: (_type: string, l: (e: { matches: boolean }) => void) => void listeners.add(l),
+    addEventListener: (_type: string, l: (e: { matches: boolean }) => void) =>
+      void listeners.add(l),
     removeEventListener: (_type: string, l: (e: { matches: boolean }) => void) =>
       void listeners.delete(l),
   };

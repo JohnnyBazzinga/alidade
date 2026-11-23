@@ -7,6 +7,7 @@
 import { useState } from 'react';
 import {
   checkCalibration,
+  COLOURS,
   FailureNotice,
   parseDegrees,
   type CameraCalibration,
@@ -50,9 +51,9 @@ const field = {
   width: '100%',
   fontSize: 20,
   fontFamily: 'inherit',
-  background: '#0C0F12',
-  color: '#ECE8DC',
-  border: '1px solid #6A7884',
+  background: COLOURS.bg,
+  color: COLOURS.ink,
+  border: `1px solid ${COLOURS.rule}`,
   borderRadius: 0,
 } as const;
 const button = {
@@ -61,9 +62,9 @@ const button = {
   minWidth: 48,
   fontSize: 20,
   fontFamily: 'inherit',
-  background: '#1D252C',
-  color: '#ECE8DC',
-  border: '1px solid #6A7884',
+  background: COLOURS.raised,
+  color: COLOURS.ink,
+  border: `1px solid ${COLOURS.rule}`,
   borderRadius: 0,
   padding: '0 16px',
 } as const;
@@ -137,7 +138,7 @@ export function CalibrationForm({
         display: 'flex',
         flexDirection: 'column',
         gap: 8,
-        border: '1px solid #6A7884',
+        border: `1px solid ${COLOURS.rule}`,
         fontSize: 20,
       }}
     >

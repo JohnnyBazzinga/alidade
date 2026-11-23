@@ -6,11 +6,17 @@ import { describe, expect, it } from 'vitest';
 /** The colour literals in a source text, comments left out. */
 export function findColourLiterals(source: string): string[] {
   const code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\/\/.*$/gm, '$1');
-  return code.match(/#[0-9a-fA-F]{8}\b|#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{3}\b|\brgba?\(|\bhsla?\(/g) ?? [];
+  return (
+    code.match(/#[0-9a-fA-F]{8}\b|#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{3}\b|\brgba?\(|\bhsla?\(/g) ?? []
+  );
 }
 
-const SOURCES = {
-  ...import.meta.glob<string>('../../**/*.{ts,tsx}', { query: '?raw', import: 'default', eager: true }),
+const GLOBBED = {
+  ...import.meta.glob<string>('../../**/*.{ts,tsx}', {
+    query: '?raw',
+    import: 'default',
+    eager: true,
+  }),
   ...import.meta.glob<string>('../../../playground/**/*.{ts,tsx}', {
     query: '?raw',
     import: 'default',
@@ -18,13 +24,29 @@ const SOURCES = {
   }),
 };
 
+/** The glob's keys are relative to this file (`../Reticle.tsx`); the path in the package is not. */
+const SOURCES: Record<string, string> = Object.fromEntries(
+  Object.entries(GLOBBED).map(([key, source]) => [new URL(key, import.meta.url).pathname, source]),
+);
+
 /** The files that may hold a colour: the theme's own, and the map's constants (Req 22.6). */
-const ALLOWED = [/\/components\/theme\//, /\/components\/theme\.ts$/, /\/math\/map\/map-style\.ts$/];
+const ALLOWED = [
+  /\/components\/theme\//,
+  /\/components\/theme\.ts$/,
+  /\/math\/map\/map-style\.ts$/,
+];
 const isTest = (path: string) => /\.test\.tsx?$/.test(path) || /\/test-support\//.test(path);
 
 describe('findColourLiterals', () => {
   it('finds a #rgb, a #rrggbb, a #rrggbbaa, rgb( , rgba( and hsl(', () => {
-    for (const sample of ["color: '#fff'", "x = '#0C0F12'", "'#0C0F1280'", 'rgb(1, 2, 3)', 'rgba(0,0,0,.5)', 'hsl(1 2% 3%)']) {
+    for (const sample of [
+      "color: '#fff'",
+      "x = '#0C0F12'",
+      "'#0C0F1280'",
+      'rgb(1, 2, 3)',
+      'rgba(0,0,0,.5)',
+      'hsl(1 2% 3%)',
+    ]) {
       expect(findColourLiterals(sample), sample).toHaveLength(1);
     }
   });

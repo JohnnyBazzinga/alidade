@@ -46,6 +46,7 @@ import { FailureNotice } from './FailureNotice';
 import { ImageSurface, type AimGesture } from './ImageSurface';
 import { KnownAzimuthForm } from './KnownAzimuthForm';
 import { LimitsNote } from './LimitsNote';
+import { Disclosure } from './Disclosure';
 import { Readout } from './Readout';
 import { BODY_FONT_STACK, COLOURS, SIZES } from './theme';
 import { YawStatusBar } from './YawStatusBar';
@@ -407,21 +408,15 @@ export function SightingScreen(props: SightingScreenProps) {
           )}
           {frozen && frozenHint}
           {frozen && (
-            <details data-part="details" style={{ padding: `0 ${SIZES.gapPx}px` }}>
-              <summary
-                style={{
-                  ...text,
-                  padding: 0,
-                  minHeight: SIZES.touchPx,
-                  display: 'flex',
-                  alignItems: 'center',
-                }}
-              >
-                Details
-              </summary>
+            <Disclosure
+              summary="Details"
+              part="details"
+              style={{ padding: `0 ${SIZES.gapPx}px` }}
+              summaryStyle={{ ...text, padding: 0 }}
+            >
               {bearing && !needsPrompt && yawBar(true)}
               {limits}
-            </details>
+            </Disclosure>
           )}
           {state === 'captured' && session.captured !== null && (
             <CaptureSummary result={session.captured} compact />

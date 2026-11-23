@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { COLOURS, NUMERIC_FONT_STACK, SIZES } from './index';
+import { NUMERIC_FONT_STACK, SIZES } from './index';
+// The page keeps Instrument's look, in hex: the components write roles (Req 22.2), a static page cannot.
+import { INSTRUMENT_TOKENS as COLOURS } from './components/theme';
 
 // The landing page of the published site, `site/index.html` at the repository root: one static
 // page, inline CSS, no script and no request. It uses this package's palette and font stack so

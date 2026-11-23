@@ -8,6 +8,7 @@
 
 import { formatAzimuthDeg, formatSignedDeg } from '../math/display-format';
 import type { CaptureNorth, CapturedResult } from '../math/session/session';
+import { Disclosure } from './Disclosure';
 import { LimitsNote } from './LimitsNote';
 import { BODY_FONT_STACK, COLOURS, NUMERAL_STYLE, NUMERIC_FONT_STACK, SIZES } from './theme';
 
@@ -85,20 +86,10 @@ export function CaptureSummary({
         {headline}
       </p>
       {compact ? (
-        <details>
-          <summary
-            style={{
-              minHeight: SIZES.touchPx,
-              display: 'flex',
-              alignItems: 'center',
-              color: COLOURS.brass,
-            }}
-          >
-            Why this accuracy?
-          </summary>
+        <Disclosure summary="Why this accuracy?">
           {madeOf}
           <LimitsNote />
-        </details>
+        </Disclosure>
       ) : (
         <>
           {madeOf}

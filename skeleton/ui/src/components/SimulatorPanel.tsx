@@ -40,6 +40,7 @@ import { FailureNotice } from './FailureNotice';
 import type { AimGesture } from './ImageSurface';
 import { SceneImage } from './SceneImage';
 import { SightingScreen } from './SightingScreen';
+import { Disclosure } from './Disclosure';
 import { COLOURS, BODY_FONT_STACK, SIZES } from './theme';
 import type { Timer } from './timer';
 import { useSightingSession } from './use-sighting-session';
@@ -460,21 +461,20 @@ export function SimulatorPanel(props: SimulatorPanelProps) {
         {screen}
         {description}
         {truth}
-        <details data-testid="simulator-controls" style={{ padding: SIZES.gapPx }}>
-          <summary
-            style={{
-              ...labelStyle,
-              display: 'list-item',
-              minHeight: SIZES.touchPx,
-              lineHeight: `${SIZES.touchPx}px`,
-              cursor: 'pointer',
-            }}
-          >
-            Simulator controls
-          </summary>
+        <Disclosure
+          summary="Simulator controls"
+          testId="simulator-controls"
+          style={{ padding: SIZES.gapPx }}
+          summaryStyle={{
+            fontFamily: labelStyle.fontFamily,
+            fontSize: labelStyle.fontSize,
+            lineHeight: labelStyle.lineHeight,
+            color: labelStyle.color,
+          }}
+        >
           <div style={row}>{settings}</div>
           {clock}
-        </details>
+        </Disclosure>
         {props.children}
       </div>
     );

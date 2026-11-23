@@ -7,6 +7,7 @@
 import { wrapPi } from '@alidade/core';
 import { useState } from 'react';
 import {
+  COLOURS,
   eventRateHz,
   FailureNotice,
   formatAzimuthDeg,
@@ -63,7 +64,7 @@ export function Diagnostics({
       style={{
         fontSize: 20,
         padding: 8,
-        background: '#141A1F',
+        background: COLOURS.panel,
         fontVariantNumeric: 'tabular-nums',
       }}
     >
@@ -108,9 +109,9 @@ export function Diagnostics({
           style={{
             height: 48,
             fontSize: 20,
-            background: '#0C0F12',
-            color: '#ECE8DC',
-            border: '1px solid #6A7884',
+            background: COLOURS.bg,
+            color: COLOURS.ink,
+            border: `1px solid ${COLOURS.rule}`,
           }}
           inputMode="decimal"
           value={secondText}

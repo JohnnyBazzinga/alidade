@@ -163,7 +163,8 @@ describe('sending the link (Req 10.1)', () => {
 describe('the QR view (Req 10.6, 10.7)', () => {
   it('is a view of its own: the QR as an inline SVG, one line, the link as text, Back', async () => {
     const s = open(postsIncident(['west', 'east']));
-    expect(s.container.querySelector('svg')).toBeNull();
+    // No QR before it is asked for (an icon, skeleton-ui Req 22.8, is not a picture: role img only).
+    expect(s.container.querySelector('svg[role="img"]')).toBeNull();
     await s.settle(() => fireEvent.click(s.getByRole('button', { name: QR })));
     const view = s.getByTestId('qr-view');
     expect(view.querySelector('svg')).not.toBeNull();

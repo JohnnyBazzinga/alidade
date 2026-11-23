@@ -3,6 +3,7 @@
 // as text beside it for a phone whose camera does not read QR codes. No image element, no canvas,
 // no remote source. The brightness of the screen is left to the user.
 
+import { activeTheme } from '@alidade/ui';
 import { useMemo } from 'react';
 import type { QrMatrix } from '../adapters/qr-encoder';
 import { LOOK } from './look';
@@ -10,8 +11,10 @@ import { LOOK } from './look';
 /** The quiet zone of the QR standard: four modules on each side. */
 export const QUIET_ZONE_MODULES = 4;
 
-const DARK = '#000000';
-const LIGHT = '#FFFFFF';
+// Black on white in every theme: `qrDark` and `qrLight` are roles that no theme changes (skeleton-ui
+// Req 22.2), so their resolved values may stand in the SVG's attributes and need no redraw.
+const DARK = activeTheme().colours.qrDark;
+const LIGHT = activeTheme().colours.qrLight;
 
 export function QrImage({ matrix, link }: { readonly matrix: QrMatrix; readonly link: string }) {
   const side = matrix.size + 2 * QUIET_ZONE_MODULES;

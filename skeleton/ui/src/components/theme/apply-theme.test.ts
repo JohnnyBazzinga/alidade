@@ -66,7 +66,9 @@ describe('applyTheme (Req 22.4)', () => {
 
   it('activeTheme() is Instrument until one is applied, then the last applied', async () => {
     const { applyTheme, activeTheme } = await fresh();
-    expect(activeTheme()).toBe(instrument);
+    // A fresh module graph holds its own Instrument object: compare the theme, not the object.
+    expect(activeTheme().id).toBe('instrument');
+    expect(activeTheme()).toEqual(instrument);
     applyTheme(root, field);
     expect(activeTheme()).toBe(field);
     applyTheme(root, fieldNight);

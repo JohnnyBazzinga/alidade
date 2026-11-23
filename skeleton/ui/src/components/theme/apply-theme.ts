@@ -24,7 +24,8 @@ function fillOf(gradient: readonly [string, string] | null, flat: string): strin
 }
 
 export function applyTheme(root: ThemeRoot, theme: Theme): void {
-  const set = (name: string, value: string) => root.style.setProperty(`${CSS_VAR_PREFIX}${name}`, value);
+  const set = (name: string, value: string) =>
+    root.style.setProperty(`${CSS_VAR_PREFIX}${name}`, value);
   for (const role of ROLES) set(role, theme.colours[role]);
   set('card-radius', px(theme.shapes.cardRadiusPx));
   set('button-radius', px(theme.shapes.buttonRadiusPx));
@@ -50,9 +51,5 @@ export function onThemeChange(listener: (theme: Theme) => void): () => void {
 
 /** The active theme, for a part that needs resolved values; it is drawn again on a change. */
 export function useActiveTheme(): Theme {
-  return useSyncExternalStore(
-    (notify) => onThemeChange(notify),
-    activeTheme,
-    activeTheme,
-  );
+  return useSyncExternalStore((notify) => onThemeChange(notify), activeTheme, activeTheme);
 }

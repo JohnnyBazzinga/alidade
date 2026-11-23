@@ -71,9 +71,11 @@ const SOURCES = [
   'src/components/CameraImage.tsx',
   'src/components/CaptureSummary.tsx',
   'src/components/DeviceSighting.tsx',
+  'src/components/Disclosure.tsx',
   'src/components/ControlBar.tsx',
   'src/components/FailureNotice.tsx',
   'src/components/FixSummary.tsx',
+  'src/components/Icon.tsx',
   'src/components/ImageSurface.tsx',
   'src/components/KnownAzimuthForm.tsx',
   'src/components/LimitsNote.tsx',
@@ -84,10 +86,17 @@ const SOURCES = [
   'src/components/SceneImage.tsx',
   'src/components/SightingScreen.tsx',
   'src/components/SimulatorPanel.tsx',
+  'src/components/StatusCard.tsx',
   'src/components/YawStatusBar.tsx',
   'src/components/dom-size.ts',
   'src/components/session-driver.ts',
   'src/components/theme.ts',
+  'src/components/theme/apply-theme.ts',
+  'src/components/theme/colour-scheme.ts',
+  'src/components/theme/palette.ts',
+  'src/components/theme/roles.ts',
+  'src/components/theme/scene.ts',
+  'src/components/theme/themes.ts',
   'src/components/timer.ts',
   'src/components/use-sighting-session.ts',
   'src/defaults.ts',
@@ -413,9 +422,17 @@ describe('packaging (Req 1.1, 1.7, 20.1, 20.5)', () => {
     exports: Record<string, string>;
   };
 
-  it('depends at run time on exactly the five packages, Core and Sensors as workspace:*', () => {
+  // Req 20.7 (2026-11-22): `lucide-react` is the sixth, the one icon source (design §3, D37.6).
+  it('depends at run time on exactly the six packages, Core and Sensors as workspace:*', () => {
     expect(Object.keys(pkg.dependencies).sort()).toEqual(
-      ['@alidade/core', '@alidade/sensors', 'maplibre-gl', 'react', 'react-dom'].sort(),
+      [
+        '@alidade/core',
+        '@alidade/sensors',
+        'lucide-react',
+        'maplibre-gl',
+        'react',
+        'react-dom',
+      ].sort(),
     );
     expect(pkg.dependencies['@alidade/core']).toBe('workspace:*');
     expect(pkg.dependencies['@alidade/sensors']).toBe('workspace:*');

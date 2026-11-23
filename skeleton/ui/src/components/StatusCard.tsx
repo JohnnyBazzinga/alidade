@@ -1,0 +1,162 @@
+// The status card (Req 22.13, design D37.7): how every component draws a status (a Message, the Yaw
+// status, a warning). In a theme with `cards` (Field, Field night): the tone's tint, a bar of 4 in
+// the tone's bright colour, the tone's icon in its icon colour (3:1), the headline in the tone's ink
+// (7:1), bold, at 20, and the rest in ink at 16. In Instrument: today's block, the card's colour
+// with a rule of 3 in the alert colour and every line at 20; Instrument's tints are the card's
+// colour and its bars the alert colour, so the same roles give it. Every colour is a role.
+
+import type { CSSProperties, ReactNode } from 'react';
+import { BODY_FONT_STACK, ROLE_VARS, SIZES } from './theme';
+import { useActiveTheme } from './theme/apply-theme';
+import type { ThemedRole } from './theme/roles';
+import { Icon, type IconName } from './Icon';
+
+export type StatusTone = 'warning' | 'danger' | 'success' | 'info';
+
+/** The icon of each tone (D37.6). */
+export const TONE_ICONS: Readonly<Record<StatusTone, IconName>> = {
+  warning: 'warning',
+  danger: 'danger',
+  success: 'success',
+  info: 'info',
+};
+
+const PREFIX: Readonly<Record<StatusTone, 'warn' | 'danger' | 'ok' | 'info'>> = {
+  warning: 'warn',
+  danger: 'danger',
+  success: 'ok',
+  info: 'info',
+};
+
+/** The role of a tone's tint, bar, icon or ink. */
+export function toneRole(tone: StatusTone, part: 'Tint' | 'Bar' | 'Icon' | 'Ink'): string {
+  return ROLE_VARS[`${PREFIX[tone]}${part}` as ThemedRole];
+}
+
+/** The instruction's size in a card (Req 13.4: body text). */
+export const STATUS_BODY_PX = 16;
+
+export interface StatusCardProps {
+  readonly tone: StatusTone;
+  /** The first sentence: what happened, or the state. */
+  readonly headline: ReactNode;
+  /** The rest: what to do. */
+  readonly children?: ReactNode;
+  /** The tone's icon unless another is named. */
+  readonly icon?: IconName;
+  readonly role?: 'alert' | 'status';
+  readonly testId?: string;
+  /** `data-*` attributes of the card, without the prefix. */
+  readonly data?: Readonly<Record<string, string>>;
+  /** The headline's colour where it is not the tone's ink (a role). */
+  readonly headlineColour?: string;
+  /** The rest's colour where it is not `ink` (a role). */
+  readonly bodyColour?: string;
+  /** Extra layout of the card (a line height, a margin); never a colour. */
+  readonly style?: CSSProperties;
+  /** Vertical padding of 8, for a card in the docked bar (D37.11); else 12. */
+  readonly tight?: boolean;
+}
+
+export function StatusCard({
+  tone,
+  headline,
+  children,
+  icon,
+  role,
+  testId,
+  data,
+  headlineColour,
+  bodyColour,
+  style,
+  tight = false,
+}: StatusCardProps) {
+  const cards = useActiveTheme().flags.cards;
+  const attributes = {
+    ...(role === undefined ? {} : { role }),
+    ...(testId === undefined ? {} : { 'data-testid': testId }),
+    ...Object.fromEntries(Object.entries(data ?? {}).map(([k, v]) => [`data-${k}`, v])),
+  };
+  const headColour = headlineColour ?? toneRole(tone, 'Ink');
+  const restColour = bodyColour ?? ROLE_VARS.ink;
+  const hasBody = children !== undefined && children !== null && children !== false;
+  // A sentence is a paragraph, as it was before Req 22.13; anything else is a block.
+  const Body = typeof children === 'string' ? 'p' : 'div';
+
+  if (!cards) {
+    // Instrument: today's block (FailureNotice and YawStatusBar before Req 22.13).
+    return (
+      <div
+        {...attributes}
+        style={{
+          background: toneRole(tone, 'Tint'),
+          borderLeft: `3px solid ${toneRole(tone, 'Bar')}`,
+          padding: SIZES.gapPx,
+          fontFamily: BODY_FONT_STACK,
+          fontSize: SIZES.labelPx,
+          ...style,
+        }}
+      >
+        <p data-part="headline" style={{ margin: 0, color: headColour }}>
+          {headline}
+        </p>
+        {hasBody && (
+          <Body data-part="body" style={{ margin: 0, color: restColour }}>
+            {children}
+          </Body>
+        )}
+      </div>
+    );
+  }
+
+  const padY = tight ? SIZES.gapPx : 12;
+  return (
+    <div
+      {...attributes}
+      style={{
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: 10,
+        background: toneRole(tone, 'Tint'),
+        borderLeft: `4px solid ${toneRole(tone, 'Bar')}`,
+        borderRadius: 'var(--alidade-button-radius)',
+        padding: `${padY}px 12px`,
+        fontFamily: BODY_FONT_STACK,
+        ...style,
+      }}
+    >
+      <span
+        style={{
+          display: 'flex',
+          color: toneRole(tone, 'Icon'),
+          // The icon's centre on the headline's first line (20 at a line height of 1.25).
+          paddingTop: 1,
+        }}
+      >
+        <Icon name={icon ?? TONE_ICONS[tone]} />
+      </span>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+        <p
+          data-part="headline"
+          style={{
+            margin: 0,
+            color: headColour,
+            fontWeight: 700,
+            fontSize: SIZES.labelPx,
+            lineHeight: 1.25,
+          }}
+        >
+          {headline}
+        </p>
+        {hasBody && (
+          <Body
+            data-part="body"
+            style={{ margin: 0, color: restColour, fontSize: STATUS_BODY_PX, lineHeight: 1.35 }}
+          >
+            {children}
+          </Body>
+        )}
+      </div>
+    </div>
+  );
+}
