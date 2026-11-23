@@ -102,11 +102,12 @@ position); keep it stable between renders. The Playground is built on it.
 
 ### The docked layout, for a phone
 
-`layout="docked"` (default `flow`) makes the screen a column of `100dvh`: your `top` row (a Back
-button), a middle part that alone scrolls (your `aim` line at its top, the camera taking the
-height that is left, the compact readout, "Details", "Other ways to set north", your `extra`
-rows), and the docked bar as the last row, with the current action, the north prompt and the
-current refusal, and the safe-area inset at the bottom of the screen added to its padding. **Your part:** give the
+`layout="docked"` (default `flow`) makes the screen a column of `100dvh`: a middle part that
+alone scrolls (your `aim` line at its top, the camera taking the height that is left, the compact
+readout, "Details", "Other ways to set north", your `extra` rows), and the docked bar as the last
+row, with the current action (your `back`, if you give one, beside it, except while frozen), the
+north prompt and the current refusal, and the safe-area inset at the bottom of the screen added to
+its padding. **Your part:** give the
 screen a parent with no padding in which it is the whole of the screen; with any padding the
 page scrolls. The Playground, the Simulator panel and any caller that does not ask for `docked`
 keep the flow layout.

@@ -71,8 +71,8 @@ export interface SightingScreenProps {
   readonly imageLabel?: string;
   /**
    * `flow` (the default): every part in the page's normal flow, as tall as its content. `docked`
-   * (Req 13.15): a column of `100dvh` with the caller's `top` row, a middle part that alone
-   * scrolls, and the bar as its last row. The caller gives the column a parent with no padding.
+   * (Req 13.15): a column of `100dvh`: a middle part that alone scrolls, and the bar as its last
+   * row. The caller gives the column a parent with no padding.
    */
   readonly layout?: SightingLayout;
   /**
@@ -81,8 +81,12 @@ export interface SightingScreenProps {
    * 1-sigma is valid passes `true`, so that the tap is refused with `calibration_missing`.
    */
   readonly tapsEnabled?: boolean;
-  /** Docked: a row above the middle part (Vigia: Back). */
-  readonly top?: ReactNode;
+  /**
+   * Docked: the way out of the screen (Vigia: Back, task 36), first in the bar's first row with a
+   * chevron-left, as wide as its words, beside the current action. Not while frozen, where "Back to
+   * live" is the way back: a "Back" beside it would be the one tap that drops the frozen image.
+   */
+  readonly back?: { readonly label: string; readonly onPress: () => void };
   /** Docked: the aiming line, at the top of the middle part, in place of the screen's own hint. */
   readonly aim?: ReactNode;
   /** Docked: rows at the end of the middle part. */
@@ -372,7 +376,6 @@ export function SightingScreen(props: SightingScreenProps) {
           data-view="other-ways"
           style={root}
         >
-          {props.top}
           <div data-part="middle" style={middleStyle}>
             <div
               style={{
@@ -467,7 +470,6 @@ export function SightingScreen(props: SightingScreenProps) {
     );
     return (
       <div data-testid="sighting-screen" data-state={state} data-layout="docked" style={root}>
-        {props.top}
         <div data-part="middle" style={middleStyle}>
           {props.aim ?? (state === 'live' ? liveHint : null)}
           {state === 'permission' && props.intro === undefined && (
@@ -529,7 +531,20 @@ export function SightingScreen(props: SightingScreenProps) {
           )}
           {props.extra}
         </div>
-        <DockedBar text={hasBarText ? barText : null} controls={controls} />
+        <DockedBar
+          text={hasBarText ? barText : null}
+          controls={controls}
+          {...(props.back === undefined || frozen
+            ? {}
+            : {
+                back: {
+                  id: 'back',
+                  label: props.back.label,
+                  onPress: props.back.onPress,
+                  icon: 'chevron-left',
+                },
+              })}
+        />
       </div>
     );
   }

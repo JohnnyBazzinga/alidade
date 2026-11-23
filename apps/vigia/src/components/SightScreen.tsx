@@ -1,6 +1,6 @@
 // The Sight screen (design §9, D23; Req 3.1, 3.3, 3.7, 3.10, 4.2, 4.3, 4.11, 16.2). On a phone it is
-// UI's sighting screen through UI's `DeviceSighting` in the docked layout: Back, the aiming line
-// and "How to aim", the camera, the compact readout, and a bar at the foot with the current action;
+// UI's sighting screen through UI's `DeviceSighting` in the docked layout: the aiming line and "How
+// to aim", the camera, the compact readout, and a bar at the foot with Back beside the current action;
 // with no Camera calibration and no tap sigma, so the sighting is along the crosshair and the image
 // takes no taps (Req 3.3). In Simulation mode the shell renders the Simulator's source in the flow
 // layout. The capture itself is the skeleton's: Vigia reimplements none of it (Req 3.1).
@@ -160,15 +160,6 @@ export function SightScreen({
     );
   }
 
-  const back = (
-    <div style={{ padding: `${SIZES.gapPx}px ${SIZES.gapPx}px 0` }}>
-      <button type="button" onClick={onBack} style={LOOK.button}>
-        <Icon name="chevron-left" />
-        Back
-      </button>
-    </div>
-  );
-
   if (source.kind === 'device') {
     return (
       <section data-testid="sight-screen" style={{ display: 'block' }}>
@@ -181,7 +172,7 @@ export function SightScreen({
           tapSigmaPx={NO_TAP_SIGMA_PX}
           onSession={onSession}
           layout="docked"
-          top={back}
+          back={{ label: 'Back', onPress: onBack }}
           aim={<GuidanceBlock windShown={windShown} />}
           intro={<HowToCards />}
           idleImage={<IdleScene />}

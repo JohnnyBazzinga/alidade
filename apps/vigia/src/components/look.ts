@@ -1,5 +1,5 @@
 // The look of Vigia's screens (design §9, D25.2, D25.8): roles and shapes of the theme the app
-// applies (Field by day, Field night in dark mode), never a colour, so that the 7:1 contrast of
+// applies (Field, Req 22.3 as amended 2026-11-23), never a colour, so that the 7:1 contrast of
 // every text holds by the skeleton's own test of each theme's palette. Styles are inline objects
 // built here, so that a component test can read them (jsdom does no layout).
 //
@@ -137,7 +137,7 @@ export const LOOK = {
     borderRadius: SHAPE.cardRadius,
     boxShadow: SHAPE.shadow,
   } satisfies CSSProperties,
-  /** A card (D25.2): the card colour, its radius, Field's shadow or Field night's border. */
+  /** A card (D25.2): the card colour, its radius, its edge and the theme's shadow. */
   card: {
     display: 'flex',
     flexDirection: 'column',

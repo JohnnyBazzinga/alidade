@@ -40,7 +40,7 @@ function relativeScript(): SimulatorScript {
   });
 }
 
-/** A row the caller gives, sized as Vigia sizes it: a 48 px control and an 8 px gap. */
+/** The aiming row the caller gives, sized as Vigia's is counted: a 48 px row and an 8 px gap. */
 const ROW = { minHeight: 48, margin: '0 0 8px' } as const;
 
 function total(session: Session, widthPx: number, heightPx: number) {
@@ -57,7 +57,7 @@ function total(session: Session, widthPx: number, heightPx: number) {
       observe={fakeObserver({ widthPx, heightPx }).observe}
       renderImage={() => <div />}
       layout="docked"
-      top={<div data-row="top" style={ROW} />}
+      back={{ label: 'Back', onPress: vi.fn() }}
       aim={<div data-row="aim" style={ROW} />}
     />,
   );
@@ -90,8 +90,8 @@ function total(session: Session, widthPx: number, heightPx: number) {
     else if (el.tagName === 'BUTTON') add('other ways (below the fold)', 0);
     else throw new Error(`a row of the middle part is not counted: ${el.outerHTML.slice(0, 100)}`);
   }
-  const top = screen.firstElementChild as HTMLElement;
-  if (top.dataset.row === 'top') add('top', px(top.style.minHeight) + px(top.style.marginBottom));
+  // Nothing lies above the middle part: the app's Back is in the bar (task 36).
+  expect(screen.firstElementChild).toBe(middle);
 
   const bar = screen.lastElementChild as HTMLElement;
   const gap = px(bar.style.gap);
@@ -99,7 +99,11 @@ function total(session: Session, widthPx: number, heightPx: number) {
   const textPart = bar.querySelector<HTMLElement>('[data-part="bar-text"]');
   const controlsPart = bar.querySelector<HTMLElement>('[data-part="bar-controls"]');
   const rows: HTMLElement[][] = [];
-  if (controlsPart !== null) {
+  const barRows = controlsPart?.querySelectorAll<HTMLElement>('[data-part="bar-row"]') ?? [];
+  if (barRows.length > 0) {
+    // With Back: its row of one line (no wrap), then the rest; each as tall as its tallest.
+    for (const r of barRows) rows.push([...r.querySelectorAll<HTMLElement>('button')]);
+  } else if (controlsPart !== null) {
     const buttons = [...controlsPart.querySelectorAll<HTMLElement>('button')];
     for (const b of buttons.filter((b) => b.dataset.primary === 'true')) rows.push([b]);
     const others = buttons.filter((b) => b.dataset.primary !== 'true');
@@ -116,7 +120,9 @@ function total(session: Session, widthPx: number, heightPx: number) {
         : cap,
     );
   }
-  for (const row of rows) pieces.push(Math.max(...row.map((b) => px(b.style.height))));
+  for (const row of rows) {
+    pieces.push(Math.max(...row.map((b) => Math.max(px(b.style.height), px(b.style.minHeight)))));
+  }
   barHeight += pieces.reduce((a, b) => a + b, 0) + gap * Math.max(0, pieces.length - 1);
   add('bar', barHeight);
   const sum = Object.values(parts).reduce((a, b) => a + b, 0);

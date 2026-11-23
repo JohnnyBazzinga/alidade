@@ -51,8 +51,8 @@ export interface DeviceSightingProps {
   readonly observe?: ObserveElementSize;
   /** `flow` (default) or `docked` (Req 13.15); passed to the screen with the three slots below. */
   readonly layout?: SightingLayout;
-  /** Docked: a row above the middle part (an app's Back). */
-  readonly top?: ReactNode;
+  /** Docked: the way out, first in the bar beside the current action (an app's Back). */
+  readonly back?: { readonly label: string; readonly onPress: () => void };
   /** Docked: the aiming line, at the top of the middle part. */
   readonly aim?: ReactNode;
   /** Docked: rows at the end of the middle part. */
@@ -138,7 +138,7 @@ export function DeviceSighting(props: DeviceSightingProps) {
       tapsEnabled={props.calibration !== null}
       observe={props.observe}
       {...(props.layout === undefined ? {} : { layout: props.layout })}
-      {...(props.top === undefined ? {} : { top: props.top })}
+      {...(props.back === undefined ? {} : { back: props.back })}
       {...(props.aim === undefined ? {} : { aim: props.aim })}
       {...(props.extra === undefined ? {} : { extra: props.extra })}
       {...(props.idleImage === undefined ? {} : { idleImage: props.idleImage })}

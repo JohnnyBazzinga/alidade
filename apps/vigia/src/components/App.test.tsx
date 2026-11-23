@@ -341,12 +341,13 @@ describe('the header by route (Req 22.2)', () => {
     expect(['', 'static']).toContain((header(utils) as HTMLElement).style.position);
   });
 
-  it('is none on the docked Sight screen, whose first child is still its top row', () => {
+  it('is none on the Sight screen, whose first control is Back', () => {
+    // The fake's sighting source is the flow layout; the docked bar's Back is
+    // sight-first-screen.test.tsx's.
     const utils = mount();
     utils.tap('Sight the smoke');
     expect(utils.getByTestId('sight-screen')).toBeTruthy();
     expect(header(utils)).toBeNull();
-    // The main column's first row is the screen's own, with Back.
     const main = utils.getByTestId('app-main');
     expect(main.querySelector('button')?.textContent).toMatch(/Back/);
   });

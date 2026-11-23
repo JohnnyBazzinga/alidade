@@ -140,9 +140,8 @@ function build(): void {
   const scenes = smokeScenes();
   if (!scenes.ok) throw new Error('the scenes could not be built');
 
-  // Field by day, Field night in dark mode, switched while the app is open (Req 22.3, D25.8).
-  const stopTheme = chooseTheme(document.documentElement, (query) => window.matchMedia(query));
-  window.addEventListener('pagehide', stopTheme, { once: true });
+  // Field, whatever the phone's colour scheme (Req 22.3 as amended 2026-11-23, D25.8).
+  chooseTheme(document.documentElement);
   createRoot(root).render(
     <Root
       startMode={initialMode({

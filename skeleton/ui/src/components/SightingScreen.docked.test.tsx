@@ -15,6 +15,7 @@ import {
   run,
   sessionInState,
 } from '../test-support/session-fixtures';
+import { wrappedLines } from '../test-support/wrapped-lines';
 import { SightingScreen, type SightingScreenProps } from './SightingScreen';
 
 const STATES: readonly SessionStateKind[] = [
@@ -118,18 +119,120 @@ describe('the docked layout is a column of the screen’s height (Req 13.15)', (
     }
   });
 
-  it('puts the caller’s rows where design D35.1 says: top first, aim first in the middle, extra last', () => {
+  it('puts the caller’s rows where design D35.1 says: aim first in the middle, extra last', () => {
     const { screen } = renderDocked(sessionInState('live', 'bearing').session, {
-      top: <div data-testid="top-row">Back</div>,
       aim: <div data-testid="aim-row">Aim at the base of the smoke</div>,
       extra: <div data-testid="extra-row">Extra</div>,
     });
     const middle = screen.querySelector('[data-part="middle"]') as HTMLElement;
-    expect(screen.firstElementChild?.getAttribute('data-testid')).toBe('top-row');
+    // Nothing above the middle part (task 36: the app's Back is in the bar).
+    expect(screen.firstElementChild).toBe(middle);
     expect(middle.firstElementChild?.getAttribute('data-testid')).toBe('aim-row');
     expect(middle.lastElementChild?.getAttribute('data-testid')).toBe('extra-row');
     // The screen's own hint is replaced by the aim row.
     expect(screen.querySelector('[data-part="hint"]')).toBeNull();
+  });
+});
+
+describe('the way back is first in the bar, beside the current action (task 36)', () => {
+  const withBack = (session: Session) => {
+    const onBack = vi.fn();
+    const r = renderDocked(session, { back: { label: 'Back', onPress: onBack } });
+    return { ...r, onBack };
+  };
+
+  it('is the first control, in the row of the action, in every state but frozen', () => {
+    const expected: Partial<Record<SessionStateKind, readonly string[]>> = {
+      permission: ['back', 'start'],
+      starting: ['back'],
+      live: ['back', 'freeze'],
+      captured: ['back', 'again'],
+      failed: ['back', 'restart'],
+    };
+    for (const [state, ids] of Object.entries(expected)) {
+      const r = withBack(sessionInState(state as SessionStateKind, 'bearing').session);
+      expect(r.controls(), state).toEqual(ids);
+      const rows = [...r.bar().querySelectorAll<HTMLElement>('[data-part="bar-row"]')];
+      expect(rows, state).toHaveLength(1);
+      expect(
+        [...(rows[0] as HTMLElement).children].map((c) => (c as HTMLElement).dataset.control),
+        state,
+      ).toEqual(ids);
+      expect((rows[0] as HTMLElement).style.flexWrap, state).toBe('nowrap');
+      r.unmount();
+    }
+    const north = withBack(liveSession('bearing', relativeScript()).session);
+    expect(north.controls()).toEqual(['back', 'north-compass']);
+  });
+
+  it('is not shown while frozen: "Back to live" is the way back there', () => {
+    const r = withBack(sessionInState('frozen', 'bearing').session);
+    expect(r.controls()).toEqual(['capture', 'unfreeze']);
+    expect(r.queryByRole('button', { name: 'Back' })).toBeNull();
+  });
+
+  it('is as wide as its words and as tall as the action; the action takes the rest', () => {
+    const start = withBack(sessionInState('permission', 'bearing').session);
+    const back = start.getByRole('button', { name: 'Back' });
+    const action = start.bar().querySelector<HTMLElement>('[data-control="start"]') as HTMLElement;
+    expect(back.style.flex).toBe('0 0 auto');
+    expect(back.style.minHeight).toBe('64px');
+    expect(back.dataset.primary).toBe('false');
+    expect(action.style.flex).toBe('1 1 0px');
+    expect(action.style.minHeight).toBe('64px');
+    expect(action.dataset.primary).toBe('true');
+    expect(Number.parseFloat(back.style.minWidth)).toBeGreaterThanOrEqual(48);
+    start.unmount();
+    const again = withBack(sessionInState('captured', 'bearing').session);
+    expect(again.getByRole('button', { name: 'Back' }).style.minHeight).toBe('48px');
+  });
+
+  it('leaves the north control two lines at 375 and 390 by the 0.63 em bound, so the row stays 64', () => {
+    const r = withBack(liveSession('bearing', relativeScript()).session);
+    const back = r.getByRole('button', { name: 'Back' });
+    const north = r
+      .bar()
+      .querySelector<HTMLElement>('[data-control="north-compass"]') as HTMLElement;
+    const px = (v: string) => Number.parseFloat(v) || 0;
+    const sides = (el: HTMLElement) => px(el.style.paddingLeft) + px(el.style.paddingRight) + 2;
+    const gap = px(north.style.gap);
+    // Back: its padding and border, its icon (24, pulled in by its margins) and its word at 0.63 em.
+    const icon = back.firstElementChild as SVGElement;
+    const backPx =
+      sides(back) +
+      24 +
+      px(icon.style.marginLeft) +
+      px(icon.style.marginRight) +
+      'Back'.length * 0.63 * 20;
+    for (const widthPx of [375, 390]) {
+      const barInner = widthPx - px(r.bar().style.paddingLeft) - px(r.bar().style.paddingRight);
+      // About a fifth of the row (the lead's "tipo 20%"), a quarter at most by the upper bound.
+      expect(backPx / barInner, `${widthPx}`).toBeLessThanOrEqual(0.25);
+      const textPx = barInner - backPx - 8 - sides(north) - 24 - gap;
+      const lines = wrappedLines(north.textContent ?? '', textPx, 20);
+      expect(lines, `${widthPx}`).toBeLessThanOrEqual(2);
+      expect(
+        lines * 20 * Number(north.style.lineHeight) + px(north.style.paddingTop) * 2,
+      ).toBeLessThanOrEqual(64);
+    }
+  });
+
+  it('begins with a chevron-left, hidden from assistive technology, and keeps its word', () => {
+    const r = withBack(sessionInState('permission', 'bearing').session);
+    const back = r.getByRole('button', { name: 'Back' });
+    const icon = back.firstElementChild as Element;
+    expect(icon.getAttribute('data-icon')).toBe('chevron-left');
+    expect(icon.getAttribute('aria-hidden')).toBe('true');
+    expect(back.textContent).toBe('Back');
+    fireEvent.click(back);
+    expect(r.onBack).toHaveBeenCalledTimes(1);
+    expect(r.onAction).not.toHaveBeenCalled();
+  });
+
+  it('is absent when the caller gives none, and the bar is as before', () => {
+    const r = renderDocked(sessionInState('permission', 'bearing').session);
+    expect(r.controls()).toEqual(['start']);
+    expect(r.bar().querySelector('[data-part="bar-row"]')).toBeNull();
   });
 });
 

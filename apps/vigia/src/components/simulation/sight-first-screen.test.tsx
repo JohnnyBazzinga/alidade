@@ -273,10 +273,9 @@ function dockedTotal(screen: HTMLElement, widthPx: number, heightPx: number) {
       vertical(el)
     );
   };
-  const top = screen.firstElementChild as HTMLElement;
-  const back = top.querySelector('button') as HTMLElement;
-  add('top (Back)', px(back.style.minHeight) + vertical(top));
   const middle = screen.querySelector('[data-part="middle"]') as HTMLElement;
+  // Nothing above the middle part: Back is in the bar, beside the action (task 36).
+  expect(screen.firstElementChild).toBe(middle);
   for (const child of middle.children) {
     const el = child as HTMLElement;
     if (el.dataset.testid === 'guidance') add('aim', aimHeight(el, widthPx));
@@ -304,11 +303,17 @@ function dockedTotal(screen: HTMLElement, widthPx: number, heightPx: number) {
         : (px(text.style.maxHeight) / 100) * heightPx,
     );
   }
-  const buttons = [...bar.querySelectorAll<HTMLElement>('[data-part="bar-controls"] button')];
-  for (const b of buttons.filter((b) => b.dataset.primary === 'true'))
-    pieces.push(px(b.style.height));
-  const others = buttons.filter((b) => b.dataset.primary !== 'true');
-  if (others.length > 0) pieces.push(Math.max(...others.map((b) => px(b.style.height))));
+  const tall = (b: HTMLElement) => Math.max(px(b.style.height), px(b.style.minHeight));
+  const rows = [...bar.querySelectorAll<HTMLElement>('[data-part="bar-row"]')];
+  if (rows.length > 0) {
+    // Back's row (one line, no wrap) and any after it, each as tall as its tallest control.
+    for (const r of rows) pieces.push(Math.max(...[...r.querySelectorAll('button')].map(tall)));
+  } else {
+    const buttons = [...bar.querySelectorAll<HTMLElement>('[data-part="bar-controls"] button')];
+    for (const b of buttons.filter((b) => b.dataset.primary === 'true')) pieces.push(tall(b));
+    const others = buttons.filter((b) => b.dataset.primary !== 'true');
+    if (others.length > 0) pieces.push(Math.max(...others.map(tall)));
+  }
   add(
     'bar',
     px(bar.style.paddingTop) +
@@ -346,15 +351,19 @@ describe('the Sight screen on a phone is the docked column (Req 3.10, UI 13.15)'
     }
   }
 
-  it('is one column: Back, the middle part, the bar last', async () => {
+  it('is one column: the middle part, then the bar with Back beside Start (task 36)', async () => {
     const m = mountDeviceSight({});
     await m.settle();
     const screen = m.getByTestId('sighting-screen');
-    expect((screen.firstElementChild as HTMLElement).querySelector('button')?.textContent).toBe(
+    expect(screen.children).toHaveLength(2);
+    expect(screen.firstElementChild?.getAttribute('data-part')).toBe('middle');
+    const bar = screen.lastElementChild as HTMLElement;
+    expect(bar.getAttribute('data-testid')).toBe('control-bar');
+    const row = bar.querySelector('[data-part="bar-row"]') as HTMLElement;
+    expect([...row.querySelectorAll('button')].map((b) => b.textContent)).toEqual([
       'Back',
-    );
-    expect(screen.children[1]?.getAttribute('data-part')).toBe('middle');
-    expect(screen.lastElementChild?.getAttribute('data-testid')).toBe('control-bar');
+      'Start',
+    ]);
     expect(screen.style.height).toBe('100dvh');
   });
 });
