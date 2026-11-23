@@ -33,6 +33,9 @@ describe('the Smoke tab as cards (Req 22.6)', () => {
     expect(p.textContent).toBe(NOT_CALLING_TEXT);
     expect(icon(p)).toBe('shield');
     expect(p.style.color).toBe('var(--alidade-dangerInk)');
+    // Its first sentence is the headline, bold; the rest is the instruction, not bold.
+    expect(p.querySelector('strong')?.textContent).toBe('This app does not call or notify anyone.');
+    expect(p.style.fontWeight).not.toBe('700');
     const card = p.parentElement as HTMLElement;
     expect(card.style.background).toBe('var(--alidade-dangerTint)');
     expect(card.style.borderLeft).toBe('4px solid var(--alidade-dangerBar)');

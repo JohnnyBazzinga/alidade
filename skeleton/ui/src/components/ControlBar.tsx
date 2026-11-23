@@ -34,6 +34,7 @@ export function controlStyle(primary: boolean) {
     borderRadius: 'var(--alidade-button-radius)',
     border: `1px solid ${primary ? ROLE_VARS.primary : ROLE_VARS.ruleStrong}`,
     background: primary ? 'var(--alidade-primary-fill)' : ROLE_VARS.raised,
+    boxShadow: primary ? 'var(--alidade-shadow)' : 'none',
     color: primary ? ROLE_VARS.primaryInk : ROLE_VARS.ink,
     flex: primary ? '1 1 100%' : '1 1 auto',
   } as const;

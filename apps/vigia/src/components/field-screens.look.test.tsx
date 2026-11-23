@@ -35,6 +35,10 @@ describe('the Sightings tab (Req 22.7)', () => {
     expect(row.querySelector('[data-part="bearing"]')?.textContent).toMatch(
       /^Toward .* \(true north\)$/,
     );
+    // Compact: the rows of a card 8 apart (Codex, 2026-11-23).
+    expect(
+      (row.querySelector('[data-part="head"]')?.nextElementSibling as HTMLElement).style.gap,
+    ).toBe('8px');
   });
 
   it('icon rows for the accuracy and the time; Used as a badge with its icon and word', () => {
@@ -119,6 +123,9 @@ describe('Emergency, the delete dialog and the privacy page (Req 22.10)', () => 
     const first = s.getByTestId('emergency-screen').firstElementChild as HTMLElement;
     expect(first.style.background).toBe('var(--alidade-dangerTint)');
     expect(icon(first)).toBe('shield');
+    expect(first.querySelector('strong')?.textContent).toBe(
+      'This app does not call or notify anyone.',
+    );
     expect(icon(s.getByRole('button', { name: /^Copy the/ }))).toBe('copy');
     const text = s.getByTestId('emergency-screen').querySelector('pre') as HTMLElement;
     expect(text.style.userSelect).toBe('text');

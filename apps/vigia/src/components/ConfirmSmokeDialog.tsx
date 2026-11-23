@@ -10,7 +10,7 @@ import type { VigiaFailure } from '../result';
 import { BEARING_LABEL, QUESTION_TITLE, TWO_SMOKES_TEXT, UNCERTAINTY_LABEL } from '../math/texts';
 import { FailureNotice } from './FailureNotice';
 import { useHeader } from './header-context';
-import { LOOK } from './look';
+import { LOOK, SHAPE } from './look';
 import { useOpenAtTop } from './use-open-at-top';
 
 export type SmokeAnswer = 'same' | 'new';
@@ -40,7 +40,7 @@ export function ConfirmSmokeDialog({
       onClick={() => onAnswer(which)}
       style={LOOK.optionButton}
     >
-      <span style={LOOK.iconTile}>
+      <span style={LOOK.optionIcon}>
         <Icon name={icon} />
       </span>
       {words}
@@ -67,12 +67,33 @@ export function ConfirmSmokeDialog({
       </div>
       {bearing !== null && direction !== null && direction.ok && (
         <section data-testid="bearing-card" style={LOOK.card}>
-          <div style={{ display: 'flex', gap: SIZES.gapPx * 2, flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: '1 1 auto' }}>
+          {/* The two values side by side on one tinted band, a rule between them. */}
+          <div
+            data-part="values"
+            style={{
+              display: 'flex',
+              flexWrap: 'nowrap',
+              padding: '12px 0',
+              background: ROLE_VARS.infoTint,
+              borderRadius: SHAPE.buttonRadius,
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 2,
+                flex: '1 1 auto',
+                padding: '0 14px',
+              }}
+            >
               <span data-part="bearing-label" style={label}>
                 {BEARING_LABEL}
               </span>
-              <span data-part="bearing-value" style={{ ...LOOK.readout, fontWeight: 700 }}>
+              <span
+                data-part="bearing-value"
+                style={{ ...LOOK.readout, fontWeight: 700, whiteSpace: 'nowrap' }}
+              >
                 <Icon
                   name="navigation"
                   style={{
@@ -85,11 +106,28 @@ export function ConfirmSmokeDialog({
                 {direction.value.split(' ± ')[0]} true
               </span>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: '1 1 auto' }}>
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 2,
+                flex: '0 1 auto',
+                minWidth: 0,
+                padding: '0 14px',
+                borderLeft: `1px solid ${ROLE_VARS.rule}`,
+              }}
+            >
               <span data-part="sigma-label" style={label}>
-                {UNCERTAINTY_LABEL}
+                {/* Never broken inside "(1-sigma)": the label wraps at its space only. */}
+                {UNCERTAINTY_LABEL.slice(0, UNCERTAINTY_LABEL.lastIndexOf(' '))}{' '}
+                <span style={{ whiteSpace: 'nowrap' }}>
+                  {UNCERTAINTY_LABEL.slice(UNCERTAINTY_LABEL.lastIndexOf(' ') + 1)}
+                </span>
               </span>
-              <span data-part="sigma-value" style={{ ...LOOK.readout, fontWeight: 700 }}>
+              <span
+                data-part="sigma-value"
+                style={{ ...LOOK.readout, fontWeight: 700, whiteSpace: 'nowrap' }}
+              >
                 {sigmaHeadlineText(bearing.azimuthSigmaRad)}
               </span>
             </div>

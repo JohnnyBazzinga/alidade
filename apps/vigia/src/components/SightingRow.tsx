@@ -74,7 +74,7 @@ export function SightingRow(props: SightingRowProps) {
           style={{ ...LOOK.title, fontSize: SIZES.labelPx }}
         >{`Sighting ${number}, ${origin}`}</h3>
       </div>
-      <div style={{ ...LOOK.stack, gap: SIZES.gapPx * 1.5, padding: 16 }}>
+      <div style={{ ...LOOK.stack, gap: SIZES.gapPx, padding: '12px 16px 16px' }}>
         {direction.ok ? (
           <p
             data-part="bearing"
@@ -101,13 +101,13 @@ export function SightingRow(props: SightingRowProps) {
           <FailureNotice failure={direction} />
         )}
         {accuracy.ok ? (
-          <IconRow icon="pin">
+          <IconRow icon="pin" tilePx={32}>
             <p style={LOOK.text}>Observer position known to {accuracy.value}</p>
           </IconRow>
         ) : (
           <FailureNotice failure={accuracy} />
         )}
-        <IconRow icon="clock">
+        <IconRow icon="clock" tilePx={32}>
           <p style={LOOK.text}>
             Taken {clockTextUtc(bearing.timeUtcMs)}, {ageText(nowUtcMs - bearing.timeUtcMs)}
           </p>

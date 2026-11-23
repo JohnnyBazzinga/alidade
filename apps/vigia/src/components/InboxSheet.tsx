@@ -133,7 +133,7 @@ function Card({
               onClick={() => onConfirm({ kind: 'join', code: item.code })}
               style={LOOK.optionButton}
             >
-              <span style={LOOK.iconTile}>
+              <span style={LOOK.optionIcon}>
                 <Icon name="smoke" />
               </span>
               It is the same smoke as the one I have open
@@ -143,7 +143,7 @@ function Card({
               onClick={() => onConfirm({ kind: 'open', code: item.code })}
               style={LOOK.optionButton}
             >
-              <span style={LOOK.iconTile}>
+              <span style={LOOK.optionIcon}>
                 <Icon name="pins" />
               </span>
               It is a different smoke

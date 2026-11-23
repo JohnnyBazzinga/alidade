@@ -180,7 +180,9 @@ describe('ImageSurface, the camera’s frame (Req 22.10)', () => {
       const lengths = arms.map((a) => [a.style.width, a.style.height].sort().join(' '));
       expect(lengths).toEqual(['24px 3px', '24px 3px']);
       for (const a of arms) {
-        expect(a.style.background).toBe('var(--alidade-reticleCore)');
+        // Light over a dark outline (amended 2026-11-23, Codex's comparison with the references):
+        // the crosshair is the one gold mark on the image.
+        expect(a.style.background).toBe('var(--alidade-mapInk)');
         expect(a.style.boxShadow).toBe('0 0 0 1px var(--alidade-reticleOutline)');
       }
     }

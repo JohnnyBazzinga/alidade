@@ -190,8 +190,11 @@ export const LOOK = {
     boxSizing: 'border-box',
     minHeight: SIZES.primaryPx,
     padding: '8px 16px',
-    border: `2px solid ${ROLE_VARS.accent}`,
-    background: ROLE_VARS.card,
+    // A soft tint and a light edge (Codex's comparison with the references, 2026-11-23); the
+    // words and the icon say what it is.
+    border: `1px solid ${ROLE_VARS.rule}`,
+    background: ROLE_VARS.infoTint,
+    boxShadow: SHAPE.shadow,
     color: ROLE_VARS.ink,
     fontWeight: 700,
     textAlign: 'start',
@@ -208,6 +211,18 @@ export const LOOK = {
     background: ROLE_VARS.infoTint,
     color: ROLE_VARS.infoIcon,
   } satisfies CSSProperties,
+  /** The icon tile of an option button: the card colour on the button's tint. */
+  optionIcon: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: '0 0 auto',
+    width: 40,
+    height: 40,
+    borderRadius: SHAPE.badgeRadius,
+    background: ROLE_VARS.card,
+    color: ROLE_VARS.infoIcon,
+  } satisfies CSSProperties,
   /** The screen's one primary action (design §9: at least 64 px tall). */
   primaryButton: {
     ...buttonBase,
@@ -216,6 +231,7 @@ export const LOOK = {
     width: '100%',
     border: `1px solid ${ROLE_VARS.primary}`,
     background: SHAPE.primaryFill,
+    boxShadow: SHAPE.shadow,
     color: ROLE_VARS.primaryInk,
     fontWeight: 700,
   } satisfies CSSProperties,

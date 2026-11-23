@@ -78,11 +78,12 @@ describe('LOOK, from roles (Req 22.4, D25.2)', () => {
     expect(LOOK.badge('success').borderRadius).toBe('var(--alidade-badge-radius)');
   });
 
-  it('an option button: at least 64, one style for every option, an outline that carries meaning', () => {
+  it('an option button: at least 64, one style for every option, a soft tint and a light edge', () => {
     expect(LOOK.optionButton.minHeight).toBe(64);
-    expect(LOOK.optionButton.border).toBe('2px solid var(--alidade-accent)');
-    expect(LOOK.optionButton.background).toBe('var(--alidade-card)');
+    expect(LOOK.optionButton.border).toBe('1px solid var(--alidade-rule)');
+    expect(LOOK.optionButton.background).toBe('var(--alidade-infoTint)');
     expect(LOOK.optionButton.color).toBe('var(--alidade-ink)');
+    expect(LOOK.optionButton.boxShadow).toBe('var(--alidade-shadow)');
   });
 
   it('an icon tile: a round tint behind an icon, never beside a numeral', () => {
@@ -95,6 +96,7 @@ describe('LOOK, from roles (Req 22.4, D25.2)', () => {
     expect(LOOK.primaryButton.background).toBe('var(--alidade-primary-fill)');
     expect(LOOK.primaryButton.color).toBe('var(--alidade-primaryInk)');
     expect(LOOK.primaryButton.borderRadius).toBe('var(--alidade-button-radius)');
+    expect(LOOK.primaryButton.boxShadow).toBe('var(--alidade-shadow)');
   });
 
   it('a title: bold at 22 in the body stack, in ink', () => {

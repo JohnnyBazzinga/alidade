@@ -8,6 +8,7 @@ import { BODY_FONT_STACK, ROLE_VARS } from '@alidade/ui';
 import { TAGLINE_TEXT } from '../../math/texts';
 import { SHAPE } from '../look';
 import { AppMark } from './AppMark';
+import { ART_COLOURS } from './art-colours';
 import { Landscape } from './Landscape';
 
 /** The heights of D25.4, which the header test counts from these styles. */
@@ -76,6 +77,7 @@ export function Header(props: HeaderProps) {
             {props.title}
           </h1>
         )}
+        {full && <HeaderPlume heightPx={HEADER.full.markPx} />}
       </div>
       {full && (
         <p
@@ -94,5 +96,47 @@ export function Header(props: HeaderProps) {
         <Landscape variant={props.variant} />
       </div>
     </header>
+  );
+}
+
+/**
+ * A column of smoke rising from a small fire, leaning with the wind, at the end of the title row
+ * (Codex's comparison with the references, 2026-11-23: the plume as the header's focal point). In
+ * the flow of the row, after the title, never over a word; decorative.
+ */
+function HeaderPlume({ heightPx }: { readonly heightPx: number }) {
+  return (
+    <svg
+      data-art="header-plume"
+      aria-hidden="true"
+      focusable="false"
+      width={heightPx * 1.75}
+      height={heightPx}
+      viewBox="0 0 56 32"
+      style={{ display: 'block', flex: '0 0 auto', marginLeft: 'auto' }}
+    >
+      <ellipse
+        cx="38"
+        cy="6"
+        rx="16"
+        ry="5"
+        style={{ fill: ART_COLOURS.plumeLight, opacity: 0.45 }}
+      />
+      <ellipse
+        cx="31"
+        cy="12"
+        rx="11"
+        ry="5"
+        style={{ fill: ART_COLOURS.plumeLight, opacity: 0.75 }}
+      />
+      <ellipse cx="25" cy="18" rx="7.5" ry="4.5" style={{ fill: ART_COLOURS.plumeLight }} />
+      <ellipse cx="21" cy="23" rx="4.5" ry="3" style={{ fill: ART_COLOURS.plumeDark }} />
+      <path d="M15 31 l3.5 -6 l2.5 3 l2.5 -5 l4 8 z" style={{ fill: ROLE_VARS.warnBar }} />
+      <path d="M18 31 l2.5 -3.5 l2.5 3.5 z" style={{ fill: ROLE_VARS.primary }} />
+      <path
+        d="M0 31.5 Q14 29 28 31 T56 30.5"
+        style={{ fill: 'none', stroke: ROLE_VARS.headerDim, strokeWidth: 1, opacity: 0.5 }}
+      />
+    </svg>
   );
 }

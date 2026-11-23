@@ -166,6 +166,12 @@ describe('the question with a smoke open is a view of its own (Req 4.3)', () => 
     );
     expect(card.querySelector('[data-part="sigma-value"]')?.textContent).toMatch(/^±\d+\.\d°$/);
     expect(card.querySelector('[data-part="bearing-label"]')?.textContent).toBe('Bearing');
+    // The two values side by side on one tinted band, a rule between them (Codex, 2026-11-23).
+    const band = card.querySelector<HTMLElement>('[data-part="values"]') as HTMLElement;
+    expect(band.style.background).toBe('var(--alidade-infoTint)');
+    expect((band.lastElementChild as HTMLElement).style.borderLeft).toBe(
+      '1px solid var(--alidade-rule)',
+    );
     expect(card.querySelector('[data-part="bearing-value"]')?.textContent).toMatch(
       /^\d+\.\d° true$/,
     );

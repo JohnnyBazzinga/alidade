@@ -51,6 +51,16 @@ describe('the full header (Req 22.2)', () => {
     expect(header.style.fontFamily).toBe(BODY_FONT_STACK);
   });
 
+  it('draws the plume of smoke at the end of the title row, in the flow, after the title (Codex, 2026-11-23)', () => {
+    const { getByTestId } = render(<Header variant="full" />);
+    const row = getByTestId('app-header').querySelector('[data-part="header-row"]') as HTMLElement;
+    const plume = row.querySelector<SVGElement>('[data-art="header-plume"]') as SVGElement;
+    expect(plume.getAttribute('aria-hidden')).toBe('true');
+    expect(row.lastElementChild).toBe(plume);
+    expect(plume.style.marginLeft).toBe('auto');
+    expect(Number(plume.getAttribute('height'))).toBeLessThanOrEqual(HEADER.full.markPx);
+  });
+
   it('is at most 112 high at the phone widths, by its styles', () => {
     for (const widthPx of [360, 375, 390, 430]) {
       expect(fullHeight(widthPx), `${widthPx}`).toBeLessThanOrEqual(HEADER.maxPx.full);

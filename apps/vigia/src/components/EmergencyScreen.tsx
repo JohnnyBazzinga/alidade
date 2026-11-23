@@ -14,7 +14,7 @@ import { emergencyText } from '../math/fix/emergency-text';
 import { EMERGENCY_NOT_CALLING_TEXT } from '../math/texts';
 import type { VigiaFailure } from '../result';
 import { COLOURS, Icon, ROLE_VARS, SIZES } from '@alidade/ui';
-import { InlineIcon } from './cards/parts';
+import { HeadlineFirst, InlineIcon } from './cards/parts';
 import { useEnvironment } from './environment';
 import { FailureNotice } from './FailureNotice';
 import { LOOK, SHAPE } from './look';
@@ -62,9 +62,9 @@ export function EmergencyScreen() {
     <section data-testid="emergency-screen" style={LOOK.stack}>
       {/* The danger card of Req 14.5, first (Req 22.10). */}
       <div style={LOOK.statusCard('danger')}>
-        <p style={{ ...LOOK.statement, fontWeight: 700, color: ROLE_VARS.dangerInk }}>
+        <p style={{ ...LOOK.statement, color: ROLE_VARS.dangerInk }}>
           <InlineIcon name="shield" colour={ROLE_VARS.dangerIcon} />
-          {EMERGENCY_NOT_CALLING_TEXT}
+          <HeadlineFirst text={EMERGENCY_NOT_CALLING_TEXT} />
         </p>
       </div>
       {open !== null && !open.assessment.ok && <FailureNotice failure={open.assessment} />}

@@ -226,7 +226,7 @@ export function ShareSheet({ sightingId, onClose, onPrivacy }: ShareSheetProps) 
             }}
             style={LOOK.optionButton}
           >
-            <span style={LOOK.iconTile}>
+            <span style={LOOK.optionIcon}>
               <Icon name="qr" />
             </span>
             {SHARE_QR_LABEL}
@@ -246,7 +246,7 @@ export function ShareSheet({ sightingId, onClose, onPrivacy }: ShareSheetProps) 
             }
             style={LOOK.optionButton}
           >
-            <span style={LOOK.iconTile}>
+            <span style={LOOK.optionIcon}>
               <Icon name="link" />
             </span>
             {SHARE_SEND_LABEL}
@@ -273,7 +273,7 @@ export function ShareSheet({ sightingId, onClose, onPrivacy }: ShareSheetProps) 
                 }}
                 style={LOOK.optionButton}
               >
-                <span style={LOOK.iconTile}>
+                <span style={LOOK.optionIcon}>
                   <Icon name="send" />
                 </span>
                 Send to {peer.label}

@@ -22,11 +22,14 @@ export function IconRow({
   children,
   testId,
   style,
+  tilePx = 40,
 }: {
   readonly icon: IconName;
   readonly children: ReactNode;
   readonly testId?: string;
   readonly style?: CSSProperties;
+  /** The round tint's side: 40, or 32 in a compact card. */
+  readonly tilePx?: number;
 }) {
   return (
     <div
@@ -34,7 +37,7 @@ export function IconRow({
       {...(testId === undefined ? {} : { 'data-testid': testId })}
       style={{ display: 'flex', alignItems: 'center', gap: SIZES.gapPx * 1.5, ...style }}
     >
-      <span style={LOOK.iconTile}>
+      <span style={{ ...LOOK.iconTile, width: tilePx, height: tilePx }}>
         <Icon name={icon} />
       </span>
       <div style={{ flex: '1 1 auto', minWidth: 0 }}>{children}</div>
@@ -60,5 +63,19 @@ export function NavRow({
       <span style={{ flex: '1 1 auto', minWidth: 0 }}>{children}</span>
       <Icon name="chevron-right" style={{ color: ROLE_VARS.inkDim }} />
     </button>
+  );
+}
+
+/**
+ * A statement whose first sentence is its headline (D25.2): the first sentence bold, a space, the
+ * rest in the same colour, not bold. The text is the statement's, word for word.
+ */
+export function HeadlineFirst({ text }: { readonly text: string }) {
+  const end = text.indexOf('. ');
+  if (end < 0) return <strong>{text}</strong>;
+  return (
+    <>
+      <strong>{text.slice(0, end + 1)}</strong> {text.slice(end + 2)}
+    </>
   );
 }

@@ -27,7 +27,7 @@ import { FailureNotice } from './FailureNotice';
 import { FixWordsView } from './FixWordsView';
 import { LimitsBlock } from './LimitsBlock';
 import { Icon, ROLE_VARS } from '@alidade/ui';
-import { IconRow, InlineIcon, NavRow } from './cards/parts';
+import { HeadlineFirst, IconRow, InlineIcon, NavRow } from './cards/parts';
 import { LOOK } from './look';
 import { PrimaryAction } from './PrimaryAction';
 import { useStore, useVigia, type OpenView, type OwnPosition } from './store';
@@ -238,10 +238,10 @@ export function SmokeScreen({
       <div style={LOOK.statusCard('danger')}>
         <p
           data-testid="not-calling"
-          style={{ ...LOOK.text, fontWeight: 700, lineHeight: 1.35, color: ROLE_VARS.dangerInk }}
+          style={{ ...LOOK.text, lineHeight: 1.35, color: ROLE_VARS.dangerInk }}
         >
           <InlineIcon name="shield" colour={ROLE_VARS.dangerIcon} />
-          {NOT_CALLING_TEXT}
+          <HeadlineFirst text={NOT_CALLING_TEXT} />
         </p>
       </div>
       {statusLine !== undefined && (

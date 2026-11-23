@@ -1,10 +1,9 @@
-// The header's landscape (Req 22.2, design D25.4): ridges, a tree line and, in the full header, a
-// small fire with its plume on the far ridge. Its last ridge is filled with the page's `bg`, so that
+// The header's landscape (Req 22.2, design D25.4): ridges and a tree line (the full header's plume
+// is at the end of its title row). Its last ridge is filled with the page's `bg`, so that
 // the header ends in the page with nothing lying over anything. Decorative: hidden from assistive
 // technology; every paint is a role (or the plume's grey) in `style`.
 
 import { ROLE_VARS } from '@alidade/ui';
-import { ART_COLOURS } from './art-colours';
 
 /** The strip's height in each header (D25.4). */
 export const LANDSCAPE_HEIGHT_PX = { full: 22, compact: 10 } as const;
@@ -60,26 +59,6 @@ export function Landscape({ variant }: { readonly variant: 'full' | 'compact' })
         d="M0 11 L40 6 L85 10 L130 3 L180 9 L230 4 L285 10 L335 5 L400 9 V22 H0 Z"
         style={{ fill: ROLE_VARS.headerDim, opacity: 0.28 }}
       />
-      {/* The fire on the far ridge and its plume, leaning with the wind. */}
-      <g data-art="plume">
-        <ellipse
-          cx="338"
-          cy="2.5"
-          rx="16"
-          ry="2.5"
-          style={{ fill: ART_COLOURS.plumeLight, opacity: 0.55 }}
-        />
-        <ellipse
-          cx="331"
-          cy="4.5"
-          rx="9"
-          ry="2.4"
-          style={{ fill: ART_COLOURS.plumeLight, opacity: 0.8 }}
-        />
-        <ellipse cx="327" cy="6.2" rx="5" ry="2" style={{ fill: ART_COLOURS.plumeDark }} />
-        <path d="M322 10 l3 -4 l1.5 2.5 l1.5 -3 l3 4.5 z" style={{ fill: ROLE_VARS.warnBar }} />
-        <path d="M324.5 10 l2 -2.5 l2 2.5 z" style={{ fill: ROLE_VARS.primary }} />
-      </g>
       <path
         d="M0 15 L55 10 L105 14 L160 9 L225 15 L280 10 L345 14 L400 11 V22 H0 Z"
         style={{ fill: ROLE_VARS.tabBar, opacity: 0.55 }}

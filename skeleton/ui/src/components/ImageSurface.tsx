@@ -158,7 +158,7 @@ const CORNERS: readonly Corner[] = ['tl', 'tr', 'bl', 'br'];
 
 /**
  * The camera's frame (Req 22.10): four corner brackets, each an L of two arms, a core in
- * `reticleCore` over a dark outline of 1 on each side in `reticleOutline`, the Reticle's constant
+ * `mapInk` (light) over a dark outline of 1 on each side in `reticleOutline`, constant
  * roles, so that they read on any image. Decorative: hidden from assistive technology, and never in
  * the way of a tap (`pointer-events: none`). The surface's `overflow: hidden` clips them, as it
  * clips the Reticle (Req 13.13's exception names them).
@@ -211,6 +211,7 @@ export function Brackets() {
 }
 
 const COLOURS_RETICLE = {
-  core: ROLE_VARS.reticleCore,
+  // Light, so that the crosshair is the one gold mark on the image (2026-11-23).
+  core: ROLE_VARS.mapInk,
   outline: ROLE_VARS.reticleOutline,
 } as const;
