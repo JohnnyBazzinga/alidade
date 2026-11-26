@@ -77,19 +77,19 @@ asked for: the solver is generic over measurement models, and Core ships only th
 
 ## How it was built with Kiro
 
-Counts below were made on commit 3af3440 from files in this repository.
+Counts below were made on 2026-11-26 from the files in this repository.
 
 - **Six specs** in `.kiro/specs/` (`sighting-core`, `skeleton-sensors`, `skeleton-ui`, `vigia`,
-  `nonius`, `kiro-tooling`), each with requirements, design and tasks: **88 requirements**
-  (`### Requirement` headings), **808 acceptance criteria** (numbered items under each
-  `#### Acceptance Criteria`), **111 task groups** and **367 sub-tasks** (checkbox lines in
+  `nonius`, `kiro-tooling`), each with requirements, design and tasks: **90 requirements**
+  (`### Requirement` headings), **853 acceptance criteria** (numbered items under each
+  `#### Acceptance Criteria`), **119 task groups** and **414 sub-tasks** (checkbox lines in
   `tasks.md`, top-level and indented).
 - **Five steering files** in `.kiro/steering/`: `math-conventions`, `product`, `structure`, `tech`,
   `testing`.
 - **164 named properties** in property-based tests (`fast-check`): the distinct `P-n.m` identifiers
   in the 76 `*.property.test.ts` files, counted once per package because numbering restarts in each
   (`grep -ohE "P-[0-9]+\.[0-9]+"`, then `sort -u`).
-- **5 889 tests** pass, 3 skipped, in 7 packages: the sum of the `Tests` lines of `pnpm test`.
+- **6 409 tests** pass, 3 skipped, in 7 packages: the sum of the `Tests` lines of `pnpm test`.
 - **The project agent** `.kiro/agents/alidade.json` loads the five steering files and the MCP
   server, denies reading and writing `notes/`, and denies `git commit`, `git push` and `pkill`. It
   has three hooks that run `tools/kiro-guard`: at session start it prints the branch, the last
@@ -107,7 +107,7 @@ Counts below were made on commit 3af3440 from files in this repository.
   `fix_from_bearings`, `magnetic_declination`, `local_offset`. It is registered in
   `.kiro/settings/mcp.json`.
 
-How the work was divided. Kiro (kiro-cli) wrote every spec, every line of code and every test in this repository, working task by task from the specs. An orchestrating agent, Claude Code, driven by the author, wrote the prompts to Kiro, reviewed each checkpoint independently (its own numerical experiments, screenshots of the built pages in a headless browser), amended requirements when a review found a gap, approved Kiro's commands through a filter, and made the commits. The author chose the idea, made the product decisions, and tested the skeleton's sighting flow on an iPhone: the three permissions, the camera with the crosshair, orientation at 60 Hz, three compass directions matching Apple's Compass app, a first real bearing captured, and the map drawn over OpenStreetMap. The two-phone Vigia flow and Nonius's Sun sights on real phones are still to be filmed.
+How the work was divided. Kiro (kiro-cli) wrote the six specs, and every line of code and every test up to Vigia's new look, working task by task from the specs. An orchestrating agent, Claude Code, driven by the author, wrote the prompts to Kiro, reviewed each checkpoint independently (its own numerical experiments, screenshots of the built pages in a headless browser), amended requirements when a review found a gap, approved Kiro's commands through a filter, and made the commits. Vigia's new look, Field (skeleton-ui task groups 35 and 36, Vigia task groups 24 to 26), is the exception: Kiro wrote its spec, did tasks 35.1 and 35.2 and began 35.3; when the Kiro account ran out of credits and more could not be bought in time, Claude Code wrote the rest from Kiro's spec, and each of those commits says so. Codex reviewed the specs, the phone flow and the look independently. The author chose the idea, made the product decisions, and tested the skeleton's sighting flow on an iPhone: the three permissions, the camera with the crosshair, orientation at 60 Hz, three compass directions matching Apple's Compass app, a first real bearing captured, and the map drawn over OpenStreetMap. The two-phone Vigia flow and Nonius's Sun sights on real phones are still to be filmed.
 
 ## Run it
 

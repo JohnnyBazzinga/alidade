@@ -123,8 +123,8 @@ codes). `FONT_STACK` no longer exists, so that each use is a decision.
 A look is a theme: plain data with a value for each role (`bg`, `card`, `ink`, `accent`, `primary`,
 the four status tones with their tint, ink, icon and bar, and so on), the shapes (radii and a
 shadow) and three flags. The package ships three: **Instrument** (dark slate and brass, square
-corners; Nonius and the Playground), **Field** (a light look with rounded cards; Vigia by day) and
-**Field night** (its dark counterpart). An application calls `applyTheme(document.documentElement,
+corners; Nonius and the Playground), **Field** (a light look with rounded cards; Vigia) and
+**Field night** (its dark counterpart, tested and applied by no app today). An application calls `applyTheme(document.documentElement,
 theme)` once at its start, and `watchColourScheme(window.matchMedia, (dark) => …)` if it wants a
 night theme. `applyTheme` writes every role as a CSS custom property (`--alidade-<role>`); every
 component writes the role's custom property in its inline styles, so a switch changes every component
