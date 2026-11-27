@@ -52,9 +52,10 @@ source folders with the current ones, leaving out the test files:
 git diff $(git log --format=%h --diff-filter=A -1 -- .kiro/specs/nonius/requirements.md) HEAD -- skeleton/core/src skeleton/sensors/src ':!*.test.ts'
 ```
 
-It prints nothing. The same diff without the last pathspec shows one change: four
-lines in `skeleton/core/src/observation.test.ts`, where the last commit replaced a real place in a
-test position with a synthetic one.
+It prints nothing. The same diff without the last pathspec shows only tests: four lines in
+`skeleton/core/src/observation.test.ts`, where a real place in a test position was replaced with a
+synthetic one, and two new files, `readme.test.ts` in Core and in Sensors, which check that every
+name their READMEs promise is exported.
 
 `skeleton/ui` gained two optional properties for Nonius: `kind` on `DeviceSighting` (what a session
 captures, `bearing` by default or `altitude`) and `hideSceneChooser` on `SimulatorPanel` (so the app
