@@ -157,6 +157,7 @@ export { observeElementSize, useElementSize } from './components/dom-size';
 export type { ObserveElementSize } from './components/dom-size';
 export {
   BODY_FONT_STACK,
+  DISPLAY_FONT_STACK,
   COLOURS,
   NUMERIC_FONT_STACK,
   PALETTE_PAIRS,
@@ -167,7 +168,23 @@ export type { PalettePair } from './components/theme';
 // Themes as data (Req 22, design D37): an application chooses its look; a component writes roles.
 export { ROLES, THEMED_ROLES, CONSTANT_ROLES, roleVar } from './components/theme/roles';
 export type { Role, ThemedRole, ConstantRole } from './components/theme/roles';
-export { instrument, field, fieldNight, THEMES } from './components/theme/themes';
+export {
+  DIAL_LENS_MAX_PX,
+  DIAL_LENS_MIN_PX,
+  DIAL_RESERVE_PX,
+  dialLensSize,
+} from './components/dial';
+export {
+  instrument,
+  field,
+  fieldNight,
+  mira,
+  THEMES,
+  SYSTEM_SANS,
+  SYSTEM_MONO,
+  MIRA_SANS,
+  MIRA_MONO,
+} from './components/theme/themes';
 export type { Theme, ThemeId } from './components/theme/themes';
 export {
   applyTheme,

@@ -1,22 +1,18 @@
-// The four tabs (design §9, Req 22.5): Smoke, Sightings, Map, Emergency, each with its icon above
-// its label. The App places the bar last in a
-// column whose middle scrolls, so it stays under the thumb without a fixed layer over the screen.
+// The four tabs (design §9, Req 22.5 as amended 2026-11-27): Smoke, Sightings, Map, Emergency,
+// each with its icon above its label, in Mira's bar: a dark pill of 62 that floats 16 from the
+// sides, the current tab in the yellow. The App places the bar last in a column whose middle
+// scrolls, so it stays under the thumb without a fixed layer over the screen.
 //
-// Each tab is as wide as its label, and the space left is shared (task 21.1): with four equal
-// shares "Sightings" and "Emergency" do not fit 320 CSS px at 16 px of monospace and broke inside
-// the word. A label is never wrapped; the Inbox badge sits under the Smoke label, so that it
-// widens nothing. `TabBar.test.tsx` checks the arithmetic at 320 px.
-
+// The four labels share the bar in equal parts; at Mira's 11 each fits a quarter of the bar from
+// 320 CSS px wide (the longest, "Emergency", is about 70 wide). A label is never wrapped; the Inbox
+// badge sits beside the Smoke icon, so that it widens nothing.
 import {
   BODY_FONT_STACK,
   Icon,
   ROLE_VARS,
-  SIZES,
-  useElementSize,
   type IconName,
   type ObserveElementSize,
 } from '@alidade/ui';
-import { useRef } from 'react';
 import { SHAPE } from './look';
 
 export type TabId = 'smoke' | 'sightings' | 'map' | 'emergency';
@@ -32,11 +28,10 @@ export const TABS: readonly {
   { id: 'emergency', label: 'Emergency', icon: 'siren' },
 ];
 
-/**
- * The labels are at 20 from a bar of this width and at 16 below it (Req 22.5): the four labels at
- * 20 need `349.8` CSS pixels at the `0.63 em` bound with a padding of 2 on each side.
- */
-export const LABEL_20_FROM_PX = 360;
+/** The labels' size (Mira: 11). */
+export const TAB_LABEL_PX = 11;
+/** The bar's height and its margins (Mira: 62, 12 above, 16 at the sides, 14 below). */
+export const TAB_BAR = { heightPx: 62, topPx: 12, sidePx: 16, bottomPx: 14 } as const;
 
 export interface TabBarProps {
   readonly current: TabId;
@@ -47,22 +42,19 @@ export interface TabBarProps {
   readonly observe?: ObserveElementSize;
 }
 
-export function TabBar({ current, inboxCount, onSelect, observe }: TabBarProps) {
-  const ref = useRef<HTMLElement | null>(null);
-  const size = useElementSize(ref, observe);
-  // Before the first measure the bar is taken as narrow: a label never starts too large.
-  const labelPx = size !== null && size.widthPx >= LABEL_20_FROM_PX ? SIZES.labelPx : 16;
+export function TabBar({ current, inboxCount, onSelect }: TabBarProps) {
   return (
     <nav
-      ref={ref}
       role="tablist"
       data-testid="tab-bar"
       style={{
         flex: '0 0 auto',
-        display: 'flex',
+        display: 'grid',
+        gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+        minHeight: TAB_BAR.heightPx,
+        margin: `${TAB_BAR.topPx}px ${TAB_BAR.sidePx}px calc(${TAB_BAR.bottomPx}px + env(safe-area-inset-bottom))`,
+        borderRadius: TAB_BAR.heightPx / 2,
         background: ROLE_VARS.tabBar,
-        // In a calc, as the docked bar writes it: the simulated DOM keeps env() there.
-        paddingBottom: 'calc(0px + env(safe-area-inset-bottom))',
       }}
     >
       {TABS.map((tab) => {
@@ -76,46 +68,52 @@ export function TabBar({ current, inboxCount, onSelect, observe }: TabBarProps) 
             data-tab={tab.id}
             onClick={() => onSelect(tab.id)}
             style={{
-              flex: '1 1 auto',
+              position: 'relative',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: 2,
-              minWidth: SIZES.touchPx,
-              minHeight: SIZES.touchPx + SIZES.gapPx * 2,
-              padding: '4px 2px 6px',
+              gap: 3,
+              minWidth: 44,
+              minHeight: TAB_BAR.heightPx,
+              padding: '6px 2px',
               fontFamily: BODY_FONT_STACK,
-              fontSize: labelPx,
+              fontSize: TAB_LABEL_PX,
               lineHeight: 1.2,
-              fontWeight: selected ? 700 : 400,
+              fontWeight: selected ? 600 : 400,
               border: 'none',
-              borderTop: `4px solid ${selected ? ROLE_VARS.tabActive : ROLE_VARS.tabBar}`,
-              background: ROLE_VARS.tabBar,
+              borderRadius: TAB_BAR.heightPx / 2,
+              background: 'transparent',
               color: selected ? ROLE_VARS.tabActive : ROLE_VARS.tabInk,
               cursor: 'pointer',
             }}
           >
-            <Icon name={tab.icon} />
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <Icon name={tab.icon} style={{ width: 22, height: 22 }} />
+              {tab.id === 'smoke' && inboxCount > 0 && (
+                <span
+                  data-testid="inbox-badge"
+                  aria-label={`${inboxCount} waiting`}
+                  style={{
+                    minWidth: 18,
+                    padding: '0 5px',
+                    boxSizing: 'border-box',
+                    lineHeight: '18px',
+                    borderRadius: SHAPE.badgeRadius,
+                    background: ROLE_VARS.primary,
+                    color: ROLE_VARS.primaryInk,
+                    fontSize: 11,
+                    fontWeight: 800,
+                    textAlign: 'center',
+                  }}
+                >
+                  {inboxCount}
+                </span>
+              )}
+            </span>
             <span data-part="tab-label" style={{ whiteSpace: 'nowrap' }}>
               {tab.label}
             </span>
-            {tab.id === 'smoke' && inboxCount > 0 && (
-              <span
-                data-testid="inbox-badge"
-                aria-label={`${inboxCount} waiting`}
-                style={{
-                  padding: '0 6px',
-                  lineHeight: 1.2,
-                  borderRadius: SHAPE.badgeRadius,
-                  background: ROLE_VARS.primary,
-                  color: ROLE_VARS.primaryInk,
-                  fontWeight: 700,
-                }}
-              >
-                {inboxCount}
-              </span>
-            )}
           </button>
         );
       })}

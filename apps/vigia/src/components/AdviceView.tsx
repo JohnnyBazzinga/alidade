@@ -6,7 +6,6 @@ import { useMemo } from 'react';
 import { adviceWords, type Advice } from '../math/fix/advice';
 import type { VigiaResult } from '../result';
 import { FailureNotice } from './FailureNotice';
-import { Icon } from '@alidade/ui';
 import { Schematic } from './art/Schematic';
 import { LOOK } from './look';
 
@@ -17,13 +16,8 @@ export function AdviceView({ advice }: { readonly advice: VigiaResult<Advice> })
   // A card with the schematic, wherever the sentence of Req 7.4 is shown (Req 22.6, 22.12).
   return (
     <section data-testid="advice" style={LOOK.card}>
-      <h2 style={{ ...LOOK.title, display: 'flex', alignItems: 'center', gap: 10 }}>
-        <span style={LOOK.iconTile}>
-          <Icon name="crosshair" />
-        </span>
-        Where to sight from next
-      </h2>
-      <p style={LOOK.text}>{words.value}</p>
+      <h2 style={LOOK.cardTitle}>Where to sight from next</h2>
+      <p style={{ ...LOOK.dim, lineHeight: 1.5 }}>{words.value}</p>
       <Schematic />
     </section>
   );

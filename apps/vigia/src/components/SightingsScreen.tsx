@@ -11,9 +11,8 @@ import { accuracyText, directionText, positionText } from '../math/fix/format';
 import { compareIds, type Conflict, type SightingEntry } from '../math/incident/incident-state';
 import { FailureNotice } from './FailureNotice';
 import { useEnvironment } from './environment';
-import { ROLE_VARS } from '@alidade/ui';
-import { InlineIcon, NavRow } from './cards/parts';
-import { LOOK } from './look';
+import { Icon, ROLE_VARS } from '@alidade/ui';
+import { LOOK, SHAPE } from './look';
 import { SightingRow } from './SightingRow';
 import { useStore, useVigia } from './store';
 
@@ -44,7 +43,7 @@ function ConflictVersion({ title, code }: { readonly title: string; readonly cod
   const observer = positionText(b.observer, b.positionAccuracyM);
   return (
     <div data-testid="conflict-version" style={LOOK.panel}>
-      <h4 style={LOOK.title}>{title}</h4>
+      <h4 style={LOOK.cardTitle}>{title}</h4>
       {direction.ok && <p style={LOOK.readout}>Toward {direction.value} (true north)</p>}
       {observer.ok && accuracy.ok && (
         <p style={LOOK.text}>
@@ -69,17 +68,47 @@ function ConflictView({ conflict }: { readonly conflict: Conflict }) {
 export function SightingsScreen({ onShare, onInbox }: SightingsScreenProps) {
   const store = useStore();
   const { open, nowUtcMs } = useVigia();
+  // Mira: a dashed tile with a yellow plus, under the cards.
   const addButton = (
-    <NavRow icon="inbox" onClick={onInbox}>
+    <button
+      type="button"
+      data-part="nav-row"
+      onClick={onInbox}
+      style={{
+        ...LOOK.row,
+        minHeight: 68,
+        padding: '0 18px',
+        border: `1.5px dashed ${ROLE_VARS.inkDim}`,
+        borderRadius: SHAPE.cardRadius,
+        background: 'transparent',
+        fontSize: 15,
+      }}
+    >
+      <span
+        aria-hidden="true"
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flex: '0 0 auto',
+          width: 32,
+          height: 32,
+          borderRadius: '50%',
+          background: ROLE_VARS.primary,
+          color: ROLE_VARS.primaryInk,
+        }}
+      >
+        <Icon name="plus" style={{ width: 20, height: 20 }} />
+      </span>
       Add a sighting someone sent me
-    </NavRow>
+    </button>
   );
   if (open === null) {
     return (
       <section data-testid="sightings-screen" style={LOOK.stack}>
-        <div style={LOOK.card}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <h1 style={LOOK.title}>No smoke yet</h1>
-          <p style={LOOK.text}>{checkStatement('none')}</p>
+          <p style={{ ...LOOK.dim, fontSize: 14 }}>{checkStatement('none')}</p>
         </div>
         {addButton}
       </section>
@@ -99,11 +128,10 @@ export function SightingsScreen({ onShare, onInbox }: SightingsScreenProps) {
   ].sort(byTimeThenId);
   return (
     <section data-testid="sightings-screen" style={LOOK.stack}>
-      <h1 style={LOOK.title}>Sightings of this smoke</h1>
-      {/* The statement by count, as a warning card above the cards (Req 22.7). */}
-      <div style={LOOK.statusCard('warning')}>
-        <p style={{ ...LOOK.text, color: ROLE_VARS.warnInk }}>
-          <InlineIcon name="warning" colour={ROLE_VARS.warnIcon} />
+      {/* The title and, under it, the statement by count (Req 22.7, as Mira draws it). */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <h1 style={LOOK.title}>Sightings of this smoke</h1>
+        <p data-testid="check-statement" style={{ ...LOOK.dim, fontSize: 14 }}>
           {checkStatement(assessment.checkLevel)}
         </p>
       </div>

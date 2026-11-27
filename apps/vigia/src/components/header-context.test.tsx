@@ -42,12 +42,11 @@ const SOURCES = import.meta.glob<string>(['./ConfirmSmokeDialog.tsx', './ShareSh
 });
 
 describe('the views that set a title (Req 22.9, 22.10)', () => {
-  it('the question sets "New sighting"; the QR view sets "QR code"', () => {
-    expect(SOURCES['./ConfirmSmokeDialog.tsx']).toContain(
-      "useHeader({ variant: 'compact', title: QUESTION_TITLE })",
-    );
-    expect(SOURCES['./ShareSheet.tsx']).toMatch(
-      /useHeader\(qr === null \? null : \{ variant: 'compact', title: QR_VIEW_TITLE \}\)/,
-    );
+  // Mira (Req 22.2 as amended 2026-11-27): the question has no App header and says its own title;
+  // the QR view says "QR code" itself.
+  it('the question asks for no header; the QR view says "QR code" in its own title', () => {
+    expect(SOURCES['./ConfirmSmokeDialog.tsx']).toContain("useHeader({ variant: 'none' })");
+    expect(SOURCES['./ConfirmSmokeDialog.tsx']).toContain('Is this the same smoke as before?');
+    expect(SOURCES['./ShareSheet.tsx']).toContain('{QR_VIEW_TITLE}</h1>');
   });
 });

@@ -5,7 +5,7 @@
 // no definition there is no panel.
 
 import { ellipse95 } from '@alidade/core';
-import { COLOURS, SIZES } from '@alidade/ui';
+import { COLOURS, ROLE_VARS } from '@alidade/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { ageText, clockTextUtc } from '../../../math/civil-time';
 import { mapModel } from '../../../math/fix/map-model';
@@ -57,20 +57,43 @@ function OverlayItem({ item, nowUtcMs }: { readonly item: Item; readonly nowUtcM
         aria-label={definition.title}
         onClick={() => controller.setEnabled(!state.enabled)}
         style={{
-          ...LOOK.button,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          border: `1px solid ${state.enabled ? COLOURS.brass : COLOURS.rule}`,
+          ...LOOK.tile,
+          gap: 12,
+          minHeight: 56,
+          padding: '0 14px 0 16px',
+          border: 'none',
+          background: ROLE_VARS.raised,
+          fontSize: 16,
         }}
       >
-        <span>{definition.title}</span>
-        <span style={{ color: state.enabled ? COLOURS.brass : COLOURS.inkDim }}>
+        {/* Mira's switch: the title, the state in words, and a track whose knob says it too. */}
+        <span style={{ flex: '1 1 auto' }}>{definition.title}</span>
+        <span style={{ fontSize: 14, fontWeight: 400, color: COLOURS.inkDim }}>
           {state.enabled ? 'On' : 'Off'}
+        </span>
+        <span
+          aria-hidden="true"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: state.enabled ? 'flex-end' : 'flex-start',
+            flex: '0 0 auto',
+            boxSizing: 'border-box',
+            width: 50,
+            height: 30,
+            padding: 3,
+            borderRadius: 15,
+            border: `1.5px solid ${ROLE_VARS.ink}`,
+            background: state.enabled ? ROLE_VARS.primary : ROLE_VARS.card,
+          }}
+        >
+          <span style={{ width: 21, height: 21, borderRadius: '50%', background: ROLE_VARS.ink }} />
         </span>
       </button>
       {state.failure !== null && <FailureNotice failure={state.failure} />}
-      {!state.enabled && state.fetchedUtcMs === null && <p style={LOOK.text}>{definition.sends}</p>}
+      {!state.enabled && state.fetchedUtcMs === null && (
+        <p style={{ ...LOOK.dim, fontSize: 13, lineHeight: 1.55 }}>{definition.sends}</p>
+      )}
       {state.enabled && (
         <>
           {state.status === 'loading' && <p style={LOOK.dim}>Asking for the data.</p>}
@@ -107,8 +130,8 @@ export function OverlayPanel({
   readonly nowUtcMs: number;
 }) {
   return (
-    <section data-testid="overlay-panel" style={{ ...LOOK.panel, gap: SIZES.gapPx * 1.5 }}>
-      <h2 style={LOOK.title}>Extra map information</h2>
+    <section data-testid="overlay-panel" style={{ ...LOOK.card, gap: 12 }}>
+      <h2 style={LOOK.cardTitle}>Extra map information</h2>
       {items.map((item) => (
         <OverlayItem key={item.definition.id} item={item} nowUtcMs={nowUtcMs} />
       ))}

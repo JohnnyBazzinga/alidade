@@ -12,7 +12,7 @@
 // long the screen is; in Simulation mode the bar of the phone in hand is under the banner on every
 // screen, and the first screen gives the reviewer's path while this phone has sighted nothing.
 
-import { BODY_FONT_STACK, COLOURS, SIZES } from '@alidade/ui';
+import { BODY_FONT_STACK, COLOURS } from '@alidade/ui';
 import { useEffect, useRef, useState } from 'react';
 import { EmergencyScreen } from './components/EmergencyScreen';
 import {
@@ -31,7 +31,7 @@ import { SightScreen } from './components/SightScreen';
 import { SimulationBanner } from './components/SimulationBanner';
 import { SmokeScreen } from './components/SmokeScreen';
 import { StoreProvider, useVigia, type VigiaStore } from './components/store';
-import { TABS, TabBar, type TabId } from './components/TabBar';
+import { TabBar, type TabId } from './components/TabBar';
 import { Header } from './components/art/Header';
 import { HeaderProvider, type HeaderSpec } from './components/header-context';
 import { PhoneInHandBar, type PhoneInHand } from './components/PhoneInHandBar';
@@ -84,8 +84,9 @@ function ModeControl({
       style={{
         ...LOOK.button,
         flex: '1 1 0',
-        border: `1px solid ${mode === which ? COLOURS.brass : COLOURS.rule}`,
-        color: mode === which ? COLOURS.brass : COLOURS.ink,
+        ...(mode === which
+          ? { border: 'none', background: COLOURS.ink, color: COLOURS.panel, fontWeight: 800 }
+          : {}),
       }}
     >
       {label}
@@ -107,23 +108,13 @@ function ModeControl({
   );
 }
 
-/** The header of a route (Req 22.2): full on Smoke, compact elsewhere, none while sighting. */
+/**
+ * The header of a route (Req 22.2 as amended 2026-11-27): Mira's row of the mark and the pill on
+ * the four tabs; none on the Sight screen and on the views opened from a tab, which say what they
+ * are in their own title.
+ */
 function headerFor(route: Route): HeaderSpec {
-  switch (route.kind) {
-    case 'tab':
-      if (route.tab === 'smoke') return { variant: 'full' };
-      return { variant: 'compact', title: TABS.find((t) => t.id === route.tab)?.label ?? '' };
-    case 'sight':
-      // The camera needs the height (Req 22.2); a view of the Sight route that has a header
-      // (the question after a capture) says so itself.
-      return { variant: 'none' };
-    case 'share':
-      return { variant: 'compact', title: 'Share this sighting' };
-    case 'inbox':
-      return { variant: 'compact', title: 'Add a sighting someone sent me' };
-    case 'privacy':
-      return { variant: 'compact', title: 'What leaves this phone' };
-  }
+  return route.kind === 'tab' ? { variant: 'full' } : { variant: 'none' };
 }
 
 function Shell({
@@ -243,8 +234,7 @@ function Shell({
         fontFamily: BODY_FONT_STACK,
       }}
     >
-      {header.variant === 'full' && <Header variant="full" />}
-      {header.variant === 'compact' && <Header variant="compact" title={header.title} />}
+      {header.variant === 'full' && <Header onEmergency={() => toTab('emergency')} />}
       {environment.mode === 'simulation' && <SimulationBanner />}
       {environment.mode === 'simulation' && phoneInHand !== undefined && (
         <PhoneInHandBar hand={phoneInHand} />
@@ -259,7 +249,10 @@ function Shell({
           overflowX: 'hidden',
           // The phone's Sight screen is the whole column, `100dvh` high (Req 3.10, D23.1): any
           // padding would make the page scroll.
-          padding: route.kind === 'sight' && environment.mode === 'device' ? 0 : SIZES.gapPx * 1.5,
+          padding:
+            route.kind === 'sight' && environment.mode === 'device'
+              ? 0
+              : `${route.kind === 'tab' ? 16 : 28}px 20px 16px`,
         }}
       >
         <HeaderProvider value={setHeaderOverride}>

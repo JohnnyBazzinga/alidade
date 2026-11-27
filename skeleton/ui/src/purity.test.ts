@@ -72,6 +72,7 @@ const SOURCES = [
   'src/components/CaptureSummary.tsx',
   'src/components/DeviceSighting.tsx',
   'src/components/Disclosure.tsx',
+  'src/components/dial.tsx',
   'src/components/ControlBar.tsx',
   'src/components/FailureNotice.tsx',
   'src/components/FixSummary.tsx',

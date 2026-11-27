@@ -10,7 +10,7 @@ import {
   incidentStatement,
 } from '../math/assessment/statements';
 import { messageFor } from '../math/messages';
-import { NOT_CALLING_TEXT } from '../math/texts';
+import { NOT_CALLING_TEXT, HOME_LEAD, HOME_TITLE } from '../math/texts';
 import {
   entryOfBearing,
   incidentOfEntries,
@@ -76,9 +76,10 @@ describe('SmokeScreen in every state (design §9)', () => {
   it('no smoke: the not-calling statement, how to start, and Sight the smoke as the primary control', () => {
     const s = show();
     expect(s.getByTestId('not-calling').textContent).toBe(NOT_CALLING_TEXT);
-    expect(s.text()).toContain('No smoke yet');
-    expect(s.text()).toContain(checkStatement('none'));
-    expect(s.buttons().at(-1)).toBe('Sight the smoke');
+    // Mira: the title and its line, and the dial's yellow button, the screen's first control.
+    expect(s.text()).toContain(HOME_TITLE);
+    expect(s.text()).toContain(HOME_LEAD);
+    expect(s.buttons()[0]).toBe('Sight the smoke');
     expect(s.getByRole('button', { name: 'Sight the smoke' }).dataset.primary).toBe('true');
     expect(s.text()).not.toContain(incidentStatement());
     fireEvent.click(s.getByRole('button', { name: 'Sight the smoke' }));
@@ -124,7 +125,8 @@ describe('SmokeScreen in every state (design §9)', () => {
       e.getAttribute('data-testid'),
     );
     expect(order.indexOf('disagreement')).toBeLessThan(order.indexOf('fix-headline'));
-    expect(order.indexOf('disagreement')).toBe(order.indexOf('not-calling') + 1);
+    // Mira: right after the smoke's state in small capitals.
+    expect(order.indexOf('disagreement')).toBe(order.indexOf('smoke-state') + 1);
     expect(s.getByTestId('fix-headline').textContent).toMatch(
       /^Best fit of sightings that do not agree/,
     );
@@ -172,7 +174,8 @@ describe('SmokeScreen in every state (design §9)', () => {
     const incident = postsIncident(['west', 'east', 'side'], (_p, i) => ({ hidden: i === 2 }));
     const s = show([incident]);
     // Task 23.6: the header is the first lines of "Details and limits" (Req 6.12).
-    const header = s.getAllByText(/Smoke started/)[0]?.closest('details')?.textContent ?? '';
+    const header =
+      s.getAllByText(/Smoke started/)[0]?.closest('[data-disclosure]')?.textContent ?? '';
     expect(header).toContain('UTC');
     expect(header).toContain('3 sightings, 2 used');
   });
@@ -181,6 +184,7 @@ describe('SmokeScreen in every state (design §9)', () => {
 describe('the first-screen controls (Req 4.5, 14.5)', () => {
   it('Delete everything on this phone asks once, and deletes only when confirmed', () => {
     const s = show([postsIncident(['west', 'east'])]);
+    fireEvent.click(s.getByTestId('data-tile'));
     fireEvent.click(s.getByRole('button', { name: 'Delete everything on this phone' }));
     const dialog = s.getByTestId('delete-all-dialog');
     fireEvent.click(within(dialog).getByRole('button', { name: 'Keep them' }));
@@ -191,13 +195,14 @@ describe('the first-screen controls (Req 4.5, 14.5)', () => {
       within(s.getByTestId('delete-all-dialog')).getByRole('button', { name: 'Delete everything' }),
     );
     expect(s.store.getSnapshot().state.incidents).toHaveLength(0);
-    expect(s.text()).toContain('No smoke yet');
+    expect(s.text()).toContain(HOME_TITLE);
   });
 
   it('says in the confirmation that the backup copy goes too, only when there is one', () => {
     const BACKUP_SENTENCE =
       'The backup copy of saved sightings that could not be read is deleted too.';
     const without = show([postsIncident(['west', 'east'])]);
+    fireEvent.click(without.getByTestId('data-tile'));
     fireEvent.click(without.getByRole('button', { name: 'Delete everything on this phone' }));
     expect(without.getByTestId('delete-all-dialog').textContent).not.toContain(BACKUP_SENTENCE);
     without.unmount();
@@ -209,6 +214,7 @@ describe('the first-screen controls (Req 4.5, 14.5)', () => {
       />,
       { storedItems: { [STATE_KEY]: 'not json {' } },
     );
+    fireEvent.click(withBackup.getByTestId('data-tile'));
     fireEvent.click(withBackup.getByRole('button', { name: 'Delete everything on this phone' }));
     const dialog = withBackup.getByTestId('delete-all-dialog');
     expect(dialog.textContent).toContain(BACKUP_SENTENCE);
@@ -219,6 +225,7 @@ describe('the first-screen controls (Req 4.5, 14.5)', () => {
   it('opens the Inbox and the privacy page', () => {
     const s = show();
     fireEvent.click(s.getByRole('button', { name: /Add a sighting someone sent me/ }));
+    fireEvent.click(s.getByTestId('data-tile'));
     fireEvent.click(s.getByRole('button', { name: 'What leaves this phone' }));
     expect(s.calls).toEqual(['inbox', 'privacy']);
   });

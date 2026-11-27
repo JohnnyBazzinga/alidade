@@ -1,5 +1,5 @@
-// A disclosure (design D23), now the UI's (skeleton-ui Req 22.9, D37.8), framed as a card of the
-// Field look with its words at 20 and, where given, an icon before them (Req 22.6).
+// A disclosure (design D23), now the UI's (skeleton-ui Req 22.9, D37.8), framed as Mira's tile: white,
+// a light edge, a radius of 16, its words at 14 semibold and, where given, an icon before them.
 
 import {
   BODY_FONT_STACK,
@@ -37,15 +37,16 @@ export function Disclosure({ summary, children, open = false, testId, icon }: Di
       {...(testId === undefined ? {} : { testId })}
       summaryStyle={{
         fontFamily: BODY_FONT_STACK,
-        fontSize: SIZES.labelPx,
-        fontWeight: 700,
-        minHeight: SIZES.touchPx + 8,
+        fontSize: 14,
+        fontWeight: 600,
+        minHeight: 52,
+        padding: '0 16px',
       }}
       bodyStyle={{
         display: 'flex',
         flexDirection: 'column',
         gap: SIZES.gapPx,
-        padding: `${SIZES.gapPx}px ${SIZES.gapPx * 1.5}px ${SIZES.gapPx * 1.5}px`,
+        padding: '4px 16px 16px',
       }}
     >
       {children}

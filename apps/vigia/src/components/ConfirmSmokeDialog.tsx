@@ -7,7 +7,7 @@
 import { CaptureSummary, Icon, ROLE_VARS, SIZES, type CapturedResult } from '@alidade/ui';
 import { directionText, sigmaHeadlineText } from '../math/fix/format';
 import type { VigiaFailure } from '../result';
-import { BEARING_LABEL, QUESTION_TITLE, TWO_SMOKES_TEXT, UNCERTAINTY_LABEL } from '../math/texts';
+import { BEARING_LABEL, TWO_SMOKES_TEXT, UNCERTAINTY_LABEL } from '../math/texts';
 import { FailureNotice } from './FailureNotice';
 import { useHeader } from './header-context';
 import { LOOK, SHAPE } from './look';
@@ -23,7 +23,13 @@ export interface ConfirmSmokeDialogProps {
   readonly onBack: () => void;
 }
 
-const label = { ...LOOK.dim, fontSize: 16, lineHeight: 1.25 } as const;
+const label = { ...LOOK.caption, fontSize: 11 } as const;
+const value = {
+  ...LOOK.numeral,
+  fontSize: 28,
+  letterSpacing: '-0.8px',
+  whiteSpace: 'nowrap',
+} as const;
 
 export function ConfirmSmokeDialog({
   captured,
@@ -32,7 +38,7 @@ export function ConfirmSmokeDialog({
   onBack,
 }: ConfirmSmokeDialogProps) {
   const ref = useOpenAtTop<HTMLElement>('question');
-  useHeader({ variant: 'compact', title: QUESTION_TITLE });
+  useHeader({ variant: 'none' });
   const answer = (which: SmokeAnswer, words: string, icon: 'smoke' | 'pins') => (
     <button
       type="button"
@@ -56,9 +62,12 @@ export function ConfirmSmokeDialog({
       data-testid="confirm-smoke"
       style={{ ...LOOK.stack, gap: SIZES.gapPx * 1.5 }}
     >
-      <div style={LOOK.card}>
-        <h2 style={LOOK.title}>Is this the same smoke as before?</h2>
-        <p style={LOOK.text}>{TWO_SMOKES_TEXT}</p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <p style={LOOK.caption}>Sighting captured</p>
+        <h2 style={{ ...LOOK.title, fontSize: 30, lineHeight: 1.08, letterSpacing: '-1px' }}>
+          Is this the same smoke as before?
+        </h2>
+        <p style={{ ...LOOK.dim, fontSize: 14 }}>{TWO_SMOKES_TEXT}</p>
       </div>
       {failure !== null && <FailureNotice failure={failure} />}
       <div data-part="answers" style={{ ...LOOK.stack, gap: SIZES.gapPx * 1.5 }}>
@@ -73,9 +82,9 @@ export function ConfirmSmokeDialog({
             style={{
               display: 'flex',
               flexWrap: 'nowrap',
-              padding: '12px 0',
-              background: ROLE_VARS.infoTint,
-              borderRadius: SHAPE.buttonRadius,
+              padding: '14px 0',
+              background: ROLE_VARS.raised,
+              borderRadius: SHAPE.tileRadius,
             }}
           >
             <div
@@ -90,20 +99,8 @@ export function ConfirmSmokeDialog({
               <span data-part="bearing-label" style={label}>
                 {BEARING_LABEL}
               </span>
-              <span
-                data-part="bearing-value"
-                style={{ ...LOOK.readout, fontWeight: 700, whiteSpace: 'nowrap' }}
-              >
-                <Icon
-                  name="navigation"
-                  style={{
-                    display: 'inline-block',
-                    verticalAlign: '-5px',
-                    marginRight: 8,
-                    color: ROLE_VARS.accent,
-                  }}
-                />
-                {direction.value.split(' ± ')[0]} true
+              <span data-part="bearing-value" style={value}>
+                {direction.value.split(' ± ')[0]} <span style={LOOK.caption}>true</span>
               </span>
             </div>
             <div
@@ -124,10 +121,7 @@ export function ConfirmSmokeDialog({
                   {UNCERTAINTY_LABEL.slice(UNCERTAINTY_LABEL.lastIndexOf(' ') + 1)}
                 </span>
               </span>
-              <span
-                data-part="sigma-value"
-                style={{ ...LOOK.readout, fontWeight: 700, whiteSpace: 'nowrap' }}
-              >
+              <span data-part="sigma-value" style={value}>
                 {sigmaHeadlineText(bearing.azimuthSigmaRad)}
               </span>
             </div>

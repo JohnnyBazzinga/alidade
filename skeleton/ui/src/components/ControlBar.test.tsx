@@ -61,10 +61,11 @@ describe('controlStyle as roles and shapes (Req 22.4, 22.7)', () => {
   });
 
   it('the others: raised, in ink, with an outline that carries meaning (ruleStrong, 3:1)', () => {
+    // The theme's control fill and edge (Req 22.16): raised and 1 in every theme but Mira.
     const s = controlStyle(false);
-    expect(s.background).toBe('var(--alidade-raised)');
+    expect(s.background).toBe('var(--alidade-control-fill, var(--alidade-raised))');
     expect(s.color).toBe('var(--alidade-ink)');
-    expect(s.border).toBe('1px solid var(--alidade-ruleStrong)');
+    expect(s.border).toBe('var(--alidade-control-edge, 1px) solid var(--alidade-ruleStrong)');
     expect(s.borderRadius).toBe('var(--alidade-button-radius)');
   });
 

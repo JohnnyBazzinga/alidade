@@ -15,10 +15,14 @@ describe('PrivacyPage (Req 15.3)', () => {
     rows.forEach((row, i) => {
       const data = PRIVACY_TABLE[i];
       if (data === undefined) throw new Error('no row');
-      expect(within(row).getByRole('heading').textContent).toBe(data.channel);
-      expect(row.textContent).toContain(`What leaves the phone: ${data.whatLeaves}`);
-      expect(row.textContent).toContain(`When: ${data.when}`);
-      expect(row.textContent).toContain(`Who sees it: ${data.whoSees}`);
+      // Mira: the channel's name as the card's title, its note in a chip, each cell under its label.
+      expect(row.getAttribute('aria-label')).toBe(data.channel);
+      expect(data.channel.startsWith(within(row).getByRole('heading').textContent ?? '-')).toBe(
+        true,
+      );
+      expect(row.textContent).toContain(`What leaves the phone${data.whatLeaves}`);
+      expect(row.textContent).toContain(`When${data.when}`);
+      expect(row.textContent).toContain(`Who sees it${data.whoSees}`);
     });
   });
 

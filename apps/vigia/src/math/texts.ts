@@ -87,6 +87,24 @@ export const NO_PROOF_TEXT =
 /** The one visible line of the Sight screen (Req 3.7); the guidance is under "How to aim". */
 export const AIM_LINE_TEXT = 'Aim at the base of the smoke';
 
+/** The first screen with no smoke (Mira, 2026-11-27): its title and the line under it. */
+export const HOME_TITLE = 'Nothing on the horizon';
+export const HOME_LEAD = 'See smoke? Aim at its base and tap the sight.';
+
+/**
+ * The line of small capitals over the smoke's state (Mira): how many places of the two that a
+ * position needs, and whether the smoke is located. Written in sentence case; the screen draws it
+ * in capitals.
+ */
+export function smokeStateCaption(usedCount: number, located: boolean): string {
+  // A count of sightings is small: a larger number is not one (and would print in exponent form).
+  const n =
+    Number.isInteger(usedCount) && usedCount >= 0 && usedCount <= MAX_COUNT_LINE ? usedCount : 0;
+  if (located) return `${n} sightings · smoke located`;
+  if (n < 2) return `${n} of 2 places · smoke not located`;
+  return `${n} sightings · smoke not located`;
+}
+
 /** In the first view of a Fix, where the limits note is in full under "Details and limits" (Req 6.12, 16.1). */
 export const COMPASS_ONE_LINE_TEXT = 'Phone compasses are off by several degrees.';
 
@@ -117,6 +135,11 @@ export const QR_ONE_LINE_TEXT =
 export const SHARE_QR_LABEL = 'Show QR code (someone beside you)';
 export const SHARE_SEND_LABEL = 'Send link (someone far away)';
 export const SHARE_OTHER_LABEL = 'Other ways (no connection)';
+/** The two choices as Mira's cards draw them: a title and, under it, for whom (2026-11-27). */
+export const SHARE_QR_TITLE = 'Show QR code';
+export const SHARE_QR_FOR = 'For someone beside you';
+export const SHARE_SEND_TITLE = 'Send link';
+export const SHARE_SEND_FOR = 'For someone far away';
 
 // The Field look (Req 22.15, 2026-11-22): the only strings that the look adds.
 

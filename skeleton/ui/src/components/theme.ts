@@ -12,7 +12,7 @@ import {
 import { MAP_FIX } from '../math/map/map-style';
 import type { Rgb } from '../math/contrast';
 import { ROLES, roleVar, type Role } from './theme/roles';
-import { instrument } from './theme/themes';
+import { instrument, SYSTEM_MONO, SYSTEM_SANS } from './theme/themes';
 
 const I = instrument.colours;
 
@@ -59,12 +59,17 @@ export const MAP_FIX_COLOUR = MAP_FIX;
 
 export type ColourToken = keyof typeof COLOURS;
 
-/** Prose and the labels of controls (Req 13.4, design D36). */
-export const BODY_FONT_STACK = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+/**
+ * Prose and the labels of controls (Req 13.4, design D36): the theme's body font (Req 22.16), and
+ * the system's sans until a theme is applied, and in every theme but Mira.
+ */
+export const BODY_FONT_STACK = `var(--alidade-font-body, ${SYSTEM_SANS})`;
 
 /** Readings, coordinates, bearings, distances in figures and codes, with tabular digits. */
-export const NUMERIC_FONT_STACK =
-  'ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace';
+export const NUMERIC_FONT_STACK = `var(--alidade-font-numeric, ${SYSTEM_MONO})`;
+
+/** Mira's large numerals and titles (Req 22.16); the body font in every other theme. */
+export const DISPLAY_FONT_STACK = `var(--alidade-font-display, ${SYSTEM_SANS})`;
 
 export const SIZES = {
   /** Numerals. */

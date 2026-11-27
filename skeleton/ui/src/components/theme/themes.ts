@@ -1,12 +1,25 @@
-// The three themes as data (Req 22.1, 22.2, 22.7; design D37.1, D37.2; Vigia design D25.1).
-// Instrument is today's look, role by role; Field and Field night are the lead's new look. This and
+// The four themes as data (Req 22.1, 22.2, 22.7, 22.16; design D37.1, D37.2, D37.12; Vigia design
+// D25.1, D26). Instrument is today's look, role by role; Field and Field night are the lead's look of
+// 2026-11-22; Mira is the lead's design of 2026-11-27, which Vigia applies. This and
 // the other files of this folder, and `math/map/map-style.ts`, are the only places that hold a
 // colour literal (Req 22.6).
 
-import { MAP_DARK, MAP_FIX, MAP_LIGHT } from '../../math/map/map-style';
+import {
+  DEFAULT_MAP_PALETTE,
+  MAP_DARK,
+  MAP_FIX,
+  MAP_LIGHT,
+  MIRA_MAP_PALETTE,
+  type MapPalette,
+} from '../../math/map/map-style';
 import type { ConstantRole, Role, ThemedRole } from './roles';
 
-export type ThemeId = 'instrument' | 'field' | 'field-night';
+export type ThemeId = 'instrument' | 'field' | 'field-night' | 'mira';
+
+/** The system's sans and monospace: what every theme but Mira writes, as before. */
+export const SYSTEM_SANS = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+export const SYSTEM_MONO =
+  'ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace';
 
 export interface Theme {
   readonly id: ThemeId;
@@ -23,7 +36,29 @@ export interface Theme {
     readonly imageRadiusPx: number;
     /** A CSS `box-shadow`, or `null`. */
     readonly shadow: string | null;
+    /** A tile: a disclosure's summary, a row that opens a view, a status card (Req 22.16). */
+    readonly tileRadiusPx: number;
+    /** The primary control's own shadow (Mira lifts the primary and nothing else). */
+    readonly primaryShadow: string | null;
+    /** A secondary control's edge, in CSS px, and its fill: a role, or none (an outline). */
+    readonly controlEdgePx: number;
+    readonly controlFill: Role | 'none';
   };
+  /**
+   * The three font stacks (Req 22.16): prose and controls, readings and codes, display numerals and
+   * titles. A theme with a web font names it first; the fonts are the application's files, served
+   * from its own host (Vigia Req 15), and the system's stacks follow.
+   */
+  readonly fonts: {
+    readonly body: string;
+    readonly numeric: string;
+    readonly display: string;
+    /** The weight of a primary control's words, and of a secondary control's. */
+    readonly primaryWeight: number;
+    readonly controlWeight: number;
+  };
+  /** The map's paints (Req 22.16): the defaults, or Mira's yellow. */
+  readonly map: MapPalette;
   readonly flags: {
     /** Whether an application draws its header illustration. */
     readonly illustrated: boolean;
@@ -34,6 +69,12 @@ export interface Theme {
      * headline and the instruction at 16 (Req 22.13). Instrument draws today's block instead.
      */
     readonly cards: boolean;
+    /**
+     * Mira's sighting screen (Req 22.17): the camera as a round lens in a ring of compass ticks, the
+     * angle as one large numeral with a line of small capitals under it, Details and "Other ways to
+     * set north" as two tiles, the north prompt among the content, and Back as a round control.
+     */
+    readonly dial: boolean;
   };
 }
 
@@ -152,7 +193,54 @@ const nightThemed: Readonly<Record<ThemedRole, string>> = {
   ruleStrong: '#6F8299',
 };
 
+// Mira (the lead's design, 2026-11-27): an off-white page, a deep green-black ink, one yellow.
+// Its values are the design's, except where a pair of the palette needed 7 : 1 (Req 22.3): the
+// success tint is lighter (#E5F5EA for #DDF1E4); the bars are the tints, as Mira draws none.
+const miraThemed: Readonly<Record<ThemedRole, string>> = {
+  bg: '#FAFBF8',
+  card: '#FFFFFF',
+  raised: '#EEF2EC',
+  ink: '#0F1F1A',
+  inkDim: '#45544E',
+  accent: '#0F1F1A',
+  primary: '#FFD400',
+  primaryInk: '#0F1F1A',
+  header: '#FAFBF8',
+  headerInk: '#0F1F1A',
+  headerDim: '#45544E',
+  tabBar: '#0F1F1A',
+  tabInk: '#C4CFC9',
+  tabActive: '#FFD400',
+  warnTint: '#FFF4BF',
+  warnInk: '#3D3300',
+  warnIcon: '#0F1F1A',
+  warnBar: '#FFF4BF',
+  dangerTint: '#FDEDE8',
+  dangerInk: '#7A1A06',
+  dangerIcon: '#B3261E',
+  dangerBar: '#FDEDE8',
+  okTint: '#E5F5EA',
+  okInk: '#17553A',
+  okIcon: '#1F6B45',
+  okBar: '#E5F5EA',
+  infoTint: '#EEF2EC',
+  infoInk: '#26352F',
+  infoIcon: '#45544E',
+  infoBar: '#EEF2EC',
+  rule: '#DDE3DB',
+  ruleStrong: '#0F1F1A',
+};
+
 const FIELD_PRIMARY_GRADIENT = ['#FFD24D', '#FFB81F'] as const;
+const FIELD_SHADOW = '0 1px 2px rgba(14,30,51,.06), 0 4px 14px rgba(14,30,51,.08)';
+
+const SYSTEM_FONTS = {
+  body: SYSTEM_SANS,
+  numeric: SYSTEM_MONO,
+  display: SYSTEM_SANS,
+  primaryWeight: 400,
+  controlWeight: 400,
+} as const;
 
 export const instrument: Theme = {
   id: 'instrument',
@@ -164,8 +252,14 @@ export const instrument: Theme = {
     badgeRadiusPx: 0,
     imageRadiusPx: 0,
     shadow: null,
+    tileRadiusPx: 0,
+    primaryShadow: null,
+    controlEdgePx: 1,
+    controlFill: 'raised',
   },
-  flags: { illustrated: false, elevated: false, cards: false },
+  fonts: SYSTEM_FONTS,
+  map: DEFAULT_MAP_PALETTE,
+  flags: { illustrated: false, elevated: false, cards: false, dial: false },
 };
 
 export const field: Theme = {
@@ -177,9 +271,15 @@ export const field: Theme = {
     buttonRadiusPx: 14,
     badgeRadiusPx: 999,
     imageRadiusPx: 16,
-    shadow: '0 1px 2px rgba(14,30,51,.06), 0 4px 14px rgba(14,30,51,.08)',
+    shadow: FIELD_SHADOW,
+    tileRadiusPx: 14,
+    primaryShadow: FIELD_SHADOW,
+    controlEdgePx: 1,
+    controlFill: 'raised',
   },
-  flags: { illustrated: true, elevated: true, cards: true },
+  fonts: SYSTEM_FONTS,
+  map: DEFAULT_MAP_PALETTE,
+  flags: { illustrated: true, elevated: true, cards: true, dial: false },
 };
 
 export const fieldNight: Theme = {
@@ -192,8 +292,44 @@ export const fieldNight: Theme = {
     badgeRadiusPx: 999,
     imageRadiusPx: 16,
     shadow: null,
+    tileRadiusPx: 14,
+    primaryShadow: null,
+    controlEdgePx: 1,
+    controlFill: 'raised',
   },
-  flags: { illustrated: true, elevated: false, cards: true },
+  fonts: SYSTEM_FONTS,
+  map: DEFAULT_MAP_PALETTE,
+  flags: { illustrated: true, elevated: false, cards: true, dial: false },
 };
 
-export const THEMES: readonly Theme[] = [instrument, field, fieldNight];
+/** Mira's fonts: Sora (variable, 100 to 800) and IBM Plex Mono 500, both under the SIL OFL 1.1. */
+export const MIRA_SANS = `"Sora Variable", Sora, ${SYSTEM_SANS}`;
+export const MIRA_MONO = `"IBM Plex Mono", ${SYSTEM_MONO}`;
+
+export const mira: Theme = {
+  id: 'mira',
+  colours: { ...miraThemed, ...CONSTANTS },
+  gradients: { primary: null, header: null },
+  shapes: {
+    cardRadiusPx: 24,
+    buttonRadiusPx: 999,
+    badgeRadiusPx: 999,
+    imageRadiusPx: 999,
+    shadow: null,
+    tileRadiusPx: 16,
+    primaryShadow: '0 10px 22px rgba(15,31,26,0.14)',
+    controlEdgePx: 1.5,
+    controlFill: 'none',
+  },
+  fonts: {
+    body: MIRA_SANS,
+    numeric: MIRA_MONO,
+    display: MIRA_SANS,
+    primaryWeight: 800,
+    controlWeight: 600,
+  },
+  map: MIRA_MAP_PALETTE,
+  flags: { illustrated: false, elevated: false, cards: true, dial: true },
+};
+
+export const THEMES: readonly Theme[] = [instrument, field, fieldNight, mira];

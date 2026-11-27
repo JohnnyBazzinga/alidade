@@ -1,6 +1,7 @@
-// How icons are used (Req 22.8, task 35.4): an icon always stands beside visible text that says the
-// same; no button and no link is an icon alone; only the components draw icons (not the Math layer,
-// not the Adapters). A scan of the package's source, and a check of a rendered tree.
+// How icons are used (Req 22.8 as amended 2026-11-27, task 35.4): an icon always stands beside
+// visible text that says the same; no button and no link is an icon alone unless it is named by its
+// `aria-label` (Mira's round Back); only the components draw icons (not the Math layer, not the
+// Adapters). A scan of the package's source, and a check of a rendered tree.
 
 import { fireEvent, render } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
@@ -9,15 +10,16 @@ import { PARAMETERS, sessionInState } from '../test-support/session-fixtures';
 import { Icon } from './Icon';
 import { SightingScreen } from './SightingScreen';
 
-/** The buttons and links of a rendered tree whose only content is an icon (no text). */
+/** The buttons and links of a rendered tree whose only content is an icon (no text, no name). */
 export function iconOnlyControls(root: ParentNode): string[] {
   return [...root.querySelectorAll('button, a, [role="button"], summary')]
     .filter((el) => el.querySelector('svg') !== null && (el.textContent ?? '').trim() === '')
+    .filter((el) => (el.getAttribute('aria-label') ?? '').trim() === '')
     .map((el) => el.outerHTML.slice(0, 80));
 }
 
-/** A `<button>` or an `<a>` whose JSX children are one `<Icon …/>` and nothing else. */
-const ICON_ONLY_JSX = /<(button|a)\b[^>]*>\s*<Icon\b[^>]*\/>\s*<\/\1>/;
+/** A `<button>` or an `<a>` with no `aria-label` whose JSX children are one `<Icon …/>` alone. */
+const ICON_ONLY_JSX = /<(button|a)\b(?:(?!aria-label)[^>])*>\s*<Icon\b[^>]*\/>\s*<\/\1>/;
 
 const GLOBBED = import.meta.glob<string>('../**/*.{ts,tsx}', {
   query: '?raw',
@@ -69,6 +71,12 @@ describe('the source of the UI (Req 22.8)', () => {
     );
     expect(
       ICON_ONLY_JSX.test('<button type="button">\n  <Icon name="trash" />\n  Delete\n</button>'),
+    ).toBe(false);
+    // Named by its label, as Mira's round Back is: not an icon alone for a screen reader.
+    expect(
+      ICON_ONLY_JSX.test(
+        '<button type="button" aria-label="Back">\n  <Icon name="chevron-left" />\n</button>',
+      ),
     ).toBe(false);
   });
 

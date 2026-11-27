@@ -5,7 +5,7 @@
 
 import { fireEvent, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { SIMULATION_TEXT } from '../../math/texts';
+import { HOME_TITLE, SIMULATION_TEXT } from '../../math/texts';
 import { mountSimulation } from '../../test-support/simulation-driver';
 
 describe('the shell at the start', () => {
@@ -14,7 +14,7 @@ describe('the shell at the start', () => {
     await m.settle();
     expect(m.getByTestId('smoke-screen')).toBeTruthy();
     expect(within(m.getByTestId('tab-bar')).getAllByRole('tab')).toHaveLength(4);
-    expect(m.getByText('No smoke yet')).toBeTruthy();
+    expect(m.getByText(HOME_TITLE)).toBeTruthy();
   });
 
   it('offers the four scenes in the panel, in order, and the Stations of the first', async () => {
@@ -53,6 +53,8 @@ describe('the shell at the start', () => {
     without.unmount();
     const withIt = mountSimulation({ hasDeviceOrientation: true });
     await withIt.settle();
+    // Mira: the mode control is in the panel that the "Data and mode" tile opens.
+    fireEvent.click(withIt.getByTestId('data-tile'));
     const control = withIt.getByTestId('mode-control');
     expect(
       within(control).getByRole('button', { name: 'Simulator' }).getAttribute('aria-pressed'),
@@ -72,7 +74,7 @@ describe('the phone in hand', () => {
     expect(m.getByText(/1 sighting, 1 used/)).toBeTruthy();
 
     await m.switchTo('east');
-    expect(m.getByText('No smoke yet')).toBeTruthy();
+    expect(m.getByText(HOME_TITLE)).toBeTruthy();
     await m.tab('Sightings');
     expect(m.queryAllByTestId('sighting-row')).toHaveLength(0);
     await m.tab('Smoke');
@@ -129,7 +131,7 @@ describe('the phone in hand', () => {
     await m.openSight();
     await m.chooseScene('three-posts');
     await m.click('Back');
-    expect(m.getByText('No smoke yet')).toBeTruthy();
+    expect(m.getByText(HOME_TITLE)).toBeTruthy();
   });
 });
 

@@ -81,7 +81,9 @@ describe('Disclosure (Req 22.9)', () => {
     const details = container.querySelector('details') as HTMLElement;
     expect(details.style.border).toBe('1px solid var(--alidade-rule)');
     expect(details.style.background).toBe('var(--alidade-card)');
-    expect(details.style.borderRadius).toBe('var(--alidade-button-radius)');
+    expect(details.style.borderRadius).toBe(
+      'var(--alidade-tile-radius, var(--alidade-button-radius))',
+    );
   });
 });
 

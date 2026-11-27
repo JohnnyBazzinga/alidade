@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { NUMERIC_FONT_STACK, SIZES } from './index';
+import { SIZES, SYSTEM_MONO } from './index';
 // The page keeps Instrument's look, in hex: the components write roles (Req 22.2), a static page cannot.
 import { INSTRUMENT_TOKENS as COLOURS } from './components/theme';
 
@@ -119,7 +119,8 @@ describe('site/index.html', () => {
   it('uses the palette and the numeric font stack of @alidade/ui, and no other colour', () => {
     const style = /<style>([\s\S]*?)<\/style>/.exec(html)?.[1] ?? '';
     expect(style).not.toBe('');
-    expect(squash(style)).toContain(squash(NUMERIC_FONT_STACK));
+    // The page applies no theme, so it writes the system's monospace that the stack falls back to.
+    expect(squash(style)).toContain(squash(SYSTEM_MONO));
     const allowed = new Set(Object.values(COLOURS).map((c) => c.toLowerCase()));
     const used = (style.match(/#[0-9a-fA-F]{3,8}\b/g) ?? []).map((c) => c.toLowerCase());
     expect(used.length).toBeGreaterThan(3);

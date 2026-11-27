@@ -3,10 +3,9 @@
 
 import { render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { AppMark } from './AppMark';
 import { ART_COLOURS } from './art-colours';
-import { Header } from './Header';
-import { Landscape } from './Landscape';
+import { BearingDial, HomeDial } from './Dials';
+import { AppMark, Header } from './Header';
 import { Schematic } from './Schematic';
 
 const PLUME = new Set<string>(Object.values(ART_COLOURS).map((c) => c.toLowerCase()));
@@ -29,12 +28,13 @@ function paints(container: Element): string[] {
 }
 
 describe('the art’s paints (D25.4)', () => {
-  it('are roles in style, in the mark, the landscapes, the header and the schematic', () => {
+  it('are roles in style, in the mark, the header, the dials and the schematic', () => {
     for (const node of [
       <AppMark key="m" />,
-      <Landscape key="f" variant="full" />,
-      <Landscape key="c" variant="compact" />,
-      <Header key="h" variant="full" />,
+      <Header key="h" onEmergency={() => undefined} />,
+      <HomeDial key="d" onSight={() => undefined} />,
+      <BearingDial key="b" azimuthRad={1} sizePx={150} face label="dial" />,
+      <BearingDial key="c" azimuthRad={1} sizePx={104} face={false} label="dial" />,
       <Schematic key="s" />,
     ]) {
       const { container, unmount } = render(node);

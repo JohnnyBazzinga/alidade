@@ -58,15 +58,21 @@ const OTHER = 'Other ways (no connection)';
 const sheet = (s: ReturnType<typeof open>) => s.getByTestId('share-sheet').textContent ?? '';
 
 describe('the sheet’s order and its statement (Req 10.11, 15.2)', () => {
-  it('is the title, the bearing, the statement, the two choices, Other ways, the page, Close', () => {
+  // Mira's order (D26.6): the statement follows the two choices, on the same first screen, and is
+  // never behind a disclosure (the next test).
+  it('is the title, the bearing, the two choices, the statement, Other ways, the page, Close', () => {
     const s = open(postsIncident(['west', 'east']));
     const all = sheet(s);
+    expect(s.getByRole('button', { name: QR })).toBeTruthy();
+    expect(s.getByRole('button', { name: SEND })).toBeTruthy();
     const order = [
       'Share this sighting',
       'Toward',
+      'Show QR code',
+      'For someone beside you',
+      'Send link',
+      'For someone far away',
       LEAVES_STATEMENT_TEXT,
-      QR,
-      SEND,
       OTHER,
       'What leaves this phone',
       'Close',
@@ -214,7 +220,7 @@ describe('a hidden sighting (Req 15.6)', () => {
     expect(s.getByTestId('hidden-mark').textContent).toContain('You hid this one');
     const all = sheet(s);
     expect(all.indexOf('You hid this one')).toBeLessThan(all.indexOf(LEAVES_STATEMENT_TEXT));
-    expect(all.indexOf('You hid this one')).toBeLessThan(all.indexOf(SEND));
+    expect(all.indexOf('You hid this one')).toBeLessThan(all.indexOf('Send link'));
   });
 });
 

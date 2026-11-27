@@ -82,6 +82,7 @@ describe('the tabs (design §9)', () => {
     expect(a.getByTestId('inbox-sheet')).toBeTruthy();
     expect(a.tabs()).toBeNull();
     a.tap('Close');
+    fireEvent.click(a.getByTestId('data-tile'));
     a.tap('What leaves this phone');
     expect(a.getByTestId('privacy-page')).toBeTruthy();
     expect(a.tabs()).toBeNull();
@@ -122,6 +123,7 @@ describe('a link with a code (Req 10.3)', () => {
 describe('the mode control (Req 17.1)', () => {
   it('is on the Smoke screen when the browser has motion sensors', () => {
     const a = mount({}, true);
+    fireEvent.click(a.getByTestId('data-tile'));
     const control = a.getByTestId('mode-control');
     expect(
       within(control).getByRole('button', { name: 'This phone' }).getAttribute('aria-pressed'),
@@ -196,6 +198,7 @@ describe('the primary action, above the tabs (task 21.3)', () => {
     // The secondary controls stay in the scrolling part.
     const main = within(a.getByTestId('app-main'));
     expect(main.getByRole('button', { name: /Add a sighting someone sent me/ })).toBeTruthy();
+    fireEvent.click(a.getByTestId('data-tile'));
     expect(main.getByRole('button', { name: 'Delete everything on this phone' })).toBeTruthy();
     expect(a.getAllByRole('button', { name: 'Sight the smoke' })).toHaveLength(1);
   });
@@ -316,22 +319,33 @@ describe('"Show on map" (Req 6.12)', () => {
   });
 });
 
-// Task 24.3 (2026-11-22, the lead's new look; Req 22.2): a header by route, the page's first row.
+// Req 22.2 as amended 2026-11-27 (Mira): a header by route, the page's first row.
 describe('the header by route (Req 22.2)', () => {
   const header = (utils: ReturnType<typeof mount>) => utils.queryByTestId('app-header');
 
-  it('is full on Smoke and compact, titled by the tab label, on the other tabs', () => {
+  it('is Mira’s row of the mark and the pill on every tab; each tab says its own title once', () => {
     const utils = mount();
-    expect(header(utils)?.dataset.variant).toBe('full');
-    for (const tab of ['Sightings', 'Map', 'Emergency']) {
+    expect(header(utils)?.dataset.variant).toBe('brand');
+    for (const [tab, title] of [
+      ['Sightings', /^(Sightings of this smoke|No smoke yet)$/],
+      ['Map', /^Map$/],
+      ['Emergency', /^Emergency$/],
+    ] as const) {
       utils.tab(tab);
-      expect(header(utils)?.dataset.variant).toBe('compact');
-      expect(header(utils)?.querySelector('h1')?.textContent).toBe(tab);
-      // The title is said once on the screen.
-      expect(utils.getAllByRole('heading', { name: tab, level: 1 })).toHaveLength(1);
+      expect(header(utils)?.dataset.variant).toBe('brand');
+      expect(header(utils)?.querySelector('h1')).toBeNull();
+      expect(utils.getAllByRole('heading', { name: title, level: 1 })).toHaveLength(1);
     }
     utils.tab('Smoke');
-    expect(header(utils)?.dataset.variant).toBe('full');
+    expect(header(utils)?.dataset.variant).toBe('brand');
+  });
+
+  it('the pill "Fire? Emergency" opens the Emergency tab', () => {
+    const utils = mount();
+    utils.tap('Fire? Emergency');
+    expect(utils.getByRole('tab', { name: 'Emergency' }).getAttribute('aria-selected')).toBe(
+      'true',
+    );
   });
 
   it('is the page’s first row, above the Simulation banner, never a layer', () => {
@@ -352,12 +366,13 @@ describe('the header by route (Req 22.2)', () => {
     expect(main.querySelector('button')?.textContent).toMatch(/Back/);
   });
 
-  it('is compact on the privacy page, with its title once', () => {
+  it('is none on the privacy page, which has its title once', () => {
     const utils = mount();
+    fireEvent.click(utils.getByTestId('data-tile'));
     fireEvent.click(
       utils.getAllByRole('button', { name: 'What leaves this phone' })[0] as HTMLElement,
     );
-    expect(header(utils)?.dataset.variant).toBe('compact');
+    expect(header(utils)).toBeNull();
     expect(
       utils.getAllByRole('heading', { name: 'What leaves this phone', level: 1 }),
     ).toHaveLength(1);

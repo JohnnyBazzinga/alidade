@@ -16,7 +16,15 @@
 // em a character (monospace, about 0.6 measured, with 5 % margin) plus the letter spacing a
 // component sets. The real pixels are the lead's check in a browser.
 
-import { describe, expect, it } from 'vitest';
+import {
+  applyTheme,
+  DIAL_LENS_MAX_PX,
+  DIAL_LENS_MIN_PX,
+  DIAL_RESERVE_PX,
+  instrument,
+  mira,
+} from '@alidade/ui';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { mountDeviceSight } from '../../test-support/device-sight';
 import { mountSimulation } from '../../test-support/simulation-driver';
 
@@ -283,7 +291,11 @@ function dockedTotal(screen: HTMLElement, widthPx: number, heightPx: number) {
     else if (el.dataset.testid === 'readout') add('readout', readoutHeight(el, widthPx));
     // Before Start only (Req 22.8): the how-to and tip cards and the idle picture scroll in the
     // middle part; Start is in the docked bar, which the sum below holds.
-    else if (el.dataset.testid === 'how-to' || el.dataset.part === 'idle-image')
+    else if (
+      el.dataset.testid === 'how-to' ||
+      el.dataset.testid === 'before-you-sight' ||
+      el.dataset.part === 'idle-image'
+    )
       add('before Start (scrolls)', 0);
     else if (el.dataset.part === 'hint' || el.dataset.part === 'intro')
       add('hint', textHeight(el, widthPx));
@@ -365,5 +377,75 @@ describe('the Sight screen on a phone is the docked column (Req 3.10, UI 13.15)'
       'Start',
     ]);
     expect(screen.style.height).toBe('100dvh');
+  });
+});
+
+// Mira (Req 22.17, design D26.4): the docked column drawn as the dial. The lens takes the height the
+// column leaves, between its bounds, so the sum is of the parts around it, from the numbers the
+// skeleton and Vigia write: the aiming row, the lens and its margin, the readout or the hint, the
+// north prompt, the tiles, and the bar with the home indicator's inset.
+describe('the Sight screen on a phone in Mira fits the screen (Req 3.10, 22.17)', () => {
+  beforeEach(() => applyTheme(document.documentElement, mira));
+  afterEach(() => {
+    applyTheme(document.documentElement, instrument);
+    document.documentElement.removeAttribute('style');
+  });
+  const lens = (widthPx: number, heightPx: number, reservePx: number) =>
+    Math.min(widthPx - 40, DIAL_LENS_MAX_PX, Math.max(DIAL_LENS_MIN_PX, heightPx - reservePx));
+  const AIM_PX = 16 + 44;
+  const READOUT_PX = 12 + 64 + 6 + 12 * 1.4;
+  const TILES_PX = 16 + 54;
+  const BAR_PX = (rows: readonly number[]) =>
+    12 + rows.reduce((a, b) => a + b, 0) + 10 * (rows.length - 1) + 16 + SAFE_AREA_INSET_PX;
+
+  for (const [widthPx, heightPx] of [
+    [390, 664],
+    [375, 667],
+    [390, 844],
+  ] as const) {
+    it(`live, frozen and north needed fit ${widthPx} × ${heightPx}`, async () => {
+      for (const name of ['live', 'live, north needed', 'frozen'] as const) {
+        const m = mountDeviceSight({ relative: name.includes('north needed') });
+        await m.toLive();
+        if (name === 'frozen') await m.press('freeze');
+        const screen = m.getByTestId('sighting-screen');
+        expect(screen.dataset.variant).toBe('dial');
+        const parts: Record<string, number> = { aim: AIM_PX, tiles: TILES_PX };
+        if (name === 'frozen') {
+          const hint = screen.querySelector<HTMLElement>('[data-part="hint"]') as HTMLElement;
+          parts.lens = lens(widthPx, heightPx, DIAL_RESERVE_PX.frozen) + 14;
+          parts.hint = 12 + lines(hint.textContent ?? '', widthPx - 40, 22) * 22 * 1.2;
+          parts.bar = BAR_PX([62, 54]);
+        } else if (name === 'live') {
+          parts.lens = lens(widthPx, heightPx, DIAL_RESERVE_PX.live) + 14;
+          parts.readout = READOUT_PX;
+          parts.bar = BAR_PX([62]);
+        } else {
+          const prompt = m.getByTestId('yaw-status');
+          const headline = prompt.querySelector('[data-part="prompt-headline"]')?.textContent ?? '';
+          const rest = prompt.querySelector('[data-part="prompt"]')?.textContent ?? '';
+          // Mira's card: padding 12 and 14, the icon of 22 and its gap of 12, 15 and 13.
+          const inner = widthPx - 40 - 28 - 34;
+          parts.lens = lens(widthPx, heightPx, DIAL_RESERVE_PX.prompt) + 14;
+          parts.readout = READOUT_PX;
+          parts.prompt =
+            12 +
+            24 +
+            4 +
+            lines(headline, inner, 15) * 15 * 1.25 +
+            lines(rest, inner, 13) * 13 * 1.45;
+          parts.bar = BAR_PX([62]);
+        }
+        const total = Object.values(parts).reduce((a, b) => a + b, 0);
+        expect(total, `${name}: ${JSON.stringify(parts)}`).toBeLessThanOrEqual(heightPx);
+        m.unmount();
+      }
+    });
+  }
+
+  it('the lens is as large as the design (350) on a tall phone, and never under its least', () => {
+    expect(lens(390, 844, DIAL_RESERVE_PX.live)).toBe(350);
+    expect(lens(390, 844, DIAL_RESERVE_PX.frozen)).toBe(350);
+    expect(lens(320, 568, DIAL_RESERVE_PX.prompt)).toBe(DIAL_LENS_MIN_PX);
   });
 });

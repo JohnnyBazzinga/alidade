@@ -226,7 +226,7 @@ export function InboxSheet({ onClose, onTaken }: InboxSheetProps) {
   const [confirming, setConfirming] = useState<Confirming | null>(null);
   const top = useOpenAtTop<HTMLElement>('inbox');
   // In the App the compact header carries the title (Req 22.2).
-  const inApp = useHeader(null);
+  useHeader(null);
   const taken = (line: string) => {
     setConfirming(null);
     onTaken?.(line);
@@ -274,7 +274,12 @@ export function InboxSheet({ onClose, onTaken }: InboxSheetProps) {
   );
   return (
     <section ref={top} data-testid="inbox-sheet" style={LOOK.stack}>
-      {!inApp && <h1 style={LOOK.title}>Add a sighting someone sent me</h1>}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <p style={LOOK.caption}>Someone sent me one</p>
+        <h1 style={{ ...LOOK.title, fontSize: 30, lineHeight: 1.08, letterSpacing: '-1px' }}>
+          Add a sighting someone sent me
+        </h1>
+      </div>
       {addressHoldsCode && (
         <div style={LOOK.statusCard('warning')}>
           <p data-testid="address-holds-code" style={LOOK.alertText}>

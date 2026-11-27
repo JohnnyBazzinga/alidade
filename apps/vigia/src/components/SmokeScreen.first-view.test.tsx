@@ -1,9 +1,11 @@
 // The Smoke screen's first view and its two disclosures (Req 6.12, 4.5, 5.4, 6.2 to 6.4, 7.2, 16.1,
-// 17.1; design D23.4, D23.5; task 23.6). jsdom does no layout, so the tests read what is inside and
-// outside each `details`; "first view" is the text of the screen outside every `details` and
-// button, and its words are counted against the bound of Req 6.12.
+// 17.1; design D23.4, D23.5, D26.3; task 23.6). jsdom does no layout, so the tests read what is
+// inside and outside each disclosure: in Mira a tile that opens a panel kept in the page, hidden
+// while closed (`data-disclosure` names it), as a closed `details` keeps its contents. "First view"
+// is the text of the screen outside every disclosure and button, and its words are counted against
+// the bound of Req 6.12.
 
-import { BODY_FONT_STACK, NUMERIC_FONT_STACK } from '@alidade/ui';
+import { BODY_FONT_STACK, DISPLAY_FONT_STACK, NUMERIC_FONT_STACK } from '@alidade/ui';
 import { fireEvent } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import {
@@ -44,17 +46,24 @@ function show(incidents: readonly Incident[], props: Partial<SmokeScreenProps> =
   /** The text of the screen outside every disclosure and every button. */
   const firstView = (): string => {
     const clone = root.cloneNode(true) as HTMLElement;
-    for (const el of clone.querySelectorAll('details, button')) el.remove();
+    for (const el of clone.querySelectorAll('details, button, [hidden]')) el.remove();
     return clone.textContent ?? '';
   };
   const words = (): number => firstView().trim().split(/\s+/).filter(Boolean).length;
   const disclosures = () =>
-    [...root.querySelectorAll('details')].map((d) => ({
-      summary: d.querySelector('summary')?.textContent ?? '',
-      open: d.open,
-      text: d.textContent ?? '',
-    }));
-  return { ...screen, calls, firstView, words, disclosures, root };
+    [...root.querySelectorAll<HTMLElement>('details, [data-disclosure]')].map((d) =>
+      d instanceof HTMLDetailsElement
+        ? {
+            summary: d.querySelector('summary')?.textContent ?? '',
+            open: d.open,
+            text: d.textContent ?? '',
+          }
+        : { summary: d.dataset.disclosure ?? '', open: !d.hidden, text: d.textContent ?? '' },
+    );
+  /** Opens the panel named `summary` with its tile (Mira). */
+  const openPanel = (tileName: RegExp) =>
+    fireEvent.click(screen.getByRole('button', { name: tileName }));
+  return { ...screen, calls, firstView, words, disclosures, root, openPanel };
 }
 
 function disagreeing(): Incident {
@@ -89,9 +98,8 @@ describe('the first view with a Fix (Req 6.12)', () => {
     expect(view).toContain('Based on 2 sightings');
     expect(view).toContain(checkStatement('two'));
     expect(view).toContain(COMPASS_ONE_LINE_TEXT);
-    // In this order.
+    // In this order; Mira puts the not-calling statement at the foot of the screen.
     const at = (t: string) => view.indexOf(t);
-    expect(at(NOT_CALLING_TEXT)).toBeLessThan(at('Probably here'));
     expect(at('Probably here')).toBeLessThan(at('Based on 2'));
     expect(at('Based on 2')).toBeLessThan(at(checkStatement('two')));
     expect(at(checkStatement('two'))).toBeLessThan(at(COMPASS_ONE_LINE_TEXT));
@@ -207,13 +215,16 @@ describe('"This phone\u2019s data and mode" (Req 4.5, 17.1, 6.12)', () => {
     const s = show([postsIncident(['west', 'east'])], {
       modeControl: <div data-testid="mode-control">mode</div>,
     });
-    const data = [...s.root.querySelectorAll('details')].find((d) =>
-      d.querySelector('summary')?.textContent?.startsWith("This phone's data and mode"),
-    ) as HTMLDetailsElement;
-    expect(data.open).toBe(false);
-    expect(data.querySelector('summary')?.textContent).toBe(
-      "This phone's data and mode: This phone",
-    );
+    const data = s.getByTestId('data-and-mode');
+    expect(data.hidden).toBe(true);
+    expect(data.dataset.disclosure).toBe("This phone's data and mode: This phone");
+    // Its tile says the mode, and opens it.
+    const tile = s.getByTestId('data-tile');
+    expect(tile.textContent).toBe('Data and modeThis phone');
+    expect(tile.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(tile);
+    expect(s.getByTestId('data-and-mode').hidden).toBe(false);
+    fireEvent.click(tile);
     expect(data.textContent).toContain('Delete everything on this phone');
     expect(data.textContent).toContain('What leaves this phone');
     expect(data.querySelector('[data-testid="mode-control"]')).not.toBeNull();
@@ -223,6 +234,7 @@ describe('"This phone\u2019s data and mode" (Req 4.5, 17.1, 6.12)', () => {
 
   it('still asks once before it deletes, and the privacy page is still reachable', () => {
     const s = show([postsIncident(['west', 'east'])]);
+    s.openPanel(/^Data and mode/);
     fireEvent.click(s.getByRole('button', { name: 'Delete everything on this phone' }));
     expect(s.getByTestId('delete-all-dialog')).toBeTruthy();
     expect(s.store.getSnapshot().state.incidents).toHaveLength(1);
@@ -232,17 +244,23 @@ describe('"This phone\u2019s data and mode" (Req 4.5, 17.1, 6.12)', () => {
 });
 
 describe('the line after a capture or a join (Req 4.11, 4.12)', () => {
-  it('shows the status line directly after the not-calling statement', () => {
+  it('shows the status line first (Mira: the not-calling statement is at the foot)', () => {
     const s = show([postsIncident(['west', 'east'])], { statusLine: 'Joined: 2 sightings' });
     const view = s.firstView();
-    expect(view.indexOf('Joined: 2 sightings')).toBe(NOT_CALLING_TEXT.length);
+    expect(view.indexOf('Joined: 2 sightings')).toBe(0);
+    expect(view.trim().endsWith(NOT_CALLING_TEXT)).toBe(true);
   });
 
   it('with a saved sighting: "Send this sighting" is the primary action and "Sight the smoke" is secondary', () => {
     const incident = postsIncident(['west', 'east']);
     const id = incident.entries[0]?.sighting.sightingId ?? '';
     const s = show([incident], { saved: { sightingId: id } });
-    expect(s.firstView()).toMatch(/Sighting saved: .*° ± .*° \(true\)/);
+    // Mira draws the line of Req 4.11 as "Sighting saved", the numeral and "± 2.1° · true"; the
+    // sentence is the name of its line.
+    expect(s.getByTestId('status-line').getAttribute('aria-label')).toMatch(
+      /Sighting saved: .*° ± .*° \(true\)/,
+    );
+    expect(s.firstView()).toMatch(/Sighting saved\d+\.\d°± \d+\.\d° · true/);
     const send = s.getByRole('button', { name: 'Send this sighting' });
     expect(send.dataset.primary).toBe('true');
     expect(s.getByRole('button', { name: 'Sight the smoke' }).dataset.primary).not.toBe('true');
@@ -251,21 +269,23 @@ describe('the line after a capture or a join (Req 4.11, 4.12)', () => {
   });
 });
 
-// D24: a sentence is in the body stack, at the readout's size and weight; the position is numeric.
-describe('the stacks of the first view (design D24)', () => {
-  it('sets the one-sighting statement in the body stack, at the readout size', () => {
+// D24 as Mira draws it (D26.3): the one-sighting statement is the screen's title, in the display
+// font at 24; a warning is in the body font; the position is numeric.
+describe('the stacks of the first view (design D24, D26.3)', () => {
+  it('sets the one-sighting statement as the title, in the display font at 24', () => {
     const s = show([postsIncident(['west'])]);
     const el = s.getByTestId('check-statement');
-    expect(el.style.fontFamily).toBe(BODY_FONT_STACK);
-    expect(el.style.fontSize).toBe('20px');
+    expect(el.tagName).toBe('H1');
+    expect(el.style.fontFamily).toBe(DISPLAY_FONT_STACK);
+    expect(el.style.fontSize).toBe('24px');
   });
 
-  it('sets "None of these sightings is used" in the body stack, at the readout size', () => {
+  it('sets "None of these sightings is used" in the body stack, extra bold', () => {
     const hidden = postsIncident(['west', 'east'], () => ({ hidden: true }));
     const s = show([hidden]);
     const el = s.getByText(/None of these sightings is used/);
     expect(el.style.fontFamily).toBe(BODY_FONT_STACK);
-    expect(el.style.fontSize).toBe('20px');
+    expect(el.style.fontWeight).toBe('800');
   });
 
   it('keeps the position in the numeric stack', () => {

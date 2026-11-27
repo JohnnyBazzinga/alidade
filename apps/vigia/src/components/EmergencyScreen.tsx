@@ -60,9 +60,10 @@ export function EmergencyScreen() {
 
   return (
     <section data-testid="emergency-screen" style={LOOK.stack}>
+      <h1 style={LOOK.title}>Emergency</h1>
       {/* The danger card of Req 14.5, first (Req 22.10). */}
       <div style={LOOK.statusCard('danger')}>
-        <p style={{ ...LOOK.statement, color: ROLE_VARS.dangerInk }}>
+        <p style={{ ...LOOK.text, fontSize: 15, color: ROLE_VARS.dangerInk }}>
           <InlineIcon name="shield" colour={ROLE_VARS.dangerIcon} />
           <HeadlineFirst text={EMERGENCY_NOT_CALLING_TEXT} />
         </p>
@@ -72,7 +73,7 @@ export function EmergencyScreen() {
       {text !== null && !text.ok && <FailureNotice failure={text} />}
       {text !== null && text.ok && (
         <>
-          <h2 id="vigia-emergency-text-title" style={LOOK.title}>
+          <h2 id="vigia-emergency-text-title" style={LOOK.cardTitle}>
             Text for the emergency call
           </h2>
           <pre
@@ -80,6 +81,8 @@ export function EmergencyScreen() {
             aria-labelledby="vigia-emergency-text-title"
             style={{
               ...LOOK.readout,
+              // Read out on the phone (Req 14.3): at the readout size of skeleton-ui Req 13.4.
+              fontSize: SIZES.labelPx,
               margin: 0,
               whiteSpace: 'pre-wrap',
               userSelect: 'text',
@@ -102,12 +105,12 @@ export function EmergencyScreen() {
               setCopy(null);
             }}
             style={{
-              ...LOOK.button,
+              ...LOOK.tile,
               overflowWrap: 'normal',
-              display: 'flex',
-              alignItems: 'center',
               gap: SIZES.gapPx * 2,
-              textAlign: 'left',
+              border: 'none',
+              background: ROLE_VARS.raised,
+              fontSize: 15,
             }}
           >
             <span data-part="switch-label" style={{ flexGrow: 1, flexShrink: 1, minWidth: 0 }}>
@@ -118,8 +121,8 @@ export function EmergencyScreen() {
               style={{
                 flexShrink: 0,
                 whiteSpace: 'nowrap',
-                fontWeight: 700,
-                color: includeOwnPosition ? ROLE_VARS.accent : COLOURS.inkDim,
+                fontWeight: 800,
+                color: includeOwnPosition ? ROLE_VARS.ink : COLOURS.inkDim,
               }}
             >
               {includeOwnPosition ? 'On' : 'Off'}

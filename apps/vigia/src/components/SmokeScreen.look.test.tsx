@@ -1,5 +1,5 @@
-// The Smoke tab in the Field look (Req 22.6, design D25.2, D25.3, D25.5; task 24.4): the same words in
-// the same order (the other tests of the screen say so), drawn as cards with icons.
+// The Smoke tab in the Mira look (Req 22.6, design D26.3): the same words (the other tests of the
+// screen say so), drawn as Mira's cards, tiles and note.
 
 import { act } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
@@ -27,18 +27,19 @@ const icon = (el: Element | null | undefined) =>
   el?.querySelector('svg')?.getAttribute('data-icon') ?? null;
 
 describe('the Smoke tab as cards (Req 22.6)', () => {
-  it('the not-calling statement is a danger card with a shield, its words in dangerInk', () => {
+  it('the not-calling statement is Mira\u2019s note at the foot: the danger tint, its words in dangerInk', () => {
     const s = show([]);
     const p = s.getByTestId('not-calling');
     expect(p.textContent).toBe(NOT_CALLING_TEXT);
-    expect(icon(p)).toBe('shield');
+    expect(p.getAttribute('role')).toBe('note');
     expect(p.style.color).toBe('var(--alidade-dangerInk)');
+    expect(p.style.background).toBe('var(--alidade-dangerTint)');
+    expect(p.style.borderRadius).toBe('var(--alidade-tile-radius)');
     // Its first sentence is the headline, bold; the rest is the instruction, not bold.
     expect(p.querySelector('strong')?.textContent).toBe('This app does not call or notify anyone.');
     expect(p.style.fontWeight).not.toBe('700');
-    const card = p.parentElement as HTMLElement;
-    expect(card.style.background).toBe('var(--alidade-dangerTint)');
-    expect(card.style.borderLeft).toBe('4px solid var(--alidade-dangerBar)');
+    // The last block of the screen.
+    expect(s.getByTestId('smoke-screen').lastElementChild).toBe(p);
   });
 
   it('a Fix is a card: the position with its radius after a pin, how many it rests on, then Show on map with a map icon', () => {
@@ -62,40 +63,36 @@ describe('the Smoke tab as cards (Req 22.6)', () => {
     expect((p.parentElement as HTMLElement).style.background).toBe('var(--alidade-warnTint)');
   });
 
-  it('a supporting fact is a row with an icon in a round tint', () => {
+  it('the compass sentence is a line after its icon, in the dim ink', () => {
     const s = show([postsIncident(['west', 'east'])]);
-    const rows = [
-      ...s.getByTestId('smoke-screen').querySelectorAll(':scope > [data-part="icon-row"]'),
-    ];
-    expect(rows.map(icon)).toContain('compass');
+    const line = s.getByText('Phone compasses are off by several degrees.');
+    expect(icon(line)).toBe('compass');
+    expect(line.style.color).toBe('var(--alidade-inkDim)');
   });
 
   it('"Where to sight from next" is a card with the schematic, wherever its sentence is shown', () => {
     const s = show([postsIncident(['west'])]);
     const advice = s.getByTestId('advice');
-    expect(icon(advice.querySelector('h2'))).toBe('crosshair');
+    expect(advice.querySelector('h2')?.textContent).toBe('Where to sight from next');
+    expect(advice.style.borderRadius).toBe('var(--alidade-card-radius)');
     expect(advice.querySelector('[data-testid="schematic"]')).not.toBeNull();
   });
 
-  it('the rows: "Add a sighting someone sent me" ends in a chevron-right; the disclosures in a chevron-down that turns up', () => {
+  it('the tiles: "Add a sighting someone sent me" ends in a chevron-right; "Details and limits" in a chevron-down that turns over', () => {
     const s = show([postsIncident(['west', 'east', 'side'])]);
     const inbox = s.getByRole('button', { name: /Add a sighting someone sent me/ });
     expect(inbox.lastElementChild?.getAttribute('data-icon')).toBe('chevron-right');
-    expect(icon(inbox)).toBe('inbox');
-    for (const details of s.getByTestId('smoke-screen').querySelectorAll('details')) {
-      const summary = details.querySelector('summary') as HTMLElement;
-      expect(summary.querySelector('[data-icon="chevron-right"]')).toBeNull();
-      expect(summary.lastElementChild?.getAttribute('data-icon')).toBe('chevron-down');
-      act(() => {
-        (details as HTMLDetailsElement).open = true;
-        details.dispatchEvent(new Event('toggle'));
-      });
-      expect(details.querySelector('summary')?.lastElementChild?.getAttribute('data-icon')).toBe(
-        'chevron-up',
-      );
-    }
-    const icons = [...s.getByTestId('smoke-screen').querySelectorAll('summary')].map(icon);
-    expect(icons).toEqual(['info', 'phone']);
+    expect(inbox.style.borderRadius).toBe('var(--alidade-tile-radius)');
+    const details = s.getByRole('button', { name: 'Details and limits' });
+    expect(details.getAttribute('aria-expanded')).toBe('false');
+    const chevron = details.querySelector('[data-icon="chevron-down"]') as SVGElement | null;
+    expect(chevron).not.toBeNull();
+    act(() => details.click());
+    expect(details.getAttribute('aria-expanded')).toBe('true');
+    expect(
+      (details.querySelector('[data-icon="chevron-down"]') as SVGElement).style.transform,
+    ).toBe('rotate(180deg)');
+    expect(s.getByTestId('details-and-limits').hidden).toBe(false);
   });
 
   it('the primary action has its icon: a crosshair for "Sight the smoke", a send icon for "Send this sighting"', () => {

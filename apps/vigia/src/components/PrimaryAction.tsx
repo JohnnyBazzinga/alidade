@@ -7,7 +7,6 @@
 
 import { createContext, useContext, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { COLOURS, SIZES } from '@alidade/ui';
 
 /**
  * `undefined`: no App around, render in place. `null`: the App's row is not attached yet, render
@@ -25,9 +24,9 @@ export function PrimaryAction({ children }: { readonly children: ReactNode }) {
       style={{
         display: 'flex',
         flexDirection: 'column',
-        gap: SIZES.gapPx,
-        padding: SIZES.gapPx * 1.5,
-        borderTop: `1px solid ${COLOURS.rule}`,
+        gap: 10,
+        // Mira: the action sits on the page above the floating tab bar, with no rule over it.
+        padding: '12px 20px 0',
       }}
     >
       {children}

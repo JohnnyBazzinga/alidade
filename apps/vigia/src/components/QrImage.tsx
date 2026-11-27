@@ -3,7 +3,7 @@
 // as text beside it for a phone whose camera does not read QR codes. No image element, no canvas,
 // no remote source. The brightness of the screen is left to the user.
 
-import { activeTheme } from '@alidade/ui';
+import { activeTheme, ROLE_VARS } from '@alidade/ui';
 import { useMemo } from 'react';
 import type { QrMatrix } from '../adapters/qr-encoder';
 import { LOOK } from './look';
@@ -39,7 +39,7 @@ export function QrImage({ matrix, link }: { readonly matrix: QrMatrix; readonly 
         style={{
           width: '100%',
           height: 'auto',
-          maxHeight: 'calc(100dvh - 300px)',
+          maxHeight: 'calc(100dvh - 330px)',
           display: 'block',
           background: LIGHT,
         }}
@@ -47,7 +47,10 @@ export function QrImage({ matrix, link }: { readonly matrix: QrMatrix; readonly 
         <rect x={0} y={0} width={side} height={side} fill={LIGHT} />
         <path d={path} fill={DARK} />
       </svg>
-      <figcaption data-testid="qr-link" style={LOOK.text}>
+      <figcaption
+        data-testid="qr-link"
+        style={{ ...LOOK.readout, fontSize: 12, lineHeight: 1.5, color: ROLE_VARS.infoInk }}
+      >
         {link}
       </figcaption>
     </figure>

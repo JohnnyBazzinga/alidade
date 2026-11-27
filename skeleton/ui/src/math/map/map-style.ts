@@ -66,7 +66,37 @@ function kindIs(kind: string): readonly unknown[] {
  * 6) over the lines and the Wedges, so that it is seen where they cross it. The Fix's point is a
  * small dot, 10 CSS px across, so that it does not cover a small ellipse.
  */
-export function buildMapStyle(tiles: TileSource | null): MapStyle {
+/**
+ * The map's paints (Req 22.16): the light core, the dark casing, the Fix's colour and the Wedges'
+ * fill opacity. Every theme but Mira draws the defaults; Mira draws its yellow over its ink.
+ */
+export interface MapPalette {
+  readonly light: string;
+  readonly dark: string;
+  readonly fix: string;
+  readonly wedgeOpacity: number;
+}
+
+export const DEFAULT_MAP_PALETTE: MapPalette = {
+  light: MAP_LIGHT,
+  dark: MAP_DARK,
+  fix: MAP_FIX,
+  wedgeOpacity: 0.18,
+};
+
+/** Mira's map (2026-11-27): yellow lines, Wedges, dots and ellipse, each cased in its ink. */
+export const MIRA_MAP_PALETTE: MapPalette = {
+  light: '#FFD400',
+  dark: '#0F1F1A',
+  fix: '#FFD400',
+  wedgeOpacity: 0.45,
+};
+
+export function buildMapStyle(
+  tiles: TileSource | null,
+  palette: MapPalette = DEFAULT_MAP_PALETTE,
+): MapStyle {
+  const { light: MAP_LIGHT_, dark: MAP_DARK_, fix: MAP_FIX_ } = palette;
   const sources: Record<string, unknown> = {};
   for (const id of GEOJSON_SOURCE_IDS) sources[id] = { type: 'geojson', data: EMPTY };
   const layers: MapLayer[] = [
@@ -88,72 +118,72 @@ export function buildMapStyle(tiles: TileSource | null): MapStyle {
       id: 'wedges-fill',
       type: 'fill',
       source: 'wedges',
-      paint: { 'fill-color': MAP_LIGHT, 'fill-opacity': 0.18 },
+      paint: { 'fill-color': MAP_LIGHT_, 'fill-opacity': palette.wedgeOpacity },
     },
     {
       id: 'wedges-outline',
       type: 'line',
       source: 'wedges',
-      paint: { 'line-color': MAP_DARK, 'line-width': 2 },
+      paint: { 'line-color': MAP_DARK_, 'line-width': 2 },
     },
     {
       id: 'fix-ellipse-fill',
       type: 'fill',
       source: 'fix',
       filter: kindIs('fix-ellipse-95'),
-      paint: { 'fill-color': MAP_FIX, 'fill-opacity': 0.25 },
+      paint: { 'fill-color': MAP_FIX_, 'fill-opacity': 0.25 },
     },
     {
       id: 'bearings-casing',
       type: 'line',
       source: 'bearings',
-      paint: { 'line-color': MAP_DARK, 'line-width': 5 },
+      paint: { 'line-color': MAP_DARK_, 'line-width': 5 },
     },
     {
       id: 'bearings-core',
       type: 'line',
       source: 'bearings',
-      paint: { 'line-color': MAP_LIGHT, 'line-width': 2.5 },
+      paint: { 'line-color': MAP_LIGHT_, 'line-width': 2.5 },
     },
     {
       id: 'fix-ellipse-casing',
       type: 'line',
       source: 'fix',
       filter: kindIs('fix-ellipse-95'),
-      paint: { 'line-color': MAP_DARK, 'line-width': 6 },
+      paint: { 'line-color': MAP_DARK_, 'line-width': 6 },
     },
     {
       id: 'fix-ellipse-core',
       type: 'line',
       source: 'fix',
       filter: kindIs('fix-ellipse-95'),
-      paint: { 'line-color': MAP_FIX, 'line-width': 3 },
+      paint: { 'line-color': MAP_FIX_, 'line-width': 3 },
     },
     {
       id: 'observers-casing',
       type: 'circle',
       source: 'observers',
-      paint: { 'circle-color': MAP_DARK, 'circle-radius': 9 },
+      paint: { 'circle-color': MAP_DARK_, 'circle-radius': 9 },
     },
     {
       id: 'observers-core',
       type: 'circle',
       source: 'observers',
-      paint: { 'circle-color': MAP_LIGHT, 'circle-radius': 6 },
+      paint: { 'circle-color': MAP_LIGHT_, 'circle-radius': 6 },
     },
     {
       id: 'fix-casing',
       type: 'circle',
       source: 'fix',
       filter: kindIs('fix'),
-      paint: { 'circle-color': MAP_DARK, 'circle-radius': 5 },
+      paint: { 'circle-color': MAP_DARK_, 'circle-radius': 5 },
     },
     {
       id: 'fix-core',
       type: 'circle',
       source: 'fix',
       filter: kindIs('fix'),
-      paint: { 'circle-color': MAP_FIX, 'circle-radius': 3 },
+      paint: { 'circle-color': MAP_FIX_, 'circle-radius': 3 },
     },
   );
   return { version: 8, sources, layers };

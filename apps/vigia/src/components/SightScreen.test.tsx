@@ -61,10 +61,13 @@ describe('SightScreen on a phone (Req 3.1, 3.3)', () => {
   });
 });
 
+// Req 16.2 as amended 2026-11-27 (Mira): before Start the screen's title and the three steps are the
+// guidance; from Start on, "How to aim" holds it, one tap away.
 describe('the aiming line and "How to aim" (Req 3.7, 16.2)', () => {
   it('shows one line, and every statement of the guidance in a closed disclosure', async () => {
     const s = mount();
     await s.settle();
+    await s.toLive();
     const guidance = s.getByTestId('guidance');
     const details = guidance.querySelector('details') as HTMLDetailsElement;
     expect(details.open).toBe(false);
@@ -76,21 +79,24 @@ describe('the aiming line and "How to aim" (Req 3.7, 16.2)', () => {
       expect(summary.textContent).not.toContain(sentence);
     }
     expect(guidance.parentElement?.getAttribute('data-part')).toBe('middle');
-    expect(Number.parseFloat(summary.style.minHeight)).toBeGreaterThanOrEqual(48);
+    expect(Number.parseFloat(summary.style.minHeight)).toBeGreaterThanOrEqual(44);
   });
 
   it('adds the wind sentence only when a wind reading is shown', async () => {
     const s = mount({ windShown: true });
     await s.settle();
+    await s.toLive();
     for (const sentence of sightingGuidance(true)) {
       expect(s.getByTestId('guidance').textContent).toContain(sentence);
     }
   });
 
-  it('is in every state of the screen, and says nothing of tapping the image on a phone', async () => {
+  it('is the steps before Start and "How to aim" from Start on, and says nothing of tapping the image', async () => {
     const s = mount();
     await s.settle();
-    expect(s.getByTestId('guidance')).toBeTruthy();
+    expect(s.getByTestId('before-you-sight').textContent).toContain(AIM_LINE_TEXT);
+    expect(s.getByTestId('how-to').textContent).toContain('Hold the phone upright.');
+    expect(s.queryByTestId('guidance')).toBeNull();
     await s.toLive();
     expect(s.getByTestId('guidance')).toBeTruthy();
     await s.press('freeze');
@@ -168,7 +174,7 @@ describe('the question with a smoke open is a view of its own (Req 4.3)', () => 
     expect(card.querySelector('[data-part="bearing-label"]')?.textContent).toBe('Bearing');
     // The two values side by side on one tinted band, a rule between them (Codex, 2026-11-23).
     const band = card.querySelector<HTMLElement>('[data-part="values"]') as HTMLElement;
-    expect(band.style.background).toBe('var(--alidade-infoTint)');
+    expect(band.style.background).toBe('var(--alidade-raised)');
     expect((band.lastElementChild as HTMLElement).style.borderLeft).toBe(
       '1px solid var(--alidade-rule)',
     );

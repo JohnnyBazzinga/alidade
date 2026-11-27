@@ -32,6 +32,8 @@ import {
   MapPinned,
   Navigation,
   OctagonAlert,
+  Phone,
+  Plus,
   QrCode,
   Send,
   Share2,
@@ -48,6 +50,8 @@ import {
 /** Each name of the closed list and the lucide component that draws it (D37.6). */
 const ICONS = {
   smoke: Cloud,
+  call: Phone,
+  plus: Plus,
   sightings: List,
   map: MapIcon,
   siren: Siren,
@@ -93,6 +97,8 @@ export const ICON_NAMES = Object.keys(ICONS) as readonly IconName[];
 /** The lucide component of each name, by its exported name: what the test checks against D37.6. */
 export const ICON_COMPONENT_NAMES: Readonly<Record<IconName, string>> = {
   smoke: 'Cloud',
+  call: 'Phone',
+  plus: 'Plus',
   sightings: 'List',
   map: 'Map',
   siren: 'Siren',

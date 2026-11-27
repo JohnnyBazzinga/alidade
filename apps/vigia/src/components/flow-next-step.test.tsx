@@ -87,18 +87,25 @@ describe('the flow from a first sighting to a joined smoke, step by step', () =>
     await a.press('capture');
     expect(a.getByTestId('smoke-screen')).toBeTruthy();
     expect(a.main().scrollTop).toBe(0);
-    expect(a.getByTestId('smoke-screen').textContent).toMatch(/Sighting saved: .*° ± .*° \(true\)/);
+    // Mira draws the line of Req 4.11 as "Sighting saved", the numeral and its 1-sigma; the sentence
+    // is the name of its line.
+    expect(a.getByTestId('status-line').getAttribute('aria-label')).toMatch(
+      /Sighting saved: .*° ± .*° \(true\)/,
+    );
     expect(a.primaries()).toEqual(['Send this sighting']);
     expect(a.queryByRole('button', { name: 'Take another' })).toBeNull();
     expect(a.store.getSnapshot().state.incidents).toHaveLength(1);
 
-    // 4. "Send this sighting" opens the sheet: its two choices are of equal weight; nothing was sent.
+    // 4. "Send this sighting" opens the sheet: its two choices are cards of one size, the QR (someone
+    // beside you) first and in the yellow, as Mira draws it; nothing was sent.
     await a.tap('Send this sighting');
     const sheet = a.getByTestId('share-sheet');
     expect(a.primaries()).toEqual([]);
     const qr = within(sheet).getByRole('button', { name: 'Show QR code (someone beside you)' });
     const send = within(sheet).getByRole('button', { name: 'Send link (someone far away)' });
-    expect(qr.getAttribute('style')).toBe(send.getAttribute('style'));
+    expect(qr.style.minHeight).toBe(send.style.minHeight);
+    expect(qr.style.borderRadius).toBe(send.style.borderRadius);
+    expect(qr.dataset.choice).toBe(send.dataset.choice);
     expect(a.store.getSnapshot().open?.incident.entries[0]?.shared).toEqual([]);
 
     // 5. The QR is a view of its own, at the top, with Back to the sheet; Close returns to the smoke.

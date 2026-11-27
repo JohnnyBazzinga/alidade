@@ -49,7 +49,17 @@ import { LimitsNote } from './LimitsNote';
 import { Disclosure } from './Disclosure';
 import { Icon, type IconName } from './Icon';
 import { Readout } from './Readout';
-import { BODY_FONT_STACK, COLOURS, ROLE_VARS, SIZES } from './theme';
+import {
+  DialBar,
+  DialDetails,
+  DialLens,
+  dialLensSize,
+  DialReadout,
+  DialTiles,
+  DIAL_RESERVE_PX,
+} from './dial';
+import { useActiveTheme } from './theme/apply-theme';
+import { BODY_FONT_STACK, COLOURS, DISPLAY_FONT_STACK, ROLE_VARS, SIZES } from './theme';
 import { YawStatusBar } from './YawStatusBar';
 
 export interface SightingScreenProps {
@@ -196,6 +206,8 @@ export function SightingScreen(props: SightingScreenProps) {
   const { session, parameters, onAction } = props;
   const docked = props.layout === 'docked';
   const [otherWays, setOtherWays] = useState(false);
+  // Mira's drawing of the docked layout (Req 22.17): the same parts, as a lens, a numeral, tiles.
+  const dial = useActiveTheme().flags.dial;
   const state = session.state;
   const bearing = session.kind === 'bearing';
   const frozen = state === 'frozen';
@@ -306,6 +318,31 @@ export function SightingScreen(props: SightingScreenProps) {
     />
   );
 
+  const surface = (
+    <ImageSurface
+      frozen={frozen}
+      sourceSize={props.sourceSize}
+      fit={props.fit}
+      mark={mark}
+      observe={props.observe}
+      onLayout={props.onLayout}
+      onAim={props.onAim}
+      label={props.imageLabel}
+      onMark={(point, layout) => {
+        // No calibration, no tap: the image takes no taps (Req 18.10 as amended, 13.17).
+        if (!marking) return;
+        onAction({
+          kind: 'mark',
+          point,
+          layout,
+          calibration: props.calibration,
+          tapSigmaPx: props.tapSigmaPx,
+        });
+      }}
+    >
+      {(layout) => props.renderImage(layout, frozen)}
+    </ImageSurface>
+  );
   const imageBox = (
     <div
       data-part="image-box"
@@ -315,29 +352,7 @@ export function SightingScreen(props: SightingScreenProps) {
           : { position: 'relative', height: IMAGE_HEIGHT }
       }
     >
-      <ImageSurface
-        frozen={frozen}
-        sourceSize={props.sourceSize}
-        fit={props.fit}
-        mark={mark}
-        observe={props.observe}
-        onLayout={props.onLayout}
-        onAim={props.onAim}
-        label={props.imageLabel}
-        onMark={(point, layout) => {
-          // No calibration, no tap: the image takes no taps (Req 18.10 as amended, 13.17).
-          if (!marking) return;
-          onAction({
-            kind: 'mark',
-            point,
-            layout,
-            calibration: props.calibration,
-            tapSigmaPx: props.tapSigmaPx,
-          });
-        }}
-      >
-        {(layout) => props.renderImage(layout, frozen)}
-      </ImageSurface>
+      {surface}
     </div>
   );
 
@@ -468,6 +483,134 @@ export function SightingScreen(props: SightingScreenProps) {
         {SCREEN_TEXT.liveHint}
       </p>
     );
+    if (dial) {
+      // The lens takes what the column leaves (Req 22.17): the parts around it keep their reserve.
+      const lensSize = dialLensSize(
+        frozen
+          ? DIAL_RESERVE_PX.frozen
+          : needsPrompt
+            ? DIAL_RESERVE_PX.prompt
+            : DIAL_RESERVE_PX.live,
+      );
+      const dialBarText =
+        state === 'starting' ? (
+          <p data-part="hint" style={{ ...text, padding: 0, fontSize: 15 }}>
+            {SCREEN_TEXT.starting}
+          </p>
+        ) : (
+          <>
+            {portrait && <FailureNotice failure={{ reason: 'portrait_required' }} inBar />}
+            {state === 'failed' && session.failure !== null && (
+              <FailureNotice failure={session.failure} inBar />
+            )}
+            {notice !== null && <FailureNotice failure={notice} inBar />}
+          </>
+        );
+      const hasDialBarText =
+        state === 'starting' ||
+        portrait ||
+        (state === 'failed' && session.failure !== null) ||
+        notice !== null;
+      return (
+        <div
+          data-testid="sighting-screen"
+          data-state={state}
+          data-layout="docked"
+          data-variant="dial"
+          style={root}
+        >
+          <div data-part="middle" style={middleStyle}>
+            {props.aim ?? (state === 'live' ? liveHint : null)}
+            {state === 'permission' && props.idleImage !== undefined && (
+              <div
+                data-part="idle-image"
+                aria-hidden="true"
+                style={{
+                  position: 'relative',
+                  flex: '0 0 auto',
+                  boxSizing: 'border-box',
+                  width: 236,
+                  height: 236,
+                  margin: '18px auto 0',
+                  overflow: 'hidden',
+                  borderRadius: '50%',
+                  border: `2px solid ${ROLE_VARS.ink}`,
+                  background: ROLE_VARS.raised,
+                }}
+              >
+                {props.idleImage}
+              </div>
+            )}
+            {state === 'permission' && props.intro === undefined && (
+              <p data-part="intro" style={text}>
+                {SCREEN_TEXT.permission}
+              </p>
+            )}
+            {state === 'permission' && props.intro === undefined && limits}
+            {state === 'permission' && props.intro}
+            {showImage && (
+              <DialLens sizeCss={lensSize} frozen={frozen}>
+                {surface}
+              </DialLens>
+            )}
+            {state === 'live' && <DialReadout readout={session.readout} kind={session.kind} />}
+            {frozen && (
+              <p
+                data-part="hint"
+                style={{
+                  margin: 0,
+                  padding: '12px 20px 0',
+                  textAlign: 'center',
+                  fontFamily: DISPLAY_FONT_STACK,
+                  fontSize: 22,
+                  fontWeight: 800,
+                  lineHeight: 1.2,
+                  letterSpacing: '-0.6px',
+                  color: ROLE_VARS.ink,
+                }}
+              >
+                {marking
+                  ? `${SCREEN_TEXT.frozenHint} ${mark === null ? SCREEN_TEXT.notMarked : SCREEN_TEXT.marked}`
+                  : SCREEN_TEXT.frozenHintNoMark}
+              </p>
+            )}
+            {needsPrompt && <div style={{ padding: '12px 20px 0' }}>{yawBar(false, false)}</div>}
+            {(state === 'live' || frozen) && (
+              <DialTiles
+                onOtherWays={askNorth ? () => setOtherWays(true) : null}
+                details={
+                  <>
+                    {state === 'live' && (
+                      <DialDetails readout={session.readout} kind={session.kind} />
+                    )}
+                    {bearing && !needsPrompt && yawBar(true)}
+                    {limits}
+                  </>
+                }
+              />
+            )}
+            {state === 'captured' && session.captured !== null && (
+              <CaptureSummary result={session.captured} compact />
+            )}
+            {props.extra}
+          </div>
+          <DialBar
+            text={hasDialBarText ? dialBarText : null}
+            controls={controls}
+            {...(props.back === undefined || frozen
+              ? {}
+              : {
+                  back: {
+                    id: 'back',
+                    label: props.back.label,
+                    onPress: props.back.onPress,
+                    icon: 'chevron-left',
+                  },
+                })}
+          />
+        </div>
+      );
+    }
     return (
       <div data-testid="sighting-screen" data-state={state} data-layout="docked" style={root}>
         <div data-part="middle" style={middleStyle}>

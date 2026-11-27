@@ -73,17 +73,24 @@ describe('the mode the page starts in', () => {
 });
 
 describe('the switch of mode (Req 17.1)', () => {
-  const control = (r: ReturnType<typeof mount>) => within(r.getByTestId('mode-control'));
+  // Mira: the mode control is in the panel that the "Data and mode" tile opens.
+  const control = (r: ReturnType<typeof mount>) => {
+    const tile = r.getByTestId('data-tile');
+    if (tile.getAttribute('aria-expanded') !== 'true') fireEvent.click(tile);
+    return within(r.getByTestId('mode-control'));
+  };
 
   it('goes from the phone to the simulator and back, by the control on the Smoke screen', async () => {
     const r = mount('device');
     await r.settle();
-    await r.settle(() => fireEvent.click(control(r).getByRole('button', { name: 'Simulator' })));
+    const to1 = control(r).getByRole('button', { name: 'Simulator' });
+    await r.settle(() => fireEvent.click(to1));
     expect(r.getByText(SIMULATION_TEXT)).toBeTruthy();
     expect(control(r).getByRole('button', { name: 'Simulator' }).getAttribute('aria-pressed')).toBe(
       'true',
     );
-    await r.settle(() => fireEvent.click(control(r).getByRole('button', { name: 'This phone' })));
+    const to2 = control(r).getByRole('button', { name: 'This phone' });
+    await r.settle(() => fireEvent.click(to2));
     expect(r.queryByText(SIMULATION_TEXT)).toBeNull();
     expect(r.getByTestId('smoke-screen')).toBeTruthy();
   });
@@ -100,6 +107,7 @@ describe('the store of the phone', () => {
     const r = mount('device');
     await r.settle();
     expect(r.fake.timer.running()).toBe(1);
+    fireEvent.click(r.getByTestId('data-tile'));
     await r.settle(() =>
       fireEvent.click(
         within(r.getByTestId('mode-control')).getByRole('button', { name: 'Simulator' }),

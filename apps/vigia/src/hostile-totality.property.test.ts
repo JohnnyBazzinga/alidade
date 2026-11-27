@@ -106,7 +106,12 @@ import { windTiming, windWords } from './overlays/wind/math/wind-words';
 import { tileSetupFromEnvironment } from './math/network/tile-setup';
 import { smokeScenes } from './math/scenes/smoke-scenes';
 import { initialMode, simulatorRequested } from './math/start-mode';
-import { countLineText, reviewerPathLines, sightingGuidance } from './math/texts';
+import {
+  countLineText,
+  reviewerPathLines,
+  sightingGuidance,
+  smokeStateCaption,
+} from './math/texts';
 import { toDeg, fromDeg } from './math/degrees';
 import { checkParameters, defaultParameters, type VigiaParameters } from './math/parameters';
 import type { Incident } from './math/incident/incident-state';
@@ -912,6 +917,14 @@ export const HOSTILE_LIST: readonly HostileEntry[] = [
     countLineText,
     (_args, result) => {
       expect(result).toMatch(/^(Joined|Added|New smoke opened): \d+ sightings?$/);
+    },
+  ),
+  hostileEntry(
+    'smokeStateCaption',
+    fc.tuple(hostileNumber(), fc.boolean()),
+    smokeStateCaption,
+    (_args, result) => {
+      expect(result).toMatch(/^(\d+ of 2 places|\d+ sightings) · smoke (not )?located$/);
     },
   ),
   // --- the formatters of the screens (task 13.3) ---

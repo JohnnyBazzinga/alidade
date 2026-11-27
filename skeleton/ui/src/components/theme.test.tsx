@@ -102,9 +102,12 @@ const INDEX_SOURCE = Object.values(
 
 describe('the two font stacks (Req 13.4, D36)', () => {
   it('has the body stack and the numeric stack exactly', () => {
-    expect(BODY_FONT_STACK).toBe('system-ui, -apple-system, "Segoe UI", Roboto, sans-serif');
+    // The theme's fonts (Req 22.16), falling back to the system's stacks of D36.
+    expect(BODY_FONT_STACK).toBe(
+      'var(--alidade-font-body, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif)',
+    );
     expect(NUMERIC_FONT_STACK).toBe(
-      'ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace',
+      'var(--alidade-font-numeric, ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace)',
     );
     expect(NUMERAL_STYLE.fontFamily).toBe(NUMERIC_FONT_STACK);
     expect(NUMERAL_STYLE.fontVariantNumeric).toBe('tabular-nums');

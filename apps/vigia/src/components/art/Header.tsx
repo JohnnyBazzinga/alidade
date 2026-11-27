@@ -1,142 +1,115 @@
-// The header (Req 22.2, design D25.4): a row of the page, never a layer, in the theme's header
-// colour (or its gradient), with the app mark and the landscape. The full header (the Smoke tab):
-// the mark, "Vigia" and the tagline, at most 112 high. The compact header (the other tabs and the
-// views opened from them): the mark and a title, at most 64. Its text sits on the solid colour,
-// above the landscape, never on it; the landscape's last ridge is the page's colour.
+// The header of the four tabs (Req 22.2 as amended 2026-11-27, design D26.2): Mira's row of the
+// app's mark (a yellow disc with a dark centre), the word "Vigia", and at its end an outline pill,
+// "Fire? Emergency", that opens the Emergency tab. The pill dials nothing and names no number
+// (Req 14.5): the number differs by country, and the Emergency tab says what to tell it. The
+// header is a row of the page, never a layer over its content (skeleton-ui Requirement 13.13); the
+// Sight screen and the views opened from a tab (Share, the QR, the Inbox, the privacy page, the
+// question after a capture) have none and say what they are in their own title.
 
-import { BODY_FONT_STACK, ROLE_VARS } from '@alidade/ui';
-import { TAGLINE_TEXT } from '../../math/texts';
-import { SHAPE } from '../look';
-import { AppMark } from './AppMark';
-import { ART_COLOURS } from './art-colours';
-import { Landscape } from './Landscape';
+import { BODY_FONT_STACK, DISPLAY_FONT_STACK, Icon, ROLE_VARS } from '@alidade/ui';
 
-/** The heights of D25.4, which the header test counts from these styles. */
+/** The header's numbers (Mira: a row of 44 under a margin of 16, the mark 28, the word 22). */
 export const HEADER = {
-  full: {
-    padTopPx: 10,
-    markPx: 32,
-    titlePx: 24,
-    taglinePx: 16,
-    taglineGapPx: 2,
-    landscapeGapPx: 6,
-  },
-  compact: { padTopPx: 8, markPx: 28, titlePx: 22, landscapeGapPx: 6 },
-  maxPx: { full: 112, compact: 64 },
+  rowPx: 44,
+  topPx: 16,
+  markPx: 28,
+  wordPx: 22,
 } as const;
 
-export type HeaderProps =
-  { readonly variant: 'full' } | { readonly variant: 'compact'; readonly title: string };
+/** The words of the pill. */
+export const FIRE_PILL_TEXT = 'Fire? Emergency';
 
-export function Header(props: HeaderProps) {
-  const full = props.variant === 'full';
-  const h = full ? HEADER.full : HEADER.compact;
+export function AppMark({ sizePx = HEADER.markPx }: { readonly sizePx?: number }) {
   return (
-    <header
-      data-testid="app-header"
-      data-variant={props.variant}
+    <span
+      data-part="app-mark"
+      aria-hidden="true"
       style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
         flex: '0 0 auto',
-        display: 'flex',
-        flexDirection: 'column',
-        padding: `${h.padTopPx}px 16px 0`,
-        background: SHAPE.headerFill,
-        color: ROLE_VARS.headerInk,
-        fontFamily: BODY_FONT_STACK,
+        width: sizePx,
+        height: sizePx,
+        borderRadius: '50%',
+        background: ROLE_VARS.primary,
       }}
     >
-      <div
-        data-part="header-row"
-        style={{ display: 'flex', alignItems: 'center', gap: 10, minHeight: h.markPx }}
-      >
-        <AppMark sizePx={h.markPx} />
-        {full ? (
-          <h1
-            style={{
-              margin: 0,
-              fontSize: HEADER.full.titlePx,
-              fontWeight: 800,
-              lineHeight: 1.2,
-              letterSpacing: '0.01em',
-              color: ROLE_VARS.headerInk,
-            }}
-          >
-            Vigia
-          </h1>
-        ) : (
-          <h1
-            style={{
-              margin: 0,
-              fontSize: HEADER.compact.titlePx,
-              fontWeight: 700,
-              lineHeight: 1.25,
-              color: ROLE_VARS.headerInk,
-              overflowWrap: 'anywhere',
-            }}
-          >
-            {props.title}
-          </h1>
-        )}
-        {full && <HeaderPlume heightPx={HEADER.full.markPx} />}
-      </div>
-      {full && (
-        <p
-          data-part="tagline"
-          style={{
-            margin: `${HEADER.full.taglineGapPx}px 0 0`,
-            fontSize: HEADER.full.taglinePx,
-            lineHeight: 1.25,
-            color: ROLE_VARS.headerDim,
-          }}
-        >
-          {TAGLINE_TEXT}
-        </p>
-      )}
-      <div style={{ marginTop: h.landscapeGapPx }}>
-        <Landscape variant={props.variant} />
-      </div>
-    </header>
+      <span
+        style={{
+          width: sizePx * (8 / 28),
+          height: sizePx * (8 / 28),
+          borderRadius: '50%',
+          background: ROLE_VARS.ink,
+        }}
+      />
+    </span>
   );
 }
 
-/**
- * A column of smoke rising from a small fire, leaning with the wind, at the end of the title row
- * (Codex's comparison with the references, 2026-11-23: the plume as the header's focal point). In
- * the flow of the row, after the title, never over a word; decorative.
- */
-function HeaderPlume({ heightPx }: { readonly heightPx: number }) {
+export interface HeaderProps {
+  /** Opens the Emergency tab. */
+  readonly onEmergency: () => void;
+}
+
+export function Header({ onEmergency }: HeaderProps) {
   return (
-    <svg
-      data-art="header-plume"
-      aria-hidden="true"
-      focusable="false"
-      width={heightPx * 1.75}
-      height={heightPx}
-      viewBox="0 0 56 32"
-      style={{ display: 'block', flex: '0 0 auto', marginLeft: 'auto' }}
+    <header
+      data-testid="app-header"
+      data-variant="brand"
+      style={{
+        flex: '0 0 auto',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 12,
+        boxSizing: 'content-box',
+        minHeight: HEADER.rowPx,
+        padding: `${HEADER.topPx}px 20px 0`,
+        background: ROLE_VARS.bg,
+        color: ROLE_VARS.ink,
+      }}
     >
-      <ellipse
-        cx="38"
-        cy="6"
-        rx="16"
-        ry="5"
-        style={{ fill: ART_COLOURS.plumeLight, opacity: 0.45 }}
-      />
-      <ellipse
-        cx="31"
-        cy="12"
-        rx="11"
-        ry="5"
-        style={{ fill: ART_COLOURS.plumeLight, opacity: 0.75 }}
-      />
-      <ellipse cx="25" cy="18" rx="7.5" ry="4.5" style={{ fill: ART_COLOURS.plumeLight }} />
-      <ellipse cx="21" cy="23" rx="4.5" ry="3" style={{ fill: ART_COLOURS.plumeDark }} />
-      <path d="M15 31 l3.5 -6 l2.5 3 l2.5 -5 l4 8 z" style={{ fill: ROLE_VARS.warnBar }} />
-      <path d="M18 31 l2.5 -3.5 l2.5 3.5 z" style={{ fill: ROLE_VARS.primary }} />
-      <path
-        d="M0 31.5 Q14 29 28 31 T56 30.5"
-        style={{ fill: 'none', stroke: ROLE_VARS.headerDim, strokeWidth: 1, opacity: 0.5 }}
-      />
-    </svg>
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+        <AppMark />
+        <span
+          style={{
+            fontFamily: DISPLAY_FONT_STACK,
+            fontWeight: 800,
+            fontSize: HEADER.wordPx,
+            letterSpacing: '-0.6px',
+            lineHeight: 1.1,
+          }}
+        >
+          Vigia
+        </span>
+      </span>
+      <button
+        type="button"
+        data-part="fire-pill"
+        onClick={onEmergency}
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 8,
+          flex: '0 0 auto',
+          boxSizing: 'border-box',
+          minHeight: 44,
+          padding: '0 16px',
+          borderRadius: 22,
+          border: `1.5px solid ${ROLE_VARS.ruleStrong}`,
+          background: 'transparent',
+          color: ROLE_VARS.ink,
+          fontFamily: BODY_FONT_STACK,
+          fontSize: 14,
+          fontWeight: 600,
+          whiteSpace: 'nowrap',
+          cursor: 'pointer',
+        }}
+      >
+        <Icon name="call" style={{ width: 16, height: 16 }} />
+        {FIRE_PILL_TEXT}
+      </button>
+    </header>
   );
 }

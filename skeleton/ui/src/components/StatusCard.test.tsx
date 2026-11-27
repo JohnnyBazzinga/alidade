@@ -41,7 +41,9 @@ describe('StatusCard in Field and Field night (Req 22.13)', () => {
         const r = ROLE_OF[tone];
         expect(el.style.background).toBe(`var(--alidade-${r}Tint)`);
         expect(el.style.borderLeft).toBe(`4px solid var(--alidade-${r}Bar)`);
-        expect(el.style.borderRadius).toBe('var(--alidade-button-radius)');
+        expect(el.style.borderRadius).toBe(
+          'var(--alidade-tile-radius, var(--alidade-button-radius))',
+        );
         const icon = el.querySelector('svg');
         expect(icon?.getAttribute('data-icon')).toBe(TONE_ICONS[tone]);
         expect(icon?.getAttribute('aria-hidden')).toBe('true');

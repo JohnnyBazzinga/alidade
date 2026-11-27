@@ -9,6 +9,8 @@ import { Icon, ICON_COMPONENT_NAMES, ICON_NAMES, type IconName } from './Icon';
 /** The list of D37.6, typed here, name by name, with its lucide component. */
 const D37_6: Readonly<Record<string, string>> = {
   smoke: 'Cloud',
+  call: 'Phone',
+  plus: 'Plus',
   sightings: 'List',
   map: 'Map',
   siren: 'Siren',

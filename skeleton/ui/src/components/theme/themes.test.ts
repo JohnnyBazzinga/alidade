@@ -3,7 +3,8 @@
 
 import { describe, expect, it } from 'vitest';
 import { CONSTANT_ROLES, ROLES, THEMED_ROLES, type Role } from './roles';
-import { field, fieldNight, instrument, THEMES } from './themes';
+import { DEFAULT_MAP_PALETTE } from '../../math/map/map-style';
+import { field, fieldNight, instrument, mira, SYSTEM_MONO, SYSTEM_SANS, THEMES } from './themes';
 
 /** Vigia design D25.1, Field. */
 const FIELD: Readonly<Record<(typeof THEMED_ROLES)[number], string>> = {
@@ -143,8 +144,8 @@ describe('the roles (Req 22.2)', () => {
 });
 
 describe('the three themes (Req 22.1)', () => {
-  it('are Instrument, Field and Field night', () => {
-    expect(THEMES.map((t) => t.id)).toEqual(['instrument', 'field', 'field-night']);
+  it('are Instrument, Field, Field night and Mira', () => {
+    expect(THEMES.map((t) => t.id)).toEqual(['instrument', 'field', 'field-night', 'mira']);
     expect(instrument.id).toBe('instrument');
     expect(field.id).toBe('field');
     expect(fieldNight.id).toBe('field-night');
@@ -211,9 +212,47 @@ describe('the shapes, the gradients and the flags (Req 22.7, Vigia 22.4)', () =>
       badgeRadiusPx: 0,
       imageRadiusPx: 0,
       shadow: null,
+      tileRadiusPx: 0,
+      primaryShadow: null,
+      controlEdgePx: 1,
+      controlFill: 'raised',
     });
-    expect(instrument.flags).toEqual({ illustrated: false, elevated: false, cards: false });
+    expect(instrument.flags).toEqual({
+      illustrated: false,
+      elevated: false,
+      cards: false,
+      dial: false,
+    });
     expect(instrument.gradients).toEqual({ primary: null, header: null });
+  });
+
+  // Req 22.16, 22.17 (2026-11-27): Mira, the lead's design for Vigia.
+  it('Mira: pills, cards of 24, tiles of 16, outline controls, its fonts, the dial, its map', () => {
+    expect(mira.shapes).toEqual({
+      cardRadiusPx: 24,
+      buttonRadiusPx: 999,
+      badgeRadiusPx: 999,
+      imageRadiusPx: 999,
+      shadow: null,
+      tileRadiusPx: 16,
+      primaryShadow: '0 10px 22px rgba(15,31,26,0.14)',
+      controlEdgePx: 1.5,
+      controlFill: 'none',
+    });
+    expect(mira.flags).toEqual({ illustrated: false, elevated: false, cards: true, dial: true });
+    expect(mira.fonts.body.startsWith('"Sora Variable"')).toBe(true);
+    expect(mira.fonts.numeric.startsWith('"IBM Plex Mono"')).toBe(true);
+    expect(mira.fonts.primaryWeight).toBe(800);
+    expect(mira.colours.primary).toBe('#FFD400');
+    expect(mira.colours.ink).toBe('#0F1F1A');
+    expect(mira.map.light).toBe('#FFD400');
+    // Every other theme keeps the system's fonts and the map's defaults.
+    for (const t of [instrument, field, fieldNight]) {
+      expect(t.fonts.body).toBe(SYSTEM_SANS);
+      expect(t.fonts.numeric).toBe(SYSTEM_MONO);
+      expect(t.flags.dial).toBe(false);
+      expect(t.map).toBe(DEFAULT_MAP_PALETTE);
+    }
   });
 
   it('the gradients of Field and Field night', () => {

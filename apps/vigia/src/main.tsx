@@ -9,6 +9,10 @@
 // on the Map screen. No host is written in the source.
 
 import 'maplibre-gl/dist/maplibre-gl.css';
+// Mira's two fonts (Req 22.16), served from the page's own host as files of the build: Sora, a
+// variable font, and IBM Plex Mono at 500, Latin only, both under the SIL Open Font License 1.1.
+import '@fontsource-variable/sora/wght.css';
+import '@fontsource/ibm-plex-mono/latin-500.css';
 import {
   browserEnvironment,
   createBrowserSensorSource,

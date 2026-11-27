@@ -5,6 +5,7 @@
 
 import { ATTRIBUTION_STRIP_PX } from '../../math/map/attribution-style';
 import type { Bearing, Fix } from '@alidade/core';
+import { activeTheme } from '../../components/theme/apply-theme';
 import {
   ELLIPSE_VERTEX_COUNT,
   MAP_ERROR_REPORT_INTERVAL_MS,
@@ -129,7 +130,7 @@ export function createMapAdapter(
     // The attribution is shown in full at all times, never behind a toggle (Req 15.2, task 31).
     map = lib.createMap({
       container,
-      style: buildMapStyle(tiles),
+      style: buildMapStyle(tiles, activeTheme().map),
       interactive: true,
       attributionControl: { compact: false },
     });

@@ -56,12 +56,16 @@ export function NavRow({
   readonly onClick: () => void;
 }) {
   return (
-    <button type="button" data-part="nav-row" onClick={onClick} style={LOOK.row}>
-      <span style={{ ...LOOK.iconTile, width: 36, height: 36 }}>
-        <Icon name={icon} />
-      </span>
+    <button
+      type="button"
+      data-part="nav-row"
+      data-icon={icon}
+      onClick={onClick}
+      style={{ ...LOOK.row, justifyContent: 'space-between' }}
+    >
+      {/* Mira draws the row's words and its chevron, with no icon before them. */}
       <span style={{ flex: '1 1 auto', minWidth: 0 }}>{children}</span>
-      <Icon name="chevron-right" style={{ color: ROLE_VARS.inkDim }} />
+      <Icon name="chevron-right" style={{ width: 16, height: 16, color: ROLE_VARS.inkDim }} />
     </button>
   );
 }

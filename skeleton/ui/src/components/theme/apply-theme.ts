@@ -34,6 +34,18 @@ export function applyTheme(root: ThemeRoot, theme: Theme): void {
   set('shadow', theme.shapes.shadow ?? 'none');
   set('primary-fill', fillOf(theme.gradients.primary, theme.colours.primary));
   set('header-fill', fillOf(theme.gradients.header, theme.colours.header));
+  set('tile-radius', px(theme.shapes.tileRadiusPx));
+  set('primary-shadow', theme.shapes.primaryShadow ?? 'none');
+  set('control-edge', px(theme.shapes.controlEdgePx));
+  set(
+    'control-fill',
+    theme.shapes.controlFill === 'none' ? 'transparent' : theme.colours[theme.shapes.controlFill],
+  );
+  set('font-body', theme.fonts.body);
+  set('font-numeric', theme.fonts.numeric);
+  set('font-display', theme.fonts.display);
+  set('primary-weight', String(theme.fonts.primaryWeight));
+  set('control-weight', String(theme.fonts.controlWeight));
   active = theme;
   for (const notify of [...subscribers]) notify(theme);
 }

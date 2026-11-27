@@ -1,10 +1,11 @@
-// Every screen and sheet at 360 CSS pixels (task 13.10; design §9; skeleton-ui Req 13.13, 13.14,
-// 18.11). jsdom does no layout, so the check reads the inline styles the components set: every
-// control a touch target of at least 48 px (the primary one 64 px), text of at least 16 px, every
-// colour from UI's `COLOURS` (and the QR's black and white), nothing in a fixed, absolute or sticky
-// layer, and no width wider than the narrowest screen, 320 px.
+// Every screen and sheet at 360 CSS pixels (task 13.10; design §9 as amended by Mira, D26; skeleton-ui
+// Req 13.13, 13.14, 18.11). jsdom does no layout, so the check reads the inline styles the
+// components set: every control a touch target of at least 44 px (the primary one 62 px, Mira's
+// pill), text of at least 11 px (Mira's smallest, the tab labels and the captions), every colour from
+// UI's `COLOURS` (and the QR's black and white), nothing in a fixed, absolute or sticky layer but
+// over a picture (the camera's image, the home dial's ring, the map), and no width wider than 320 px.
 
-import { COLOURS, SIZES } from '@alidade/ui';
+import { COLOURS } from '@alidade/ui';
 import { act, fireEvent, render, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { App } from '../App';
@@ -19,6 +20,10 @@ import { storedWith } from '../test-support/render-screen';
 import { createVigiaStore } from './store';
 
 const NARROWEST_PX = 320;
+/** Mira's least sizes (the lead's design, 2026-11-27). */
+const MIRA_SMALLEST_TEXT_PX = 11;
+const MIRA_TOUCH_PX = 44;
+const MIRA_PRIMARY_PX = 62;
 // The roles are `var()` strings now (skeleton-ui Req 22.4); a resolved colour in a style is the
 // art's plume (design D25.4), the QR's black and white, or a hex token of today's palette.
 import { ART_COLOURS } from './art/art-colours';
@@ -40,7 +45,11 @@ function faults(root: HTMLElement): string[] {
     const where = `${element.tagName.toLowerCase()}${element.dataset.testid ? `#${element.dataset.testid}` : ''} "${(element.textContent ?? '').slice(0, 30)}"`;
     if (['fixed', 'absolute', 'sticky'].includes(style.position)) {
       // UI's image box positions the reticle inside itself; nothing of Vigia's does.
-      if (element.closest('[data-part="image-box"]') === null)
+      if (
+        element.closest(
+          '[data-part="image-box"], [data-testid="home-dial"], [data-part="map-frame"]',
+        ) === null
+      )
         found.push(`${where}: position ${style.position}`);
     }
     for (const property of ['width', 'minWidth'] as const) {
@@ -54,16 +63,23 @@ function faults(root: HTMLElement): string[] {
       const hex = hexOf(m[1] ?? '0', m[2] ?? '0', m[3] ?? '0');
       if (!ALLOWED_COLOURS.has(hex)) found.push(`${where}: colour ${hex}`);
     }
-    if (style.fontSize !== '' && Number.parseFloat(style.fontSize) < 16) {
+    // The words inside a picture (the schematic's labels) scale with it: the picture is checked
+    // by its own test (Schematic.test.tsx).
+    if (
+      style.fontSize !== '' &&
+      Number.parseFloat(style.fontSize) < MIRA_SMALLEST_TEXT_PX &&
+      element.closest('svg') === null
+    ) {
       found.push(`${where}: font-size ${style.fontSize}`);
     }
     if (element.tagName === 'BUTTON') {
       const minHeight = Number.parseFloat(style.minHeight);
-      const least = element.dataset.primary === 'true' ? SIZES.primaryPx : SIZES.touchPx;
+      const least = element.dataset.primary === 'true' ? MIRA_PRIMARY_PX : MIRA_TOUCH_PX;
       if (!(minHeight >= least)) found.push(`${where}: min-height ${style.minHeight}`);
       if (
         style.flex === '' &&
-        !(Number.parseFloat(style.minWidth) >= SIZES.touchPx) &&
+        !(Number.parseFloat(style.minWidth) >= MIRA_TOUCH_PX) &&
+        !(Number.parseFloat(style.width) >= MIRA_TOUCH_PX) &&
         style.width !== '100%'
       ) {
         found.push(`${where}: min-width ${style.minWidth}`);
@@ -122,6 +138,7 @@ describe('the screens at 360 CSS pixels (task 13.10)', () => {
         seen[name] = faults(a.getByTestId('app-shell'));
       };
       look('smoke');
+      fireEvent.click(a.getByTestId('data-tile'));
       await a.settle(() =>
         fireEvent.click(a.getByRole('button', { name: 'Delete everything on this phone' })),
       );
@@ -173,7 +190,7 @@ describe('the screens at 360 CSS pixels (task 13.10)', () => {
         <button type="button" style={{ minHeight: 30, minWidth: 48 }}>
           small
         </button>
-        <p style={{ color: '#123456', fontSize: 12 }}>odd</p>
+        <p style={{ color: '#123456', fontSize: 10 }}>odd</p>
         <div style={{ position: 'fixed' }}>over</div>
         <div style={{ width: 400 }}>wide</div>
       </div>,
@@ -181,7 +198,7 @@ describe('the screens at 360 CSS pixels (task 13.10)', () => {
     const found = faults(container);
     expect(found.some((f) => f.includes('min-height'))).toBe(true);
     expect(found.some((f) => f.includes('colour #123456'))).toBe(true);
-    expect(found.some((f) => f.includes('font-size 12px'))).toBe(true);
+    expect(found.some((f) => f.includes('font-size 10px'))).toBe(true);
     expect(found.some((f) => f.includes('position fixed'))).toBe(true);
     expect(found.some((f) => f.includes('width 400px'))).toBe(true);
   });

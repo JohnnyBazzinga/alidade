@@ -32,10 +32,19 @@ export function controlStyle(primary: boolean) {
     // Roles and shapes of the theme (Req 22.4, 22.7): in Instrument the primary fill is the flat
     // brass, `ruleStrong` is today's rule and the radius is 0, so the control is as before.
     borderRadius: 'var(--alidade-button-radius)',
-    border: `1px solid ${primary ? ROLE_VARS.primary : ROLE_VARS.ruleStrong}`,
-    background: primary ? 'var(--alidade-primary-fill)' : ROLE_VARS.raised,
-    boxShadow: primary ? 'var(--alidade-shadow)' : 'none',
+    // Mira (Req 22.16): a secondary control is an outline of 1.5 with no fill, and the primary has
+    // its own shadow and weight; every other theme writes today's values through the same names.
+    border: primary
+      ? `1px solid ${ROLE_VARS.primary}`
+      : `var(--alidade-control-edge, 1px) solid ${ROLE_VARS.ruleStrong}`,
+    background: primary
+      ? 'var(--alidade-primary-fill)'
+      : `var(--alidade-control-fill, ${ROLE_VARS.raised})`,
+    boxShadow: primary ? 'var(--alidade-primary-shadow, var(--alidade-shadow))' : 'none',
     color: primary ? ROLE_VARS.primaryInk : ROLE_VARS.ink,
+    fontWeight: primary
+      ? 'var(--alidade-primary-weight, 400)'
+      : 'var(--alidade-control-weight, 400)',
     flex: primary ? '1 1 100%' : '1 1 auto',
   } as const;
 }

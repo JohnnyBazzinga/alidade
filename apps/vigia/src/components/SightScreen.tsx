@@ -16,7 +16,7 @@ import type { VigiaFailure } from '../result';
 import { ConfirmSmokeDialog, type SmokeAnswer } from './ConfirmSmokeDialog';
 import { useEnvironment } from './environment';
 import { FailureNotice } from './FailureNotice';
-import { GuidanceBlock } from './GuidanceBlock';
+import { BeforeYouSight, GuidanceBlock } from './GuidanceBlock';
 import { IdleScene } from './art/IdleScene';
 import { HowToCards } from './HowToCards';
 import { LOOK } from './look';
@@ -173,7 +173,13 @@ export function SightScreen({
           onSession={onSession}
           layout="docked"
           back={{ label: 'Back', onPress: onBack }}
-          aim={<GuidanceBlock windShown={windShown} />}
+          aim={
+            session === null || session.state === 'permission' ? (
+              <BeforeYouSight />
+            ) : (
+              <GuidanceBlock windShown={windShown} />
+            )
+          }
           intro={<HowToCards />}
           idleImage={<IdleScene />}
           controlIcons={CONTROL_ICONS}
@@ -182,7 +188,7 @@ export function SightScreen({
               <button
                 type="button"
                 onClick={onTrySimulator}
-                style={{ ...LOOK.button, margin: SIZES.gapPx }}
+                style={{ ...LOOK.button, margin: '12px 20px 0' }}
               >
                 Try the simulator instead
               </button>

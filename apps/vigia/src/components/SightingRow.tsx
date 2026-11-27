@@ -10,8 +10,9 @@ import { accuracyText, directionText } from '../math/fix/format';
 import type { ShareChannel, SightingEntry } from '../math/incident/incident-state';
 import { messageFor } from '../math/messages';
 import { FailureNotice } from './FailureNotice';
-import { Icon, ROLE_VARS, SIZES } from '@alidade/ui';
-import { IconRow, InlineIcon } from './cards/parts';
+import { Icon, ROLE_VARS } from '@alidade/ui';
+import { BearingDial } from './art/Dials';
+import { InlineIcon } from './cards/parts';
 import { LOOK } from './look';
 
 const CHANNEL_WORDS: Readonly<Record<ShareChannel, string>> = {
@@ -47,145 +48,137 @@ export function SightingRow(props: SightingRowProps) {
       : `received at ${clockTextUtc(sighting.receivedUtcMs)}`;
   const channels = [...new Set(entry.shared.map((r) => CHANNEL_WORDS[r.channel]))];
   const message = cause === null ? null : messageFor({ ok: false, reason: cause });
-  // A card (Req 22.7, design D25.2, D25.5): a head row tinted `raised` with its icon and title; the
-  // bearing at 32 in the numeric stack, with its ± and no icon beside it, and its North words on the
-  // line under it after the navigation icon; icon rows for the accuracy and the time; the status as
-  // a badge (Used) or a warning card (set aside); the share state; the actions with their icons.
+  // Mira's card (design D26.5): its title and the Used badge on one row; the bearing dial beside
+  // "Toward", the numeral at 44 and its 1-sigma and north in small capitals; icon rows for the
+  // accuracy, the time and the share state over a rule; a set-aside sighting's warning card; the
+  // three actions as pills of equal width, Delete in the danger tone.
+  // "33.4° ± 2.1°": the numeral, and its 1-sigma in the caption under it.
+  const [numeral = '', sigma = ''] = direction.ok ? direction.value.split(' ± ') : [];
+  const row = { display: 'flex', alignItems: 'center', gap: 10 } as const;
+  const rowIcon = { width: 18, height: 18, color: ROLE_VARS.inkDim } as const;
+  const pillAction = { ...LOOK.button, minHeight: 50, padding: '0 8px', gap: 8 } as const;
   return (
     <li
       data-testid="sighting-row"
       data-sighting-id={sighting.sightingId}
       data-used={cause === null ? 'true' : 'false'}
-      style={{ ...LOOK.card, padding: 0, gap: 0, overflow: 'hidden', listStyle: 'none' }}
+      style={{ ...LOOK.card, gap: 14, listStyle: 'none' }}
     >
       <div
         data-part="head"
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          padding: '10px 16px',
-          background: ROLE_VARS.raised,
-          borderBottom: `1px solid ${ROLE_VARS.rule}`,
-        }}
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}
       >
-        <Icon name="crosshair" style={{ color: ROLE_VARS.accent }} />
-        <h3
-          style={{ ...LOOK.title, fontSize: SIZES.labelPx }}
-        >{`Sighting ${number}, ${origin}`}</h3>
+        <h3 style={{ ...LOOK.cardTitle, fontSize: 17, letterSpacing: '-0.3px' }}>
+          {`Sighting ${number}, ${origin}`}
+        </h3>
+        {message === null && (
+          <p data-part="badge" style={{ ...LOOK.badge('success'), alignSelf: 'center' }}>
+            <Icon name="check" style={{ width: 12, height: 12, color: ROLE_VARS.okInk }} />
+            Used
+          </p>
+        )}
       </div>
-      <div style={{ ...LOOK.stack, gap: SIZES.gapPx, padding: '12px 16px 16px' }}>
-        {direction.ok ? (
+      {direction.ok ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <BearingDial
+            azimuthRad={bearing.azimuthRad}
+            sizePx={104}
+            face={false}
+            label={`Compass dial pointing toward ${numeral.replace('°', '')} degrees`}
+          />
           <p
             data-part="bearing"
-            style={{ ...LOOK.text, display: 'flex', flexDirection: 'column', gap: 2 }}
+            aria-label={`Toward ${direction.value} (true north)`}
+            style={{ ...LOOK.text, display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}
           >
-            <span style={LOOK.dim}>Toward</span>{' '}
+            <span style={LOOK.caption}>Toward</span>
             <span data-part="numeral" style={{ ...LOOK.numeral, whiteSpace: 'nowrap' }}>
-              {direction.value}
-            </span>{' '}
-            <span
-              style={{
-                ...LOOK.text,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                color: ROLE_VARS.inkDim,
-              }}
-            >
-              <Icon name="navigation" style={{ color: ROLE_VARS.accent }} />
-              (true north)
+              {numeral}
             </span>
+            <span style={{ ...LOOK.caption, fontSize: 13 }}>{`± ${sigma} · true north`}</span>
           </p>
-        ) : (
-          <FailureNotice failure={direction} />
-        )}
+        </div>
+      ) : (
+        <FailureNotice failure={direction} />
+      )}
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 8,
+          paddingTop: 12,
+          borderTop: `1px solid ${ROLE_VARS.rule}`,
+        }}
+      >
         {accuracy.ok ? (
-          <IconRow icon="pin" tilePx={32}>
-            <p style={LOOK.text}>Observer position known to {accuracy.value}</p>
-          </IconRow>
+          <p style={{ ...LOOK.text, fontSize: 14, ...row }}>
+            <Icon name="pin" style={rowIcon} />
+            Observer position known to {accuracy.value}
+          </p>
         ) : (
           <FailureNotice failure={accuracy} />
         )}
-        <IconRow icon="clock" tilePx={32}>
-          <p style={LOOK.text}>
-            Taken {clockTextUtc(bearing.timeUtcMs)}, {ageText(nowUtcMs - bearing.timeUtcMs)}
-          </p>
-        </IconRow>
-        {message === null ? (
-          <p data-part="badge" style={LOOK.badge('success')}>
-            <Icon name="success" style={{ color: ROLE_VARS.okIcon }} />
-            Used
-          </p>
-        ) : (
-          <div data-part="set-aside" style={LOOK.statusCard('warning')}>
-            <p style={{ ...LOOK.text, color: ROLE_VARS.warnInk }}>
-              <InlineIcon name="warning" colour={ROLE_VARS.warnIcon} />
-              Set aside: {message.whatHappened} {message.whatToDo}
-            </p>
-          </div>
-        )}
-        <p style={LOOK.dim}>
+        <p style={{ ...LOOK.text, fontSize: 14, ...row }}>
+          <Icon name="clock" style={rowIcon} />
+          Taken {clockTextUtc(bearing.timeUtcMs)}, {ageText(nowUtcMs - bearing.timeUtcMs)}
+        </p>
+        <p style={{ ...LOOK.text, fontSize: 14, ...row }}>
+          <Icon name="share" style={rowIcon} />
           {channels.length === 0
             ? 'Not shared from this phone'
             : `Shared by ${channels.join(', ')}`}
         </p>
-        {confirmingDelete ? (
-          <div role="group" style={LOOK.statusCard('danger')}>
-            <p style={{ ...LOOK.alertText, color: ROLE_VARS.dangerInk }}>
-              <InlineIcon name="danger" colour={ROLE_VARS.dangerIcon} />
-              Delete this sighting from this phone? This cannot be undone.
-            </p>
-            <div style={LOOK.controls}>
-              <button type="button" onClick={props.onDelete} style={LOOK.dangerButton}>
-                <Icon name="trash" />
-                Delete this sighting
-              </button>
-              <button type="button" onClick={() => setConfirmingDelete(false)} style={LOOK.button}>
-                Keep it
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div data-part="actions" style={LOOK.controls}>
-            {entry.hidden ? (
-              <button
-                type="button"
-                onClick={props.onShow}
-                style={{ ...LOOK.button, flex: '1 1 auto' }}
-              >
-                <Icon name="show" />
-                Show
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={props.onHide}
-                style={{ ...LOOK.button, flex: '1 1 auto' }}
-              >
-                <Icon name="hide" />
-                Hide
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={props.onShare}
-              style={{ ...LOOK.button, flex: '1 1 auto' }}
-            >
-              <Icon name="share" />
-              Share
-            </button>
-            <button
-              type="button"
-              onClick={() => setConfirmingDelete(true)}
-              style={{ ...LOOK.dangerButton, flex: '1 1 auto' }}
-            >
-              <Icon name="trash" />
-              Delete
-            </button>
-          </div>
-        )}
       </div>
+      {message !== null && (
+        <div data-part="set-aside" style={LOOK.statusCard('warning')}>
+          <p style={{ ...LOOK.text, color: ROLE_VARS.warnInk }}>
+            <InlineIcon name="warning" colour={ROLE_VARS.warnIcon} />
+            Set aside: {message.whatHappened} {message.whatToDo}
+          </p>
+        </div>
+      )}
+      {confirmingDelete ? (
+        <div role="group" style={LOOK.statusCard('danger')}>
+          <p style={{ ...LOOK.alertText, color: ROLE_VARS.dangerInk }}>
+            <InlineIcon name="danger" colour={ROLE_VARS.dangerIcon} />
+            Delete this sighting from this phone? This cannot be undone.
+          </p>
+          <div style={LOOK.controls}>
+            <button type="button" onClick={props.onDelete} style={LOOK.dangerButton}>
+              <Icon name="trash" />
+              Delete this sighting
+            </button>
+            <button type="button" onClick={() => setConfirmingDelete(false)} style={LOOK.button}>
+              Keep it
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div
+          data-part="actions"
+          style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}
+        >
+          <button type="button" onClick={props.onShare} style={pillAction}>
+            Share
+          </button>
+          {entry.hidden ? (
+            <button type="button" onClick={props.onShow} style={pillAction}>
+              Show
+            </button>
+          ) : (
+            <button type="button" onClick={props.onHide} style={pillAction}>
+              Hide
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setConfirmingDelete(true)}
+            style={{ ...LOOK.dangerButton, minHeight: 50, padding: '0 8px' }}
+          >
+            Delete
+          </button>
+        </div>
+      )}
     </li>
   );
 }

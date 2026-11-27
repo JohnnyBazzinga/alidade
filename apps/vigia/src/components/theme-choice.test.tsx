@@ -1,7 +1,7 @@
-// Vigia's theme (Req 22.3 as amended 2026-11-23, design D25.8): Field, whatever the phone's colour
+// Vigia's theme (Req 22.3 as amended 2026-11-27, design D26): Mira, whatever the phone's colour
 // scheme, applied before the first render, with no control to choose another.
 
-import { activeTheme, field, instrument, applyTheme } from '@alidade/ui';
+import { activeTheme, applyTheme, instrument, mira } from '@alidade/ui';
 import { fireEvent, render } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { App } from '../App';
@@ -17,11 +17,13 @@ afterEach(() => {
 });
 
 describe('chooseTheme (Req 22.3)', () => {
-  it('applies Field: its roles on the root', () => {
+  it('applies Mira: its roles, its fonts and its shapes on the root', () => {
     chooseTheme(root());
-    expect(activeTheme().id).toBe('field');
-    expect(root().style.getPropertyValue('--alidade-bg')).toBe(field.colours.bg);
-    expect(root().style.getPropertyValue('--alidade-card')).toBe(field.colours.card);
+    expect(activeTheme().id).toBe('mira');
+    expect(root().style.getPropertyValue('--alidade-bg')).toBe(mira.colours.bg);
+    expect(root().style.getPropertyValue('--alidade-primary')).toBe(mira.colours.primary);
+    expect(root().style.getPropertyValue('--alidade-font-body')).toBe(mira.fonts.body);
+    expect(root().style.getPropertyValue('--alidade-tile-radius')).toBe('16px');
   });
 });
 
@@ -33,7 +35,7 @@ const SOURCES = import.meta.glob<string>(['../**/*.ts', '../**/*.tsx', '!../**/*
 const MAIN = SOURCES['../main.tsx'] as string;
 
 describe('the entry (Req 22.3, D25.8)', () => {
-  it('applies Field before the first render, for both modes', () => {
+  it('applies Mira before the first render, for both modes', () => {
     const choose = MAIN.indexOf('chooseTheme(document.documentElement);');
     expect(choose).toBeGreaterThan(-1);
     expect(choose).toBeLessThan(MAIN.indexOf('createRoot(root).render('));

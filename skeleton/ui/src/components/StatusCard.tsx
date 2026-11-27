@@ -74,7 +74,10 @@ export function StatusCard({
   style,
   inBar = false,
 }: StatusCardProps) {
-  const cards = useActiveTheme().flags.cards;
+  const theme = useActiveTheme();
+  const cards = theme.flags.cards;
+  // Mira's card (Req 22.17): the headline extra bold at 15 in ink, the rest at 13 in the tone's ink.
+  const mira = theme.flags.dial;
   const attributes = {
     ...(role === undefined ? {} : { role }),
     ...(testId === undefined ? {} : { 'data-testid': testId }),
@@ -123,7 +126,7 @@ export function StatusCard({
           gap: 2,
           background: toneRole(tone, 'Tint'),
           borderLeft: `4px solid ${toneRole(tone, 'Bar')}`,
-          borderRadius: 'var(--alidade-button-radius)',
+          borderRadius: 'var(--alidade-tile-radius, var(--alidade-button-radius))',
           padding: `${SIZES.gapPx}px 12px`,
           fontFamily: BODY_FONT_STACK,
           ...style,
@@ -162,6 +165,50 @@ export function StatusCard({
     );
   }
 
+  if (mira) {
+    return (
+      <div
+        {...attributes}
+        style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: 12,
+          background: toneRole(tone, 'Tint'),
+          borderRadius: 'var(--alidade-tile-radius, var(--alidade-button-radius))',
+          padding: '12px 14px',
+          fontFamily: BODY_FONT_STACK,
+          ...style,
+        }}
+      >
+        <span style={{ display: 'flex', color: ROLE_VARS.ink, paddingTop: 1 }}>
+          <Icon name={iconName} style={{ width: 22, height: 22 }} />
+        </span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
+          <p
+            data-part="headline"
+            style={{
+              margin: 0,
+              color: ROLE_VARS.ink,
+              fontWeight: 800,
+              fontSize: 15,
+              lineHeight: 1.25,
+            }}
+          >
+            {headline}
+          </p>
+          {hasBody && (
+            <Body
+              data-part="body"
+              style={{ margin: 0, color: toneRole(tone, 'Ink'), fontSize: 13, lineHeight: 1.45 }}
+            >
+              {children}
+            </Body>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       {...attributes}
@@ -171,7 +218,7 @@ export function StatusCard({
         gap: 10,
         background: toneRole(tone, 'Tint'),
         borderLeft: `4px solid ${toneRole(tone, 'Bar')}`,
-        borderRadius: 'var(--alidade-button-radius)',
+        borderRadius: 'var(--alidade-tile-radius, var(--alidade-button-radius))',
         padding: '12px',
         fontFamily: BODY_FONT_STACK,
         ...style,

@@ -49,7 +49,7 @@ export function Disclosure({
           ? {
               border: `1px solid ${ROLE_VARS.rule}`,
               background: ROLE_VARS.card,
-              borderRadius: 'var(--alidade-button-radius)',
+              borderRadius: 'var(--alidade-tile-radius, var(--alidade-button-radius))',
             }
           : {}),
         ...style,

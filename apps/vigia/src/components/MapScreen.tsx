@@ -4,13 +4,14 @@
 // names every drawing, and the Overlays panel when the Overlays module is present. This screen
 // knows nothing of the Overlays but the slot it is given (Req 1.10): the App builds it.
 
-import { MapView, type AppLayer, type MapLibreLike, type UiFailure } from '@alidade/ui';
+import { MapView, ROLE_VARS, type AppLayer, type MapLibreLike, type UiFailure } from '@alidade/ui';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useHeader } from './header-context';
+import { directionText } from '../math/fix/format';
 import { mapModel } from '../math/fix/map-model';
 import { useEnvironment } from './environment';
 import { FailureNotice } from './FailureNotice';
-import { LOOK } from './look';
+import { LOOK, SHAPE } from './look';
 import { useVigia } from './store';
 
 /**
@@ -66,55 +67,160 @@ export function MapScreen({ overlays }: { readonly overlays: OverlaySlot | null 
     [drawn, overlayLayers],
   );
   const setAside = open !== null && open.assessment.ok && open.assessment.value.setAside.length > 0;
-  // In the App the compact header carries the title (Req 22.2).
-  const inApp = useHeader(null);
+  // Mira: the App's header is the brand row; the screen says its own title.
+  useHeader(null);
+  const used = open !== null && open.assessment.ok ? open.assessment.value.used : [];
+  const located =
+    open !== null && open.assessment.ok && open.assessment.value.fix !== null
+      ? open.assessment.value.fix.ok
+      : false;
+  const only = used.length === 1 && !located ? used[0] : undefined;
+  const chipText =
+    only === undefined
+      ? null
+      : directionText(only.sighting.bearing.azimuthRad, only.sighting.bearing.azimuthSigmaRad);
+  const chip = chipText !== null && chipText.ok ? chipText.value : null;
+  const legendRow = (glyph: ReactNode, text: string, dim = false) => {
+    const colon = text.indexOf(': ');
+    return (
+      <li style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+        <span aria-hidden="true" style={{ flex: '0 0 auto', width: 32, height: 32 }}>
+          {glyph}
+        </span>
+        <span style={{ ...(dim ? LOOK.dim : LOOK.text), fontSize: 14, lineHeight: 1.45 }}>
+          {colon < 0 ? (
+            text
+          ) : (
+            <>
+              <strong style={{ fontWeight: 800, color: ROLE_VARS.ink }}>
+                {text.slice(0, colon + 1)}
+              </strong>{' '}
+              {text.slice(colon + 2)}
+            </>
+          )}
+        </span>
+      </li>
+    );
+  };
+  const dotGlyph = (
+    <svg data-art="legend" viewBox="0 0 32 32" width="32" height="32">
+      <circle
+        cx="16"
+        cy="16"
+        r="8"
+        style={{ fill: ROLE_VARS.primary, stroke: ROLE_VARS.ink, strokeWidth: 3.5 }}
+      />
+    </svg>
+  );
+  const wedgeGlyph = (
+    <svg data-art="legend" viewBox="0 0 32 32" width="32" height="32">
+      <path
+        d="M5 28L20 3l7 4z"
+        style={{
+          fill: ROLE_VARS.primary,
+          fillOpacity: 0.5,
+          stroke: ROLE_VARS.ink,
+          strokeWidth: 2,
+          strokeLinejoin: 'round',
+        }}
+      />
+      <path d="M5 28L23.5 5" style={{ stroke: ROLE_VARS.ink, strokeWidth: 2 }} />
+    </svg>
+  );
+  const tilesGlyph = (
+    <svg
+      data-art="legend"
+      viewBox="0 0 32 32"
+      width="32"
+      height="32"
+      style={{ fill: 'none', stroke: ROLE_VARS.inkDim, strokeWidth: 2 }}
+    >
+      <rect x="5" y="5" width="22" height="22" rx="3" />
+      <path d="M16 5v22M5 16h22" />
+    </svg>
+  );
 
   return (
     <section data-testid="map-screen" style={LOOK.stack}>
-      {!inApp && <h1 style={LOOK.title}>Map</h1>}
+      <h1 style={LOOK.title}>Map</h1>
       {open === null && (
         <p style={LOOK.text}>No smoke yet: the map shows the sightings of a smoke.</p>
       )}
-      <MapView
-        lib={lib}
-        tiles={environment.tiles}
-        timer={environment.timer}
-        observers={drawn?.observers ?? NOTHING}
-        bearings={drawn?.bearings ?? NOTHING}
-        lineLengthM={drawn?.lineLengthM ?? 5000}
-        fix={drawn?.fix ?? null}
-        layers={layers}
-        height={MAP_HEIGHT}
-      />
+      <div
+        data-part="map-frame"
+        style={{
+          position: 'relative',
+          borderRadius: SHAPE.cardRadius,
+          border: `2px solid ${ROLE_VARS.ink}`,
+          overflow: 'hidden',
+          flex: '0 0 auto',
+        }}
+      >
+        {/* Mira's chip over the map: the direction of the one used sighting, while there is no Fix. */}
+        {chip !== null && (
+          <span
+            data-part="bearing-chip"
+            style={{
+              ...LOOK.caption,
+              position: 'absolute',
+              left: 12,
+              top: 12,
+              zIndex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              height: 30,
+              padding: '0 12px',
+              borderRadius: 15,
+              background: ROLE_VARS.ink,
+              color: ROLE_VARS.card,
+              letterSpacing: '0.8px',
+              pointerEvents: 'none',
+            }}
+          >
+            {chip}
+          </span>
+        )}
+        <MapView
+          lib={lib}
+          tiles={environment.tiles}
+          timer={environment.timer}
+          observers={drawn?.observers ?? NOTHING}
+          bearings={drawn?.bearings ?? NOTHING}
+          lineLengthM={drawn?.lineLengthM ?? 5000}
+          fix={drawn?.fix ?? null}
+          layers={layers}
+          height={MAP_HEIGHT}
+        />
+      </div>
       {libFailure !== null && <FailureNotice failure={libFailure} />}
       {environment.tilesFailure !== null && <FailureNotice failure={environment.tilesFailure} />}
       {model !== null && !model.ok && <FailureNotice failure={model} />}
-      <section data-testid="map-legend" style={LOOK.panel}>
-        <h2 style={LOOK.title}>What the map shows</h2>
-        <ul style={{ ...LOOK.stack, margin: 0, paddingLeft: 20 }}>
-          {drawn?.fixLegend != null && <li style={LOOK.text}>{drawn.fixLegend}</li>}
-          <li style={LOOK.text}>
-            Dots: where each observer stood for a used sighting. The Sightings tab gives how well
-            each position is known.
-          </li>
-          <li style={LOOK.text}>
-            Lines and wedges: the direction of each used sighting and its uncertainty.
-          </li>
-          {setAside && (
-            <li style={LOOK.text}>
-              Grey dashed lines and grey dots: sightings set aside, not used for the position.
-            </li>
+      <section data-testid="map-legend" style={{ ...LOOK.card, gap: 14 }}>
+        <h2 style={LOOK.cardTitle}>What the map shows</h2>
+        <ul style={{ ...LOOK.stack, gap: 14, margin: 0, padding: 0, listStyle: 'none' }}>
+          {drawn?.fixLegend != null && legendRow(dotGlyph, drawn.fixLegend)}
+          {legendRow(
+            dotGlyph,
+            'Dots: where each observer stood for a used sighting. The Sightings tab gives how well each position is known.',
           )}
-          <li style={LOOK.dim}>
-            {environment.tiles === null
+          {legendRow(
+            wedgeGlyph,
+            'Lines and wedges: the direction of each used sighting and its uncertainty.',
+          )}
+          {setAside &&
+            legendRow(
+              wedgeGlyph,
+              'Grey dashed lines and grey dots: sightings set aside, not used for the position.',
+            )}
+          {legendRow(
+            tilesGlyph,
+            (environment.tiles === null
               ? 'Plain background: no map tiles are loaded, so no tile server is asked for anything.'
-              : 'Map tiles: their source is named on the map.'}
-          </li>
-          {environment.tileSourceNote !== undefined && (
-            <li style={LOOK.dim}>
-              Map tiles: {environment.tileSourceNote.sourceName}.{' '}
-              {environment.tileSourceNote.attribution}. Terms: {environment.tileSourceNote.termsUrl}
-            </li>
+              : 'Map tiles: their source is named on the map.') +
+              (environment.tileSourceNote === undefined
+                ? ''
+                : ` ${environment.tileSourceNote.sourceName}. ${environment.tileSourceNote.attribution}. Terms: ${environment.tileSourceNote.termsUrl}`),
+            true,
           )}
         </ul>
         {overlays?.legend}

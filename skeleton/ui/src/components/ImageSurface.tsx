@@ -23,6 +23,8 @@ import type { Mark } from '../math/session/session';
 import { useElementSize, type ObserveElementSize } from './dom-size';
 import { MarkRing } from './MarkRing';
 import { Reticle } from './Reticle';
+import { DialReticle } from './dial';
+import { useActiveTheme } from './theme/apply-theme';
 import { COLOURS, ROLE_VARS } from './theme';
 
 /** What the surface reports for aiming (simulator mode only). */
@@ -64,6 +66,7 @@ export function ImageSurface(props: ImageSurfaceProps) {
   const ref = useRef<HTMLDivElement | null>(null);
   const active = useRef<Active | null>(null);
   const size = useElementSize(ref, props.observe);
+  const dial = useActiveTheme().flags.dial;
   const { sourceSize, fit, onLayout } = props;
   // Keyed on the numbers, not the objects: a parent that builds `sourceSize` inline would
   // otherwise make a new layout, and so a new `onLayout`, on every render.
@@ -141,8 +144,9 @@ export function ImageSurface(props: ImageSurfaceProps) {
       }}
     >
       {props.children(layout)}
-      <Brackets />
-      <Reticle />
+      {/* Mira (Req 22.17): the lens is round, with no brackets, and its crosshair is the dial's. */}
+      {!dial && <Brackets />}
+      {dial ? <DialReticle /> : <Reticle />}
       {props.mark !== null && layout !== null && <MarkRing mark={props.mark} layout={layout} />}
     </div>
   );

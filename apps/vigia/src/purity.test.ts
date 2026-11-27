@@ -111,11 +111,10 @@ const SOURCES: readonly string[] = [
   'src/components/SimulationBanner.tsx',
   'src/components/store.ts',
   // task group 24 (the Field look)
-  'src/components/art/AppMark.tsx',
   'src/components/art/art-colours.ts',
+  'src/components/art/Dials.tsx',
   'src/components/art/Header.tsx',
   'src/components/art/IdleScene.tsx',
-  'src/components/art/Landscape.tsx',
   'src/components/art/Schematic.tsx',
   'src/components/cards/parts.tsx',
   'src/components/header-context.tsx',
@@ -312,11 +311,12 @@ const RULES: readonly Rule[] = [
     probe: { path: 'src/App.tsx', token: "\nimport { x } from '@alidade/core/src/angle';\n" },
   },
   {
-    name: 'only @alidade/core, sensors, ui, react, react-dom, maplibre-gl and uqr are imported (Req 1.1, 20)',
+    // Mira's two fonts are style sheets of their packages, imported once in main.tsx (Req 22.16).
+    name: 'only @alidade/core, sensors, ui, react, react-dom, maplibre-gl, uqr and the two fonts are imported (Req 1.1, 20)',
     applies: anywhere,
     violates: scan(
       'code',
-      /\b(?:from|import)\s+'(?!@alidade\/(?:core|sensors|ui)'|react'|react-dom(?:\/client)?'|maplibre-gl(?:\/dist\/maplibre-gl\.css)?'|uqr'|\.)[^']*'/,
+      /\b(?:from|import)\s+'(?!@alidade\/(?:core|sensors|ui)'|react'|react-dom(?:\/client)?'|maplibre-gl(?:\/dist\/maplibre-gl\.css)?'|uqr'|@fontsource-variable\/sora\/wght\.css'|@fontsource\/ibm-plex-mono\/latin-500\.css'|\.)[^']*'/,
     ),
     probe: { path: 'src/App.tsx', token: "\nimport { x } from 'lodash';\n" },
   },
@@ -662,12 +662,15 @@ describe('packaging (Req 1.1, 1.8, 11.6, 20.1 to 20.5)', () => {
   const pkg = JSON.parse(PACKAGE_JSON) as Pkg;
   const ui = JSON.parse(UI_PACKAGE_JSON) as Pkg;
 
-  it('depends at run time on the three packages, React, maplibre-gl and uqr, and nothing else', () => {
+  it('depends at run time on the three packages, React, maplibre-gl, uqr and Mira’s two fonts, and nothing else', () => {
     expect(Object.keys(pkg.dependencies).sort()).toEqual(
       [
         '@alidade/core',
         '@alidade/sensors',
         '@alidade/ui',
+        // The fonts' files are served from the page's own host (Req 15, 22.16), OFL 1.1.
+        '@fontsource-variable/sora',
+        '@fontsource/ibm-plex-mono',
         'maplibre-gl',
         'react',
         'react-dom',

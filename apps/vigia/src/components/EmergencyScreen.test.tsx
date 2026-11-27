@@ -54,7 +54,9 @@ describe('EmergencyScreen (Req 14.3 to 14.6)', () => {
   it('says first that the app calls no one, then gives the text of §7.12 at readout size', () => {
     const s = show([postsIncident(['west', 'east'])]);
     const screen = s.getByTestId('emergency-screen');
-    expect(screen.firstElementChild?.textContent).toBe(EMERGENCY_NOT_CALLING_TEXT);
+    // Mira: the tab's title, then the danger card.
+    expect(screen.firstElementChild?.textContent).toBe('Emergency');
+    expect(screen.children[1]?.textContent).toBe(EMERGENCY_NOT_CALLING_TEXT);
     expect(s.shown()).toBe(expected(s, false, START_UTC_MS));
     expect(Number.parseFloat(s.textBlock().style.fontSize)).toBeGreaterThanOrEqual(SIZES.labelPx);
     expect(s.shown()).toContain('Written at 14:13 UTC.');

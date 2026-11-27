@@ -70,7 +70,11 @@ describe('SightingsScreen rows (design §9, Req 3.6, 5.1, 5.2)', () => {
   it('gives the direction with its sigma, the accuracy, the time and age, and used', () => {
     const s = show([mixed()]);
     const row = s.rows()[0];
-    expect(row?.textContent).toContain('Toward 45.5° ± 2.0° (true north)');
+    // Mira: "Toward" over the numeral, its 1-sigma and north under it; the sentence is its name.
+    expect(row?.querySelector('[data-part="bearing"]')?.getAttribute('aria-label')).toBe(
+      'Toward 45.5° ± 2.0° (true north)',
+    );
+    expect(row?.textContent).toContain('Toward45.5°± 2.0° · true north');
     expect(row?.textContent).toContain('Observer position known to 8 m');
     expect(row?.textContent).toContain('Taken 14:00 UTC, 12 min ago');
     expect(row?.textContent).toContain('Used');
