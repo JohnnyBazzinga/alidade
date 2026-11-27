@@ -112,19 +112,26 @@ screen a parent with no padding in which it is the whole of the screen; with any
 page scrolls. The Playground, the Simulator panel and any caller that does not ask for `docked`
 keep the flow layout.
 
-## The two font stacks
+## The font stacks
 
-The theme exports `BODY_FONT_STACK` (the system sans, for prose and control labels) and
-`NUMERIC_FONT_STACK` (monospace with tabular digits, for readings, coordinates, bearings and
-codes). `FONT_STACK` no longer exists, so that each use is a decision.
+The theme exports `BODY_FONT_STACK` (prose and control labels), `NUMERIC_FONT_STACK` (tabular
+digits, for readings, coordinates, bearings and codes) and `DISPLAY_FONT_STACK` (titles and large
+numerals). Each reads the applied theme's font from a custom property, with the system's sans or monospace
+as fallback: Instrument, Field and Field night write the system's stacks, Mira writes Sora and IBM
+Plex Mono, whose files the application serves. `FONT_STACK` no longer exists, so that each use is a
+decision.
 
 ## Two looks, one skeleton: themes as data
 
 A look is a theme: plain data with a value for each role (`bg`, `card`, `ink`, `accent`, `primary`,
-the four status tones with their tint, ink, icon and bar, and so on), the shapes (radii and a
-shadow) and three flags. The package ships three: **Instrument** (dark slate and brass, square
-corners; Nonius and the Playground), **Field** (a light look with rounded cards; Vigia) and
-**Field night** (its dark counterpart, tested and applied by no app today). An application calls `applyTheme(document.documentElement,
+the four status tones with their tint, ink, icon and bar, and so on), the shapes (radii, shadows, a
+control's edge and fill), the fonts, the map's paints and four flags. The package ships four:
+**Instrument** (dark slate and brass, square corners; Nonius and the Playground), **Field** (a light
+look with rounded cards), **Field night** (its dark counterpart) and **Mira** (an off-white page, a
+green-black ink and one yellow, pills and cards; Vigia). Field and Field night are tested and
+applied by no app today. With Mira's `dial` flag the docked sighting screen draws the same parts as
+a round lens in a ring of compass ticks, one large numeral with a caption, two tiles and a round
+Back (`dialLensSize`, `DIAL_RESERVE_PX`). An application calls `applyTheme(document.documentElement,
 theme)` once at its start, and `watchColourScheme(window.matchMedia, (dark) => …)` if it wants a
 night theme. `applyTheme` writes every role as a CSS custom property (`--alidade-<role>`); every
 component writes the role's custom property in its inline styles, so a switch changes every component

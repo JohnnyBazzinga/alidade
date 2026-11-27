@@ -48,10 +48,13 @@ before you choose "Show QR code (someone beside you)" or "Send link (someone far
 code is under "Other ways (no connection)". A code received is a compact card: choose whether it is
 the same smoke, confirm, and the Smoke screen opens with the new result.
 
-The look is Field, light whatever the phone's colour scheme: light cards with icons, a header with
-a landscape on the Smoke tab and a compact one on the others, Back beside the current action on the
-Sight screen, and every text at a contrast of 7 : 1. Nonius keeps the dark brass look; the two apps draw
-the same components of the skeleton, and each chooses its look as data.
+The look is Mira, the author's design, light whatever the phone's colour scheme: an off-white page,
+a green-black ink and one yellow, Sora and IBM Plex Mono (served from the page's own host), a
+compass dial around the big "Sight the smoke", the camera as a round lens in a ring of ticks, white
+cards and tiles, pill controls, a dark tab bar that floats, and every text at a contrast of 7 : 1.
+The header's "Fire? Emergency" opens the Emergency tab; it names no number, because the number
+differs by country. Nonius keeps the dark brass look; the two apps draw the same components of the
+skeleton, and each chooses its look as data.
 
 ## Using it with another person
 
