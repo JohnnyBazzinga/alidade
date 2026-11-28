@@ -22,6 +22,10 @@ import {
   COMPASS_ONE_LINE_TEXT,
   HOME_LEAD,
   HOME_TITLE,
+  NEXT_MOVE_LINE,
+  NEXT_MOVE_TITLE,
+  NEXT_SEND_LINE,
+  NEXT_SEND_TITLE,
   NOT_CALLING_TEXT,
   smokeStateCaption,
 } from '../math/texts';
@@ -33,7 +37,7 @@ import { FixWordsView } from './FixWordsView';
 import { LimitsBlock } from './LimitsBlock';
 import { Icon, ROLE_VARS } from '@alidade/ui';
 import { BearingDial, HomeDial } from './art/Dials';
-import { HeadlineFirst, InlineIcon, NavRow } from './cards/parts';
+import { HeadlineFirst, InlineIcon, NavRow, OptionWords } from './cards/parts';
 import { LOOK, SHAPE } from './look';
 import { PrimaryAction } from './PrimaryAction';
 import { useStore, useVigia, type OpenView, type OwnPosition } from './store';
@@ -260,9 +264,12 @@ function OpenTile({
 function SavedHead({
   azimuthRad,
   sigmaRad,
+  returning,
 }: {
   readonly azimuthRad: number;
   readonly sigmaRad: number;
+  /** Not right after the capture: the caption names the sighting and its age instead. */
+  readonly returning?: string;
 }) {
   const line = savedLineText(azimuthRad, sigmaRad);
   const direction = directionText(azimuthRad, sigmaRad);
@@ -280,22 +287,29 @@ function SavedHead({
         face
         label={`Compass dial with the saved direction, ${numeral.replace('°', '')} degrees`}
       />
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
-        {/* The words of Req 4.11, in small capitals; the numeral says the direction again. */}
-        <p
-          data-testid="status-line"
-          aria-label={line.value}
-          style={{
-            ...LOOK.caption,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            color: ROLE_VARS.okInk,
-          }}
-        >
-          <Icon name="check" style={{ width: 14, height: 14 }} />
-          Sighting saved
-        </p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: '1 1 0', minWidth: 0 }}>
+        {/* The words of Req 4.11, in small capitals; the numeral says the direction again. When
+            the user comes back to the screen later (Req 22.18), the sighting and its age. */}
+        {returning === undefined ? (
+          <p
+            data-testid="status-line"
+            aria-label={line.value}
+            style={{
+              ...LOOK.caption,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              color: ROLE_VARS.okInk,
+            }}
+          >
+            <Icon name="check" style={{ width: 14, height: 14 }} />
+            Sighting saved
+          </p>
+        ) : (
+          <p data-testid="sighting-age" style={LOOK.caption}>
+            {returning}
+          </p>
+        )}
         <p style={{ ...LOOK.numeral, fontSize: 54, letterSpacing: '-2px' }}>{numeral}</p>
         <p style={{ ...LOOK.caption, fontSize: 13, letterSpacing: 0 }}>{`± ${sigma} · true`}</p>
       </div>
@@ -345,8 +359,15 @@ export function SmokeScreen({
     open.assessment.ok &&
     open.assessment.value.fix !== null &&
     open.assessment.value.fix.ok;
-  // Right after a capture, "Send this sighting" is the primary action and this one is secondary.
-  const sendIsPrimary = saved !== undefined && savedEntry !== undefined;
+  // One used sighting and no position (Req 22.18): the screen shows the two next steps, as cards,
+  // however the user got here (a capture, a Close, a tab, a reload), and no fixed action row.
+  const single =
+    open !== null && open.assessment.ok && usedCount === 1 && !located
+      ? open.assessment.value.used[0]
+      : undefined;
+  // Right after a capture with more than one sighting, "Send this sighting" is the primary action
+  // and this one is secondary.
+  const sendIsPrimary = saved !== undefined && savedEntry !== undefined && single === undefined;
   const sightButton = (
     <button
       type="button"
@@ -405,7 +426,7 @@ export function SmokeScreen({
 
   return (
     <section data-testid="smoke-screen" style={LOOK.stack}>
-      {statusLine !== undefined && (
+      {statusLine !== undefined && single === undefined && (
         <div style={LOOK.statusCard('info')}>
           <p data-testid="status-line" style={{ ...LOOK.text, color: ROLE_VARS.infoInk }}>
             <InlineIcon name="info" colour={ROLE_VARS.infoIcon} />
@@ -413,11 +434,19 @@ export function SmokeScreen({
           </p>
         </div>
       )}
-      {savedEntry !== undefined && (
+      {savedEntry !== undefined ? (
         <SavedHead
           azimuthRad={savedEntry.sighting.bearing.azimuthRad}
           sigmaRad={savedEntry.sighting.bearing.azimuthSigmaRad}
         />
+      ) : (
+        single !== undefined && (
+          <SavedHead
+            azimuthRad={single.sighting.bearing.azimuthRad}
+            sigmaRad={single.sighting.bearing.azimuthSigmaRad}
+            returning={`Sighting 1 · ${ageText(nowUtcMs - single.sighting.bearing.timeUtcMs)}`}
+          />
+        )
       )}
       {open === null ? (
         <>
@@ -460,6 +489,48 @@ export function SmokeScreen({
                 >
                   {checkStatement('one')}
                 </h1>
+              )}
+            </div>
+          )}
+          {single !== undefined && (
+            <div data-testid="next-step" style={{ ...LOOK.stack, gap: 10 }}>
+              <button
+                type="button"
+                data-primary="true"
+                data-choice="true"
+                aria-label={NEXT_MOVE_TITLE}
+                onClick={onSight}
+                style={{
+                  ...LOOK.optionButton,
+                  minHeight: 84,
+                  border: 'none',
+                  background: ROLE_VARS.primary,
+                  color: ROLE_VARS.primaryInk,
+                  boxShadow: SHAPE.primaryShadow,
+                }}
+              >
+                <OptionWords icon="crosshair" title={NEXT_MOVE_TITLE} sub={NEXT_MOVE_LINE} />
+              </button>
+              <button
+                type="button"
+                data-choice="true"
+                aria-label={NEXT_SEND_TITLE}
+                onClick={() => onSend?.(single.sighting.sightingId)}
+                style={{ ...LOOK.optionButton, minHeight: 84 }}
+              >
+                <OptionWords icon="send" title={NEXT_SEND_TITLE} sub={NEXT_SEND_LINE} dim />
+              </button>
+              {/* The line of Req 4.12, under the step it is about, so that both steps stay in view. */}
+              {statusLine !== undefined && (
+                <div style={LOOK.statusCard('info')}>
+                  <p
+                    data-testid="status-line"
+                    style={{ ...LOOK.text, fontSize: 14, color: ROLE_VARS.infoInk }}
+                  >
+                    <InlineIcon name="info" colour={ROLE_VARS.infoIcon} />
+                    {statusLine}
+                  </p>
+                </div>
               )}
             </div>
           )}
@@ -541,7 +612,7 @@ export function SmokeScreen({
       >
         <HeadlineFirst text={NOT_CALLING_TEXT} />
       </p>
-      {open !== null && (
+      {open !== null && single === undefined && (
         <PrimaryAction>
           {sendIsPrimary && savedEntry !== undefined ? (
             <button

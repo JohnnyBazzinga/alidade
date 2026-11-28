@@ -5,6 +5,7 @@
 // after a success nothing leaves the user on a form.
 
 import { act, fireEvent, render, within } from '@testing-library/react';
+import { SENT_BACK_TEXT } from '../math/texts';
 import { describe, expect, it } from 'vitest';
 import { App } from '../App';
 import { createFakeEnvironment } from '../test-support/fake-environment';
@@ -43,7 +44,7 @@ function mountApp() {
   const main = () => utils.getByTestId('app-main');
   const primaries = () =>
     [...utils.container.querySelectorAll<HTMLElement>('[data-primary="true"]')].map(
-      (b) => b.textContent,
+      (b) => b.getAttribute('aria-label') ?? b.textContent,
     );
   const tap = (name: string | RegExp) =>
     settle(() => fireEvent.click(utils.getByRole('button', { name })));
@@ -82,7 +83,8 @@ describe('the flow from a first sighting to a joined smoke, step by step', () =>
     await a.press('freeze');
     expect(a.primaries()).toEqual(['Capture']);
 
-    // 3. A first Capture starts the smoke: the Smoke screen, at its top, with "Send this sighting".
+    // 3. A first Capture starts the smoke: the Smoke screen, at its top, with the two next steps
+    // (Req 22.18): "Move and sight again" in the yellow, "Send this sighting" beside it.
     a.main().scrollTop = 250;
     await a.press('capture');
     expect(a.getByTestId('smoke-screen')).toBeTruthy();
@@ -92,7 +94,9 @@ describe('the flow from a first sighting to a joined smoke, step by step', () =>
     expect(a.getByTestId('status-line').getAttribute('aria-label')).toMatch(
       /Sighting saved: .*° ± .*° \(true\)/,
     );
-    expect(a.primaries()).toEqual(['Send this sighting']);
+    expect(a.primaries()).toEqual(['Move and sight again']);
+    expect(a.getByRole('button', { name: 'Send this sighting' }).dataset.primary).toBeUndefined();
+    expect(a.queryByTestId('primary-action')).toBeNull();
     expect(a.queryByRole('button', { name: 'Take another' })).toBeNull();
     expect(a.store.getSnapshot().state.incidents).toHaveLength(1);
 
@@ -117,7 +121,9 @@ describe('the flow from a first sighting to a joined smoke, step by step', () =>
     expect(a.getByTestId('share-sheet')).toBeTruthy();
     await a.tap('Close');
     expect(a.getByTestId('smoke-screen')).toBeTruthy();
-    expect(a.primaries()).toEqual(['Sight the smoke']);
+    // Still one sighting: the two steps stay, with what to wait for after a Send.
+    expect(a.primaries()).toEqual(['Move and sight again']);
+    expect(a.getByTestId('status-line').textContent).toBe(SENT_BACK_TEXT);
 
     // 6. A code arrives from the other phone: "the same smoke" asks once, in a view of its own.
     await a.tap(/Add a sighting someone sent me/);
@@ -149,7 +155,7 @@ describe('the flow from a first sighting to a joined smoke, step by step', () =>
     expect(a.store.getSnapshot().state.incidents).toHaveLength(1);
   });
 
-  it('after the first capture the line and the primary action go when the user leaves the screen', async () => {
+  it('after the first capture the steps stay when the user leaves the screen and comes back (Req 22.18)', async () => {
     const a = mountApp();
     await a.settle();
     await a.tap('Sight the smoke');
@@ -157,10 +163,12 @@ describe('the flow from a first sighting to a joined smoke, step by step', () =>
     await a.advance(1500);
     await a.press('freeze');
     await a.press('capture');
-    expect(a.primaries()).toEqual(['Send this sighting']);
+    expect(a.primaries()).toEqual(['Move and sight again']);
     await a.settle(() => fireEvent.click(a.getByRole('tab', { name: 'Sightings' })));
     await a.settle(() => fireEvent.click(a.getByRole('tab', { name: 'Smoke' })));
     expect(a.getByTestId('smoke-screen').textContent).not.toContain('Sighting saved');
-    expect(a.primaries()).toEqual(['Sight the smoke']);
+    expect(a.getByTestId('sighting-age').textContent).toMatch(/^Sighting 1 · /);
+    expect(a.primaries()).toEqual(['Move and sight again']);
+    expect(a.getByRole('button', { name: 'Send this sighting' })).toBeTruthy();
   });
 });

@@ -293,3 +293,50 @@ describe('the stacks of the first view (design D24, D26.3)', () => {
     expect(s.getByTestId('fix-headline').style.fontFamily).toBe(NUMERIC_FONT_STACK);
   });
 });
+
+// Req 22.18 (2026-11-28, after the lead's walk and two reviews): with one used sighting and no
+// position, the screen's next step is two cards, whatever brought the user here.
+describe('the next step after one sighting (Req 22.18)', () => {
+  it('shows "Move and sight again" in the yellow and "Send this sighting" beside it, before the advice, with no fixed row', () => {
+    const incident = postsIncident(['west']);
+    const id = incident.entries[0]?.sighting.sightingId ?? '';
+    const s = show([incident], { saved: { sightingId: id } });
+    const next = s.getByTestId('next-step');
+    const [move, send] = [...next.querySelectorAll<HTMLButtonElement>('button')];
+    expect(move?.getAttribute('aria-label')).toBe('Move and sight again');
+    expect(move?.dataset.primary).toBe('true');
+    expect(move?.style.background).toBe('var(--alidade-primary)');
+    expect(send?.getAttribute('aria-label')).toBe('Send this sighting');
+    expect(send?.dataset.primary).toBeUndefined();
+    expect(
+      next.compareDocumentPosition(s.getByTestId('advice')) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(s.queryByTestId('primary-action')).toBeNull();
+    // The outline "Sight the smoke" is gone: the yellow card is the way to the camera.
+    expect(s.queryByRole('button', { name: 'Sight the smoke' })).toBeNull();
+    fireEvent.click(move as HTMLButtonElement);
+    fireEvent.click(send as HTMLButtonElement);
+    expect(s.calls).toEqual(['sight', `send:${id}`]);
+  });
+
+  it('keeps the two steps when the user comes back later, naming the sighting and its age', () => {
+    const s = show([postsIncident(['west'])]);
+    expect(s.getByTestId('next-step')).toBeTruthy();
+    expect(s.queryByText('Sighting saved')).toBeNull();
+    expect(s.getByTestId('sighting-age').textContent).toMatch(/^Sighting 1 · /);
+  });
+
+  it('puts the line after a Send under the cards, so both stay in view', () => {
+    const s = show([postsIncident(['west'])], { statusLine: 'Sent it? Ask them.' });
+    const next = s.getByTestId('next-step');
+    expect(next.querySelector('[data-testid="status-line"]')?.textContent).toBe(
+      'Sent it? Ask them.',
+    );
+  });
+
+  it('is not shown once there is a position: the screen is as before', () => {
+    const s = show([postsIncident(['west', 'east'])]);
+    expect(s.queryByTestId('next-step')).toBeNull();
+    expect(s.getByRole('button', { name: 'Sight the smoke' }).dataset.primary).toBe('true');
+  });
+});

@@ -30,11 +30,11 @@ import {
   SHARE_SEND_TITLE,
 } from '../math/texts';
 import type { VigiaFailure, VigiaResult } from '../result';
-import { BODY_FONT_STACK, Icon, NUMERIC_FONT_STACK, ROLE_VARS, type IconName } from '@alidade/ui';
+import { Icon, NUMERIC_FONT_STACK, ROLE_VARS } from '@alidade/ui';
 import { useEnvironment } from './environment';
 import { FailureNotice } from './FailureNotice';
 import { Disclosure } from './Disclosure';
-import { InlineIcon } from './cards/parts';
+import { InlineIcon, OptionWords } from './cards/parts';
 import { LOOK, SHAPE } from './look';
 import { QrImage } from './QrImage';
 import { useStore, useVigia } from './store';
@@ -60,40 +60,6 @@ function OutcomeLine({ outcome }: { readonly outcome: Outcome | undefined }) {
     <p role="status" style={LOOK.dim}>
       {outcome.text}
     </p>
-  );
-}
-
-/** A choice's words (Mira): its icon, its title at 19 extra bold, for whom under it, a chevron. */
-function OptionWords({
-  icon,
-  title,
-  sub,
-  dim = false,
-}: {
-  readonly icon: IconName;
-  readonly title: string;
-  readonly sub: string;
-  readonly dim?: boolean;
-}) {
-  return (
-    <>
-      <Icon name={icon} style={{ width: 34, height: 34 }} />
-      <span style={{ flex: '1 1 auto', display: 'flex', flexDirection: 'column', gap: 3 }}>
-        <span style={{ fontSize: 19 }}>{title}</span>
-        <span
-          style={{
-            fontFamily: BODY_FONT_STACK,
-            fontSize: 13,
-            fontWeight: 400,
-            letterSpacing: 0,
-            ...(dim ? { color: ROLE_VARS.inkDim } : {}),
-          }}
-        >
-          {sub}
-        </span>
-      </span>
-      <Icon name="chevron-right" style={{ width: 16, height: 16 }} />
-    </>
   );
 }
 

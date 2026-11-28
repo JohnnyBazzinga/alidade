@@ -120,8 +120,16 @@ export function mountSimulation(options: MountOptions = {}) {
     });
   };
 
-  /** From the Smoke screen to the Sight screen. */
-  const openSight = () => click('Sight the smoke');
+  /**
+   * From the Smoke screen to the Sight screen: "Sight the smoke", or, with one sighting and no
+   * position, the next step's "Move and sight again" (Req 22.18).
+   */
+  const openSight = () =>
+    click(
+      q.queryByRole('button', { name: 'Sight the smoke' }) !== null
+        ? 'Sight the smoke'
+        : 'Move and sight again',
+    );
   const chooseScene = (sceneId: string) =>
     settle(() => fireEvent.change(q.getByLabelText('Scene'), { target: { value: sceneId } }));
   /** The phone in hand, chosen under the banner (task 21.5): on any screen. */

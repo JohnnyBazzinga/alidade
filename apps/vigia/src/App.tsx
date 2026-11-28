@@ -14,6 +14,7 @@
 
 import { BODY_FONT_STACK, COLOURS } from '@alidade/ui';
 import { useEffect, useRef, useState } from 'react';
+import { SENT_BACK_TEXT } from './math/texts';
 import { EmergencyScreen } from './components/EmergencyScreen';
 import {
   EnvironmentProvider,
@@ -149,6 +150,11 @@ function Shell({
   }, [route]);
 
   const toTab = (tab: TabId) => setRoute({ kind: 'tab', tab });
+  const singleSighting =
+    snapshot.open !== null &&
+    snapshot.open.assessment.ok &&
+    snapshot.open.assessment.value.used.length === 1 &&
+    !(snapshot.open.assessment.value.fix !== null && snapshot.open.assessment.value.fix.ok);
   const currentTab: TabId = route.kind === 'tab' ? route.tab : 'smoke';
   const inbox = () => setRoute({ kind: 'inbox', back: currentTab });
   const privacy = () => {
@@ -180,7 +186,12 @@ function Shell({
     content = (
       <ShareSheet
         sightingId={route.sightingId}
-        onClose={() => toTab(route.back)}
+        onClose={() =>
+          // With one sighting and no position, the Smoke screen says what to wait for (Req 22.18).
+          route.back === 'smoke' && singleSighting
+            ? setRoute({ kind: 'tab', tab: 'smoke', line: SENT_BACK_TEXT })
+            : toTab(route.back)
+        }
         onPrivacy={privacy}
       />
     );

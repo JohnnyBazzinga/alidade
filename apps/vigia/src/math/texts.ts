@@ -135,6 +135,14 @@ export const QR_ONE_LINE_TEXT =
 export const SHARE_QR_LABEL = 'Show QR code (someone beside you)';
 export const SHARE_SEND_LABEL = 'Send link (someone far away)';
 export const SHARE_OTHER_LABEL = 'Other ways (no connection)';
+/** The next step after one sighting (Req 22.18, 2026-11-28): two cards, each a title and a line. */
+export const NEXT_MOVE_TITLE = 'Move and sight again';
+export const NEXT_MOVE_LINE = 'Walk or drive sideways first';
+export const NEXT_SEND_TITLE = 'Send this sighting';
+export const NEXT_SEND_LINE = 'For someone at another place';
+/** The line on the Smoke screen after the Share sheet closes, while the smoke has one sighting. */
+export const SENT_BACK_TEXT = 'Sent it? Ask them to send theirs back to see the position here too.';
+
 /** The two choices as Mira's cards draw them: a title and, under it, for whom (2026-11-27). */
 export const SHARE_QR_TITLE = 'Show QR code';
 export const SHARE_QR_FOR = 'For someone beside you';

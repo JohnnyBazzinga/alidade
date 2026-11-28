@@ -2,7 +2,7 @@
 // of a sentence, a row of words with a round tint behind its icon, and a row that opens another
 // view, which ends in a chevron-right. An icon is always beside the words that say the same.
 
-import { Icon, ROLE_VARS, SIZES, type IconName } from '@alidade/ui';
+import { BODY_FONT_STACK, Icon, ROLE_VARS, SIZES, type IconName } from '@alidade/ui';
 import type { CSSProperties, ReactNode } from 'react';
 import { LOOK } from '../look';
 
@@ -80,6 +80,40 @@ export function HeadlineFirst({ text }: { readonly text: string }) {
   return (
     <>
       <strong>{text.slice(0, end + 1)}</strong> {text.slice(end + 2)}
+    </>
+  );
+}
+
+/** A choice's words (Mira): its icon, its title at 19 extra bold, for whom under it, a chevron. */
+export function OptionWords({
+  icon,
+  title,
+  sub,
+  dim = false,
+}: {
+  readonly icon: IconName;
+  readonly title: string;
+  readonly sub: string;
+  readonly dim?: boolean;
+}) {
+  return (
+    <>
+      <Icon name={icon} style={{ width: 34, height: 34 }} />
+      <span style={{ flex: '1 1 auto', display: 'flex', flexDirection: 'column', gap: 3 }}>
+        <span style={{ fontSize: 19 }}>{title}</span>
+        <span
+          style={{
+            fontFamily: BODY_FONT_STACK,
+            fontSize: 13,
+            fontWeight: 400,
+            letterSpacing: 0,
+            ...(dim ? { color: ROLE_VARS.inkDim } : {}),
+          }}
+        >
+          {sub}
+        </span>
+      </span>
+      <Icon name="chevron-right" style={{ width: 16, height: 16 }} />
     </>
   );
 }
