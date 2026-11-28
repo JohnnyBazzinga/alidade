@@ -12,6 +12,7 @@ import { calibrationInUse } from '../math/sight/index-error';
 import { prepareSights } from '../math/sight/prepare';
 import type { Sight } from '../math/sight/sight';
 import { useEnvironment } from './environment';
+import { CalibrationCard } from './CalibrationCard';
 import { FailureNotice } from './FailureNotice';
 import { LOOK } from './look';
 import { useNonius, useStore } from './store';
@@ -107,8 +108,10 @@ export function SightsScreen({ onMeasureIndexError }: SightsScreenProps) {
     <section data-testid="sights-screen" style={LOOK.stack}>
       <h1 style={LOOK.title}>Sights</h1>
       {assessment.ok === false && <FailureNotice failure={assessment} />}
-      <section data-testid="calibration-line" style={LOOK.panel}>
-        <p style={LOOK.readout}>{calibrationLine.ok ? calibrationLine.value : ''}</p>
+      <CalibrationCard
+        text={calibrationLine.ok ? calibrationLine.value : ''}
+        uncalibrated={state.indexError === null}
+      >
         {state.indexError !== null && confirming?.kind !== 'index' && (
           <button
             type="button"
@@ -125,7 +128,7 @@ export function SightsScreen({ onMeasureIndexError }: SightsScreenProps) {
         <button type="button" style={LOOK.button} onClick={onMeasureIndexError}>
           Measure the index error
         </button>
-      </section>
+      </CalibrationCard>
       <section style={LOOK.panel}>
         <p style={LOOK.text}>{countStatement(used)}</p>
         {span !== null && <p style={LOOK.text}>{span}</p>}

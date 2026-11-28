@@ -35,22 +35,23 @@ describe('App', () => {
     expect(m.q.getByTestId('fix-screen')).toBeTruthy();
   });
 
-  it('puts the screen’s primary action in the row between the scrolling part and the tab bar', () => {
+  it('puts the Fix screen’s primary action in the flow, the Sun dial’s button (Req 16.3), and the other screens’ in the row between the scrolling part and the tab bar', () => {
     const m = mount();
     const row = m.q.getByTestId('primary-row');
-    expect(within(row).getByRole('button', { name: 'Sight the Sun' })).toBeTruthy();
-    expect(m.q.getByTestId('app-main').contains(row)).toBe(false);
+    expect(row.childElementCount).toBe(0);
+    const dial = within(m.q.getByTestId('sun-dial')).getByRole('button', { name: 'Sight the Sun' });
+    expect(dial.dataset.primary).toBe('true');
+    expect(m.q.getByTestId('app-main').contains(dial)).toBe(true);
     const shell = m.q.getByTestId('app-shell');
     const order = [...shell.children].map((c) => (c as HTMLElement).dataset.testid);
     expect(order.indexOf('app-main')).toBeLessThan(order.indexOf('primary-row'));
     expect(order.indexOf('primary-row')).toBeLessThan(order.indexOf('tab-bar'));
   });
 
-  it('opens the Sight screen from the primary action, without the tab bar, and Done returns', () => {
+  it('opens the Sight screen from the dial, without the header or the tab bar, and Done returns', () => {
     const m = mount();
-    fireEvent.click(
-      within(m.q.getByTestId('primary-row')).getByRole('button', { name: 'Sight the Sun' }),
-    );
+    fireEvent.click(m.q.getByRole('button', { name: 'Sight the Sun' }));
+    expect(m.q.queryByTestId('app-header')).toBeNull();
     expect(m.q.getByTestId('sight-screen')).toBeTruthy();
     expect(m.q.queryByTestId('tab-bar')).toBeNull();
     fireEvent.click(within(m.q.getByTestId('primary-row')).getByRole('button', { name: 'Done' }));
@@ -79,7 +80,10 @@ describe('App', () => {
     const m = mount({ mode: 'simulation' });
     const banner = m.q.getByTestId('simulation-banner');
     expect(banner.style.position).toBe('');
-    expect(m.q.getByTestId('app-shell').firstElementChild).toBe(banner);
+    // Mira's header comes first on a tab, and the banner right under it.
+    const children = [...m.q.getByTestId('app-shell').children];
+    expect(children[0]).toBe(m.q.getByTestId('app-header'));
+    expect(children[1]).toBe(banner);
   });
 
   it('shows what the shell hands it under the banner (the phone bar), and not on a phone', () => {
@@ -89,7 +93,8 @@ describe('App', () => {
       <App environment={t.environment} store={store} phoneBar={<p data-testid="bar">bar</p>} />,
     );
     const shell = getByTestId('app-shell');
-    expect([...shell.children].map((c) => (c as HTMLElement).dataset.testid).slice(0, 2)).toEqual([
+    expect([...shell.children].map((c) => (c as HTMLElement).dataset.testid).slice(0, 3)).toEqual([
+      'app-header',
       'simulation-banner',
       'bar',
     ]);
@@ -108,6 +113,6 @@ describe('App', () => {
     const fix = getByTestId('fix-screen');
     const mode = getByTestId('mode-control');
     expect(fix.compareDocumentPosition(mode) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
-    expect(getByTestId('app-main').lastElementChild).toBe(mode);
+    expect(getByTestId('app-main').lastElementChild?.lastElementChild).toBe(mode);
   });
 });

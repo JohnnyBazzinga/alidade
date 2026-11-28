@@ -9,7 +9,9 @@ import { TabBar, TABS } from './TabBar';
 
 const NARROWEST_PX = 320;
 const ADVANCE_EM = 0.63;
-const MIN_TOUCH_PX = 48;
+/** Mira's least touch target and its tab labels' size (the author's design, Nonius Req 16.2). */
+const MIN_TOUCH_PX = 44;
+const MIRA_LABEL_PX = 11;
 const px = (value: string) =>
   Number.isFinite(Number.parseFloat(value)) ? Number.parseFloat(value) : 0;
 
@@ -19,9 +21,11 @@ function neededPx(tab: HTMLElement): number {
   return Math.max(labelPx + px(tab.style.paddingLeft) + px(tab.style.paddingRight), MIN_TOUCH_PX);
 }
 
-function fits(tabs: readonly HTMLElement[], barPx: number): boolean {
+/** Mira's bar is a grid of equal columns inside margins of 16 on each side. */
+function fits(tabs: readonly HTMLElement[], barPx: number, grid = false): boolean {
   const basis = tabs[0]?.style.flexBasis ?? '';
   const needs = tabs.map(neededPx);
+  if (grid) return needs.every((n) => n <= (barPx - 32) / tabs.length);
   if (basis === '0px' || basis === '0%' || basis === '0') {
     return needs.every((n) => n <= barPx / tabs.length);
   }
@@ -38,26 +42,25 @@ function tabs(): HTMLElement[] {
 describe('the tab labels at 320 CSS px', () => {
   it('are Fix, Sights and Map, and fit whole', () => {
     expect(TABS.map((t) => t.label)).toEqual(['Fix', 'Sights', 'Map']);
-    expect(fits(tabs(), NARROWEST_PX)).toBe(true);
+    expect(fits(tabs(), NARROWEST_PX, true)).toBe(true);
   });
 
-  it('never break inside a word and are at least 16 px', () => {
+  it('never break inside a word and are at least Mira\u2019s 11 px', () => {
     for (const tab of tabs()) {
       const label = tab.querySelector<HTMLElement>('[data-part="tab-label"]');
       expect(label?.style.whiteSpace).toBe('nowrap');
-      expect(px(tab.style.fontSize)).toBeGreaterThanOrEqual(16);
+      expect(px(tab.style.fontSize)).toBeGreaterThanOrEqual(MIRA_LABEL_PX);
     }
   });
 
-  it('the arithmetic bites: a label of 12 characters at 16 px with the bar’s padding does not fit in a third of 320 px', () => {
+  it('the arithmetic bites: a label of 18 characters at 11 px with the bar’s padding does not fit in a third of the bar at 320 px', () => {
     const copy = tabs().map((t) => {
       const c = t.cloneNode(true) as HTMLElement;
-      c.style.flexBasis = '0px';
       const label = c.querySelector<HTMLElement>('[data-part="tab-label"]');
-      if (label !== null) label.textContent = 'Measurements';
+      if (label !== null) label.textContent = 'Measurements taken';
       return c;
     });
-    expect(fits(copy, NARROWEST_PX)).toBe(false);
+    expect(fits(copy, NARROWEST_PX, true)).toBe(false);
   });
 
   it('selects the tab that is pressed and marks the current one', () => {

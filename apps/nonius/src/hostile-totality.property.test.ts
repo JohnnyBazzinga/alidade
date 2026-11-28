@@ -64,7 +64,13 @@ import {
   positionText,
   sigmaDegText,
 } from './math/fix/format';
-import { comparisonWords, fixWords, oneSightWords, placeWords } from './math/fix/fix-words';
+import {
+  comparisonWords,
+  fixWords,
+  leadAndRest,
+  oneSightWords,
+  placeWords,
+} from './math/fix/fix-words';
 import { compare } from './math/fix/comparison';
 import { mapModel } from './math/fix/map-model';
 import {
@@ -508,6 +514,10 @@ export const HOSTILE_LIST: readonly HostileEntry[] = [
       expect(typeof Reflect.get(r as object, 'whatToDo')).toBe('string');
     },
   ),
+  hostileEntry('leadAndRest', fc.tuple(hostileString()), leadAndRest, ([text], r) => {
+    const [lead, rest] = r as readonly [string, string];
+    expect(lead.length + rest.length).toBeLessThanOrEqual(text.length);
+  }),
   hostileEntry('fromDeg', fc.tuple(hostileNumber()), fromDeg),
   hostileEntry('toDeg', fc.tuple(hostileNumber()), toDeg),
   hostileEntry('fromArcmin', fc.tuple(hostileNumber()), fromArcmin),

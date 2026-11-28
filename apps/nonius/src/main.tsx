@@ -2,6 +2,9 @@
 // and the browser's globals and hands them to the screens as one environment object.
 
 import 'maplibre-gl/dist/maplibre-gl.css';
+// Mira's two fonts, served from the page's own host (SIL OFL 1.1): Sora and IBM Plex Mono.
+import '@fontsource-variable/sora/wght.css';
+import '@fontsource/ibm-plex-mono/latin-500.css';
 import {
   browserEnvironment,
   createBrowserSensorSource,
@@ -15,8 +18,8 @@ import {
   browserCameraSurface,
   checkTileSource,
   defaultSessionParameters,
-  instrument,
   loadMapLibre,
+  mira,
   type TileSource,
 } from '@alidade/ui';
 import { createRoot } from 'react-dom/client';
@@ -106,8 +109,9 @@ function build(): void {
   };
   const scenes = sunScenes(parameters);
   if (!scenes.ok) throw new Error('the scenes could not be built');
-  // Nonius's look is Instrument (skeleton-ui Req 22.14): written on the root before the first render.
-  applyTheme(document.documentElement, instrument);
+  // Nonius's look is Mira, the author's design (skeleton-ui Req 22.14 as amended, Nonius Req 16.1):
+  // written on the root before the first render.
+  applyTheme(document.documentElement, mira);
   createRoot(root).render(
     <Root
       startMode={initialMode({ hasDeviceOrientation: browser.hasDeviceOrientation })}

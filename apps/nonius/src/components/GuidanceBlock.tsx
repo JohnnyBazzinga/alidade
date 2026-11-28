@@ -32,7 +32,7 @@ export function GuidanceBlock({ collapsed }: { readonly collapsed: boolean }) {
         </Disclosure>
       ) : (
         <>
-          <h2 style={LOOK.title}>{TITLE}</h2>
+          <h2 style={LOOK.heading}>{TITLE}</h2>
           {sentences}
         </>
       )}

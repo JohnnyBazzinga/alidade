@@ -48,7 +48,7 @@ export function HowItWorks({ onBack }: { readonly onBack: () => void }) {
       <h1 style={LOOK.title}>How it works</h1>
       {SECTIONS.map((s) => (
         <section key={s.title} style={LOOK.panel}>
-          <h2 style={LOOK.title}>{s.title}</h2>
+          <h2 style={LOOK.heading}>{s.title}</h2>
           {s.paragraphs.map((p) => (
             <p key={p.slice(0, 24)} style={LOOK.text}>
               {p}

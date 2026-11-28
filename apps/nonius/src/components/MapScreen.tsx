@@ -64,7 +64,7 @@ export function MapScreen() {
       {environment.tilesFailure !== null && <FailureNotice failure={environment.tilesFailure} />}
       {model !== null && !model.ok && <FailureNotice failure={model} />}
       <section data-testid="map-legend" style={LOOK.panel}>
-        <h2 style={LOOK.title}>What the map shows</h2>
+        <h2 style={LOOK.heading}>What the map shows</h2>
         <ul style={{ ...LOOK.stack, margin: 0, paddingLeft: 20 }}>
           {kind === 'fix' && (
             <li style={LOOK.text}>

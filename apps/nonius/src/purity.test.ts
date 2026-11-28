@@ -103,7 +103,12 @@ const SOURCES: readonly string[] = [
   // task group 9
   'src/App.tsx',
   'src/components/FailureNotice.tsx',
+  'src/components/CalibrationCard.tsx',
   'src/components/FixScreen.tsx',
+  'src/components/Header.tsx',
+  'src/components/art/art-colours.ts',
+  'src/components/art/SunDial.tsx',
+  'src/components/art/TurnDrawing.tsx',
   'src/components/GuidanceBlock.tsx',
   'src/components/HowItWorks.tsx',
   'src/components/IndexErrorScreen.tsx',
@@ -242,11 +247,11 @@ const RULES: readonly Rule[] = [
     probe: { path: 'src/main.tsx', token: "\nimport { x } from '@alidade/core/src/angle';\n" },
   },
   {
-    name: 'only @alidade/core, sensors, ui, react, react-dom, maplibre-gl and astronomy-engine are imported (Req 1.1)',
+    name: 'only @alidade/core, sensors, ui, react, react-dom, maplibre-gl, astronomy-engine and Mira\u2019s two fonts are imported (Req 1.1, 16.1)',
     applies: anywhere,
     violates: scan(
       'code',
-      /\b(?:from|import)\s+'(?!@alidade\/(?:core|sensors|ui)'|react'|react-dom(?:\/client)?'|maplibre-gl(?:\/dist\/maplibre-gl\.css)?'|astronomy-engine'|\.)[^']*'/,
+      /\b(?:from|import)\s+'(?!@alidade\/(?:core|sensors|ui)'|react'|react-dom(?:\/client)?'|maplibre-gl(?:\/dist\/maplibre-gl\.css)?'|astronomy-engine'|@fontsource-variable\/sora\/wght\.css'|@fontsource\/ibm-plex-mono\/latin-500\.css'|\.)[^']*'/,
     ),
     probe: { path: 'src/main.tsx', token: "\nimport { x } from 'lodash';\n" },
   },
@@ -515,9 +520,11 @@ describe('packaging (Req 1.1, 1.8, 3.1)', () => {
   const pkg = JSON.parse(PACKAGE_JSON) as Pkg;
   const vigia = JSON.parse(VIGIA_PACKAGE_JSON) as Pkg;
 
-  it('depends at run time on the three packages, React, maplibre-gl and astronomy-engine only', () => {
+  it('depends at run time on the three packages, React, maplibre-gl, astronomy-engine and Mira\u2019s two fonts only', () => {
     expect(Object.keys(pkg.dependencies).sort()).toEqual(
       [
+        '@fontsource-variable/sora',
+        '@fontsource/ibm-plex-mono',
         '@alidade/core',
         '@alidade/sensors',
         '@alidade/ui',

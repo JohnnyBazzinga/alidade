@@ -116,3 +116,10 @@ Vigia's working rules (`.kiro/specs/vigia/tasks.md`, "Working rules for every ta
   - [x] 13.4 **D. The mode control is at the end of the Fix screen**, after it (`App.test.tsx`).
     - _Requirements: 13.1_
 
+- [x] 14. Mira (2026-11-28; the lead's design of the Fix screen; Req 16, 1.1 as amended; design §9.1). Written by Claude Code from the lead's design; tests first where a test can hold it.
+  - [x] 14.1 The theme and the fonts. `theme-entry.test.ts` (Mira applied before the render, no other theme, the two font imports); `purity.test.ts` (the two font packages in the dependencies and the import rule, the new files known). `main.tsx`, `package.json`, `index.html` (the page's background).
+    - _Requirements: 16.1, 1.1_
+  - [x] 14.2 The look. `screens-look.test.tsx` with Mira's least sizes (11, 44, 62) and the art's colours; `TabBar.test.tsx` with the grid of three and labels of 11. `look.ts`, `TabBar.tsx`, `Header.tsx`, `App.tsx` (the header on the tabs, the column of 480).
+    - _Requirements: 16.2, 16.3_
+  - [x] 14.3 The Fix screen. `fix-mira.test.tsx` (the header and its caption; the title and the start words; the order dial, calibration, rule, How it works; the dial's button, yellow or outline; the warning card and Measure in it; the drawing's label; with sights, calibration before position before dial, one primary; the mode control's segments); `App.test.tsx` (the Fix screen's primary in the flow, the row empty; the header above the banner); the hostile registry's `leadAndRest`. `FixScreen.tsx`, `CalibrationCard.tsx`, `art/SunDial.tsx`, `art/TurnDrawing.tsx`, `art/art-colours.ts`, `ModeControl.tsx`, `SightsScreen.tsx`, the `h2` headings.
+    - _Requirements: 16.3, 16.4, 9.3_

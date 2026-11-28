@@ -425,6 +425,10 @@ Copied in pattern from Vigia, each as its file there: `look.ts` (UI's palette, t
 
 The Sight screen keeps the last `FrozenSighting` it saw through `onSession`, and on `captured` calls `sunSideFromFrozen` on it and `sightFromCapture`, then dispatches `captured`. The Comparison and the Index error location go through `askLocationOnce` (D17).
 
+### 9.1 Mira (2026-11-28; Req 16)
+
+The lead's design of the Fix screen, in Mira. `main.tsx` applies the skeleton's `mira` and imports its two fonts; `look.ts` holds Mira's sizes and shapes as Vigia's does (cards of `20` to `24`, tiles of `16`, pills, a yellow primary of `62`, outline secondaries of `46`, the body at `15`, headings at `19`, the page's title at `28`). New files: `Header.tsx` (the mark, the word, `headerCaption`), `CalibrationCard.tsx` (the Calibration in use, warning card or white card, shared by Fix and Sights), `art/SunDial.tsx` (the design's four rings of dashes, its own dash patterns, and the round button in the same grid cell, so nothing is absolute), `art/TurnDrawing.tsx`, `art/art-colours.ts`. `math/fix/fix-words.ts` exports `START` and `leadAndRest(text)`, the first sentence and the rest (total, in the hostile registry), so that the design's titles are the formatter's words, cut at their first full stop and never rewritten. The Fix screen no longer portals into the primary-action row (the dial is the primary action, in the flow); the row stays for Sight and Index error. *Rejected:* a separate title for each state (new words the specs do not have); keeping the row with a second "Sight the Sun" under the dial (two controls for one action).
+
 ## 10. Simulation and the reviewer's path (Req 13; D20)
 
 **Scenes** (`math/scenes/sun-scenes.ts`). A `NoniusScene` is `{ id, name, truth: CATALOGUE_ORIGIN, sightTimesUtcMs, altitudeBiasRad: fromDeg(−3.3), addedErrorRad: Record<index, number>, indexError: IndexError | null, description }`. All dates are 2026-12-21 (Sun's declination about `−23.4°`; local noon at `40° W` about 14:40 UTC; Sun about 36.6° high at noon).

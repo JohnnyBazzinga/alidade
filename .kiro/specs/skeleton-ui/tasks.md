@@ -733,3 +733,5 @@ into the skeleton-sensors requirements.
     - _Requirements: 22.16, 22.17, 22.8_
   - [x] 37.2 The bezel turns, the Simulator's lens and its landscape (2026-11-28; Req 22.18; design D37.14). Tests: `dial.test.tsx` (the bezel turned by the azimuth on a north, still and with no north without one; the flow layout in Mira drawn as the dial, the known-azimuth form in place), `SceneImage.test.tsx` (Mira's landscape: the ground below the horizon, the Sun's glow, the smoke's plume, the label left of the crosshair; Field's dark sky unchanged). Code: `dial.tsx`, `SightingScreen.tsx`, `SceneImage.tsx`, `theme/scene.ts`, `theme/themes.ts`.
     - _Requirements: 22.18_
+  - [x] 37.3 The landing page and Nonius (2026-11-28; Req 22.19, 22.14 as amended; design D37.15). `site-page.test.ts` against Mira's colours, the two cards' words, the skeleton card, the fonts as data; `site/index.html` from the lead's design. Nonius in Mira is Nonius task group 14.
+    - _Requirements: 22.19, 22.14_

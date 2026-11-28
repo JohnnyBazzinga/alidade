@@ -2,7 +2,7 @@
 // it works), one column of the screen's height: banner and phone bar in Simulation mode, the
 // scrolling screen, the primary-action row, and the tab bar. Nothing is a layer over anything.
 
-import { BODY_FONT_STACK, COLOURS, SIZES } from '@alidade/ui';
+import { BODY_FONT_STACK, COLOURS } from '@alidade/ui';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { EnvironmentProvider, type NoniusEnvironment } from './components/environment';
 import { FixScreen } from './components/FixScreen';
@@ -12,9 +12,13 @@ import { MapScreen } from './components/MapScreen';
 import { PrimaryRowProvider } from './components/PrimaryAction';
 import { SightScreen } from './components/SightScreen';
 import { SightsScreen } from './components/SightsScreen';
+import { Header, headerCaption } from './components/Header';
 import { SimulationBanner } from './components/SimulationBanner';
 import { StoreProvider, useNonius, type NoniusStore } from './components/store';
-import { TabBar, type TabId } from './components/TabBar';
+import { TabBar, TABS, type TabId } from './components/TabBar';
+
+/** Mira is a phone's design: on a wide screen the App is a column of this width, in the middle. */
+export const APP_MAX_WIDTH_PX = 480;
 
 export interface AppProps {
   readonly environment: NoniusEnvironment;
@@ -63,7 +67,7 @@ function Shell({ phoneBar, reviewerPath, modeControl, environment }: Omit<AppPro
     content = <MapScreen />;
   } else {
     content = (
-      <>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {state.sights.length === 0 && reviewerPath}
         <FixScreen
           onSight={() => setRoute({ kind: 'sight', back: currentTab })}
@@ -71,7 +75,7 @@ function Shell({ phoneBar, reviewerPath, modeControl, environment }: Omit<AppPro
           onHowItWorks={() => setRoute({ kind: 'how', back: currentTab })}
         />
         {modeControl}
-      </>
+      </div>
     );
   }
 
@@ -82,11 +86,22 @@ function Shell({ phoneBar, reviewerPath, modeControl, environment }: Omit<AppPro
         display: 'flex',
         flexDirection: 'column',
         height: '100dvh',
+        width: '100%',
+        maxWidth: APP_MAX_WIDTH_PX,
+        margin: '0 auto',
         background: COLOURS.bg,
         color: COLOURS.ink,
         fontFamily: BODY_FONT_STACK,
       }}
     >
+      {route.kind === 'tab' && (
+        <Header
+          caption={headerCaption(
+            TABS.find((t) => t.id === route.tab)?.label ?? '',
+            state.sights.length,
+          )}
+        />
+      )}
       {environment.mode === 'simulation' && <SimulationBanner />}
       {environment.mode === 'simulation' && phoneBar}
       <main
@@ -97,7 +112,7 @@ function Shell({ phoneBar, reviewerPath, modeControl, environment }: Omit<AppPro
           minHeight: 0,
           overflowY: 'auto',
           overflowX: 'hidden',
-          padding: SIZES.gapPx * 1.5,
+          padding: `${route.kind === 'tab' ? 16 : 28}px 20px 16px`,
         }}
       >
         <PrimaryRowProvider value={primaryRow}>{content}</PrimaryRowProvider>

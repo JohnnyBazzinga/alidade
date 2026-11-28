@@ -11,8 +11,12 @@ describe('SimulationShell', () => {
   it('shows the banner and, under it, the bar of what the reviewer holds, on every screen', async () => {
     const m = mountSimulation();
     const shell = m.q.getByTestId('app-shell');
+    // Mira's header, on a tab only, comes above the banner (Nonius Req 16.3).
     const heads = () =>
-      [...shell.children].slice(0, 2).map((c) => (c as HTMLElement).dataset.testid);
+      [...shell.children]
+        .map((c) => (c as HTMLElement).dataset.testid)
+        .filter((id) => id !== 'app-header')
+        .slice(0, 2);
     for (const go of [
       async () => m.tab('Sights'),
       async () => m.tab('Map'),

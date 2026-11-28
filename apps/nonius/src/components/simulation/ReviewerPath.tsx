@@ -12,7 +12,7 @@ export const REVIEWER_PATH: readonly string[] = [
 export function ReviewerPath() {
   return (
     <section data-testid="reviewer-path" style={LOOK.panel}>
-      <h2 style={LOOK.title}>Try it in three steps</h2>
+      <h2 style={LOOK.heading}>Try it in three steps</h2>
       <ol style={{ ...LOOK.stack, margin: 0, paddingLeft: 24 }}>
         {REVIEWER_PATH.map((line) => (
           <li key={line} style={LOOK.text}>

@@ -1,9 +1,11 @@
 // Every screen at 320 to 430 CSS pixels (skeleton-ui Req 13.13, 13.14, 18.11; Vigia task 13.10).
 // jsdom does no layout, so the check reads the inline styles the components set: every control a
-// touch target of at least 48 px (the primary one 64 px), text of at least 16 px, every colour from
-// UI's `COLOURS`, nothing in a fixed, absolute or sticky layer, and no width wider than 320 px.
+// touch target of at least 44 px (the primary one 62 px, Mira's pill), text of at least 11 px
+// (Mira's smallest, the tab labels and the captions), every colour from UI's `COLOURS` or the art's
+// own (`art/art-colours.ts`), nothing in a fixed, absolute or sticky layer, and no width wider than
+// 320 px. Mira's least sizes are the author's design (Nonius Req 16.2).
 
-import { CATALOGUE_ORIGIN, COLOURS, SIZES } from '@alidade/ui';
+import { CATALOGUE_ORIGIN, COLOURS } from '@alidade/ui';
 import { fireEvent, render, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { DEG_TO_RAD } from '../math/degrees';
@@ -11,11 +13,18 @@ import { defaultParameters } from '../math/parameters';
 import { noiseFreeSights } from '../test-support/noise-free';
 import { testEnvironment } from '../test-support/test-environment';
 import { App } from '../App';
+import { ART_COLOURS } from './art/art-colours';
 import { createNoniusStore } from './store';
 
 const NARROWEST_PX = 320;
+/** Mira's least sizes (the author's design, 2026-11-27 and 2026-11-28). */
+const MIRA_SMALLEST_TEXT_PX = 11;
+const MIRA_TOUCH_PX = 44;
+const MIRA_PRIMARY_PX = 62;
 const ALLOWED_COLOURS = new Set(
-  [...Object.values(COLOURS), '#000000', '#FFFFFF'].map((c) => c.toLowerCase()),
+  [...Object.values(COLOURS), ...Object.values(ART_COLOURS), '#000000', '#FFFFFF'].map((c) =>
+    c.toLowerCase(),
+  ),
 );
 const D = DEG_TO_RAD;
 const params = defaultParameters();
@@ -49,11 +58,11 @@ export function faults(root: HTMLElement): string[] {
       const hex = hexOf(m[1] ?? '0', m[2] ?? '0', m[3] ?? '0');
       if (!ALLOWED_COLOURS.has(hex)) found.push(`${where}: colour ${hex}`);
     }
-    if (style.fontSize !== '' && Number.parseFloat(style.fontSize) < 16)
+    if (style.fontSize !== '' && Number.parseFloat(style.fontSize) < MIRA_SMALLEST_TEXT_PX)
       found.push(`${where}: font-size ${style.fontSize}`);
     if (element.tagName === 'BUTTON' && element.getAttribute('role') !== 'tab') {
       const minHeight = Number.parseFloat(style.minHeight);
-      const least = element.dataset.primary === 'true' ? SIZES.primaryPx : SIZES.touchPx;
+      const least = element.dataset.primary === 'true' ? MIRA_PRIMARY_PX : MIRA_TOUCH_PX;
       if (!(minHeight >= least)) found.push(`${where}: min-height ${style.minHeight}`);
     }
   }

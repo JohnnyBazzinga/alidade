@@ -126,9 +126,9 @@ decision.
 A look is a theme: plain data with a value for each role (`bg`, `card`, `ink`, `accent`, `primary`,
 the four status tones with their tint, ink, icon and bar, and so on), the shapes (radii, shadows, a
 control's edge and fill), the fonts, the map's paints and four flags. The package ships four:
-**Instrument** (dark slate and brass, square corners; Nonius and the Playground), **Field** (a light
+**Instrument** (dark slate and brass, square corners; the Playground), **Field** (a light
 look with rounded cards), **Field night** (its dark counterpart) and **Mira** (an off-white page, a
-green-black ink and one yellow, pills and cards; Vigia). Field and Field night are tested and
+green-black ink and one yellow, pills and cards; Vigia, Nonius and the site's landing page). Field and Field night are tested and
 applied by no app today. With Mira's `dial` flag the docked sighting screen draws the same parts as
 a round lens in a ring of compass ticks that turns as a compass's bezel does, one large numeral
 with a caption, two tiles and a round Back (`dialLensSize`, `DIAL_RESERVE_PX`); the flow layout

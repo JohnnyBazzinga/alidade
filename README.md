@@ -81,16 +81,16 @@ asked for: the solver is generic over measurement models, and Core ships only th
 Counts below were made on 2026-11-28 from the files in this repository.
 
 - **Six specs** in `.kiro/specs/` (`sighting-core`, `skeleton-sensors`, `skeleton-ui`, `vigia`,
-  `nonius`, `kiro-tooling`), each with requirements, design and tasks: **90 requirements**
-  (`### Requirement` headings), **859 acceptance criteria** (numbered items under each
-  `#### Acceptance Criteria`), **120 task groups** and **420 sub-tasks** (checkbox lines in
+  `nonius`, `kiro-tooling`), each with requirements, design and tasks: **91 requirements**
+  (`### Requirement` headings), **864 acceptance criteria** (numbered items under each
+  `#### Acceptance Criteria`), **121 task groups** and **424 sub-tasks** (checkbox lines in
   `tasks.md`, top-level and indented).
 - **Five steering files** in `.kiro/steering/`: `math-conventions`, `product`, `structure`, `tech`,
   `testing`.
 - **164 named properties** in property-based tests (`fast-check`): the distinct `P-n.m` identifiers
   in the 76 `*.property.test.ts` files, counted once per package because numbering restarts in each
   (`grep -ohE "P-[0-9]+\.[0-9]+"`, then `sort -u`).
-- **6 440 tests** pass, 3 skipped, in 7 packages: the sum of the `Tests` lines of `pnpm test`.
+- **6 451 tests** pass, 3 skipped, in 7 packages: the sum of the `Tests` lines of `pnpm test`.
 - **The project agent** `.kiro/agents/alidade.json` loads the five steering files and the MCP
   server, denies reading and writing `notes/`, and denies `git commit`, `git push` and `pkill`. It
   has three hooks that run `tools/kiro-guard`: at session start it prints the branch, the last
@@ -108,7 +108,7 @@ Counts below were made on 2026-11-28 from the files in this repository.
   `fix_from_bearings`, `magnetic_declination`, `local_offset`. It is registered in
   `.kiro/settings/mcp.json`.
 
-How the work was divided. Kiro (kiro-cli) wrote the six specs, and every line of code and every test up to Vigia's looks, working task by task from the specs. An orchestrating agent, Claude Code, driven by the author, wrote the prompts to Kiro, reviewed each checkpoint independently (its own numerical experiments, screenshots of the built pages in a headless browser), amended requirements when a review found a gap, approved Kiro's commands through a filter, and made the commits. Vigia's looks are the exception. The first, Field (skeleton-ui task groups 35 and 36, Vigia task groups 24 to 26): Kiro wrote its spec, did tasks 35.1 and 35.2 and began 35.3; when the Kiro account ran out of credits and more could not be bought in time, Claude Code wrote the rest from Kiro's spec. The second, Mira, which Vigia wears now, is the author's design: he drew five directions in a design tool and chose the third. Claude Code's part was to reproduce it in code, as a fourth theme of the skeleton and on Vigia's screens, and to write its amendments to the specs (skeleton-ui task group 37, Vigia task group 27). Each of those commits says so. Codex reviewed the specs, the phone flow and the look independently. The author chose the idea, made the product decisions, and tested the skeleton's sighting flow on an iPhone: the three permissions, the camera with the crosshair, orientation at 60 Hz, three compass directions matching Apple's Compass app, a first real bearing captured, and the map drawn over OpenStreetMap. The two-phone Vigia flow and Nonius's Sun sights on real phones are still to be filmed.
+How the work was divided. Kiro (kiro-cli) wrote the six specs, and every line of code and every test up to the apps' looks, working task by task from the specs. An orchestrating agent, Claude Code, driven by the author, wrote the prompts to Kiro, reviewed each checkpoint independently (its own numerical experiments, screenshots of the built pages in a headless browser), amended requirements when a review found a gap, approved Kiro's commands through a filter, and made the commits. The looks are the exception. The first, Field (skeleton-ui task groups 35 and 36, Vigia task groups 24 to 26): Kiro wrote its spec, did tasks 35.1 and 35.2 and began 35.3; when the Kiro account ran out of credits and more could not be bought in time, Claude Code wrote the rest from Kiro's spec. The second, Mira, which both apps and the site's landing page wear now, is the author's design: he drew five directions for Vigia in a design tool and chose the third, then drew the landing page and Nonius's Fix screen in it. Claude Code's part was to reproduce it in code, as a fourth theme of the skeleton, on both apps' screens and on the landing page, and to write its amendments to the specs (skeleton-ui task group 37, Vigia task group 27, Nonius task group 14). Each of those commits says so. Codex reviewed the specs, the phone flow and the look independently. The author chose the idea, made the product decisions, and tested the skeleton's sighting flow on an iPhone: the three permissions, the camera with the crosshair, orientation at 60 Hz, three compass directions matching Apple's Compass app, a first real bearing captured, and the map drawn over OpenStreetMap. The two-phone Vigia flow and Nonius's Sun sights on real phones are still to be filmed.
 
 ## Run it
 

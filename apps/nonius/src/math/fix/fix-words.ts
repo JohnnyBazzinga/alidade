@@ -174,8 +174,20 @@ function countLine(a: Extract<Assessment, { used: readonly PreparedSight[] }>): 
   return `${n} ${n === 1 ? 'sight' : 'sights'} used${aside}${span}. ${countStatement(n)}`;
 }
 
-const START =
+/** How to start, before any sight: its first sentence is the Fix screen's title (Req 16.3). */
+export const START =
   'Look only at the screen, never at the Sun. Tap Sight the Sun, put the crosshair on the centre of the Sun\u2019s glare and hold still. Take at least two sights about two hours apart, from one place.';
+
+/**
+ * A line's first sentence and the rest (Nonius Req 16.3): Mira draws a card's first sentence as its
+ * title and the rest under it. The first sentence ends at the first full stop followed by a space;
+ * a line with none is all head. Total over any string.
+ */
+export function leadAndRest(text: string): readonly [lead: string, rest: string] {
+  const at = text.indexOf('. ');
+  if (at < 0) return [text, ''];
+  return [text.slice(0, at + 1), text.slice(at + 2)];
+}
 
 /**
  * The words of an Assessment, in order (design §8.2): the Calibration in use first; then, for a

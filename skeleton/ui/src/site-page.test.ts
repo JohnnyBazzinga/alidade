@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { SIZES, SYSTEM_MONO } from './index';
-// The page keeps Instrument's look, in hex: the components write roles (Req 22.2), a static page cannot.
-import { INSTRUMENT_TOKENS as COLOURS } from './components/theme';
+// The page wears Mira, in hex (the author's design of 2026-11-28): the components write roles (Req
+// 22.2), a static page cannot.
+import { mira } from './components/theme/themes';
+const COLOURS = mira.colours;
 
 // The landing page of the published site, `site/index.html` at the repository root: one static
-// page, inline CSS, no script and no request. It uses this package's palette and font stack so
-// that it matches the apps, which is why its test lives here. The diagram it inlines is
-// `docs/skeleton.svg`.
+// page, inline CSS, no script and no request (its two fonts are carried in it as data). It uses
+// this package's Mira palette and font stacks so that it matches the apps, which is why its test
+// lives here. The README keeps `docs/skeleton.svg`; the page shows the skeleton as a card.
 
 const PAGE = Object.values(
   import.meta.glob<string>('../../../site/index.html', {
@@ -65,12 +67,17 @@ describe('site/index.html', () => {
     expect(html).not.toMatch(/javascript:/i);
   });
 
-  it('makes no request: no src, no import, no url() and no address but the repository link', () => {
+  it('makes no request: no src, no import, no url() but a font carried as data, and no address but the repository link', () => {
     expect(html).not.toMatch(/\ssrc\s*=/i);
     expect(html).not.toMatch(/@import/i);
-    expect(html).not.toMatch(/url\(/i);
+    // A url() is one of the two fonts carried as data, or a gradient of the page's own drawings.
+    const urls = html.match(/url\([^)]{0,40}/gi) ?? [];
+    expect(urls.filter((u) => u.startsWith('url(data:font/woff2;base64,'))).toHaveLength(2);
+    for (const u of urls) expect(/^url\((?:data:font\/woff2;base64,|#)/.test(u), u).toBe(true);
     expect(html).not.toMatch(/\sxlink:href|<use\b|<image\b/i);
-    const addresses = html.match(/(?:https?:)?\/\/[^\s"'<>)]+/g) ?? [];
+    // The fonts' data is not an address: it is left out of the scan.
+    const plain = html.replace(/url\(data:[^)]*\)/g, 'url()');
+    const addresses = plain.match(/(?:https?:)?\/\/[^\s"'<>)]+/g) ?? [];
     // The SVG's own namespace is an identifier, not a request.
     const requests = addresses.filter((a) => a !== 'http://www.w3.org/2000/svg');
     expect(requests).toStrictEqual([GITHUB]);
@@ -88,12 +95,12 @@ describe('site/index.html', () => {
   });
 
   it('names the two apps in the two large links, in the words of the brief', () => {
-    expect(html).toMatch(
-      /<a [^>]*href="vigia\/"[^>]*>[^<]*Vigia: locate smoke from several phones' sightings/,
-    );
-    expect(html).toMatch(
-      /<a [^>]*href="nonius\/"[^>]*>[^<]*Nonius: find your position from the Sun/,
-    );
+    const card = (href: string) => {
+      const start = html.indexOf(`href="${href}"`);
+      return textOf(html.slice(start, html.indexOf('</a>', start)));
+    };
+    expect(card('vigia/')).toContain("Vigia Locate smoke from several phones' sightings. Open");
+    expect(card('nonius/')).toContain('Nonius Find your position from the Sun. Open');
   });
 
   it('says how to try each on a laptop, and the two honest lines', () => {
@@ -108,12 +115,17 @@ describe('site/index.html', () => {
     expect(html).toContain('<meta name="referrer" content="strict-origin" />');
   });
 
-  it('inlines the diagram of docs/skeleton.svg, unchanged', () => {
-    expect(DIAGRAM).toBeDefined();
-    const svg = (DIAGRAM ?? '').trim();
-    expect(svg.startsWith('<svg')).toBe(true);
-    // Prettier re-indents the page; the picture is the same once whitespace is collapsed.
-    expect(squash(html)).toContain(squash(svg));
+  it('shows the skeleton: what Core, Sensors and UI hold, the way imports point, what each app adds', () => {
+    const text = textOf(html);
+    expect(text).toContain('Core angles geodesy solver ellipse');
+    expect(text).toContain('Sensors orientation GPS declination simulator');
+    expect(text).toContain('UI camera reticle map ellipse simulator');
+    expect(text).toContain('Imports point one way: apps ui sensors core');
+    expect(text).toContain("Uses Core's bearing model; adds sharing and incidents.");
+    expect(text).toContain('Adds Sun altitude model and calibration.');
+    expect(text).toContain('one unknown smoke');
+    expect(text).toContain('one unknown observer');
+    expect(text).toContain('The same solver, the same 95 % ellipse');
   });
 
   it('uses the palette and the numeric font stack of @alidade/ui, and no other colour', () => {

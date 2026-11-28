@@ -129,7 +129,7 @@ export function IndexErrorScreen({ onDone, onCancel }: IndexErrorScreenProps) {
         Every position then uses it.
       </p>
       <section style={LOOK.panel}>
-        <h2 style={LOOK.title}>Step 1: where you are</h2>
+        <h2 style={LOOK.heading}>Step 1: where you are</h2>
         {place === null ? (
           <>
             <p style={LOOK.text}>
@@ -167,7 +167,7 @@ export function IndexErrorScreen({ onDone, onCancel }: IndexErrorScreenProps) {
           {captureFailure !== null && <FailureNotice failure={captureFailure} />}
           {differences.length > 0 && (
             <section style={LOOK.panel}>
-              <h2 style={LOOK.title}>Step 2: the differences</h2>
+              <h2 style={LOOK.heading}>Step 2: the differences</h2>
               {differences.map(({ sight, d }, i) => (
                 <p key={sight.id} data-testid="difference" style={LOOK.text}>
                   Sight {i + 1}: measured minus computed{' '}
