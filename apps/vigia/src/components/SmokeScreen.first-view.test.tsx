@@ -334,9 +334,14 @@ describe('the next step after one sighting (Req 22.18)', () => {
     );
   });
 
-  it('is not shown once there is a position: the screen is as before', () => {
+  it('is not shown once there is a position: Show on map is the primary action, Sight the smoke a secondary one (2026-11-28)', () => {
     const s = show([postsIncident(['west', 'east'])]);
     expect(s.queryByTestId('next-step')).toBeNull();
-    expect(s.getByRole('button', { name: 'Sight the smoke' }).dataset.primary).toBe('true');
+    const map = s.getByRole('button', { name: 'Show on map' });
+    expect(map.dataset.primary).toBe('true');
+    expect(s.getAllByRole('button', { name: 'Show on map' })).toHaveLength(1);
+    expect(s.getByRole('button', { name: 'Sight the smoke' }).dataset.primary).toBeUndefined();
+    fireEvent.click(map);
+    expect(s.calls).toContain('map');
   });
 });

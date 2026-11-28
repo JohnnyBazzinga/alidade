@@ -27,6 +27,7 @@ import type { SensorSourceOptions } from '@alidade/sensors';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { App } from '../../App';
+import { reviewerStep, type PostState } from '../../math/texts';
 import type { SightingSource, VigiaMode } from '../environment';
 import {
   createSimulatedPhones,
@@ -184,6 +185,48 @@ export function SimulationShell(props: SimulationShellProps) {
       ? null
       : (set.phones.find((p) => p.stationId === where.stationId) ?? set.phones[0] ?? null);
 
+  // Every phone's state, for the reviewer's step line: the shell listens to all the phones' stores.
+  const [changes, setChanges] = useState(0);
+  useEffect(() => {
+    if (set === null) return undefined;
+    const stops = set.phones.map((phone) => phone.store.subscribe(() => setChanges((n) => n + 1)));
+    return () => {
+      for (const stop of stops) stop();
+    };
+  }, [set]);
+  const progress = useMemo(() => {
+    if (set === null || entry === undefined) return undefined;
+    const posts: PostState[] = set.phones.map((phone) => {
+      const snapshot = phone.store.getSnapshot();
+      const fix =
+        snapshot.open !== null && snapshot.open.assessment.ok
+          ? snapshot.open.assessment.value.fix
+          : null;
+      return {
+        id: phone.stationId,
+        name: entry.scene.stations.find((s) => s.id === phone.stationId)?.name ?? '',
+        // Its own sightings: one received from another phone was not taken at this post.
+        sightings: snapshot.state.incidents.reduce(
+          (n, i) => n + i.entries.filter((e) => e.sighting.origin === 'local').length,
+          0,
+        ),
+        waiting: snapshot.inbox.length,
+        located: fix !== null && fix.ok,
+      };
+    });
+    // The next post to sight from: this one if its phone has not sighted, else another that has not.
+    const here = posts.find((p) => p.id === where.stationId);
+    const next =
+      here !== undefined && here.sightings === 0
+        ? here
+        : posts.find((p) => p.id !== where.stationId && p.sightings === 0);
+    return {
+      step: reviewerStep(posts, where.stationId),
+      nextPost: next === undefined ? null : { id: next.id, name: next.name },
+    };
+    // `changes` is the phones' stores ticking.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [set, entry, where.stationId, changes]);
   const choosePost = useCallback((stationId: string) => {
     setWhere((before) =>
       before.stationId === stationId ? before : { sceneId: before.sceneId, stationId },
@@ -197,8 +240,9 @@ export function SimulationShell(props: SimulationShellProps) {
             stationId: where.stationId,
             stations: entry.scene.stations.map((s) => ({ id: s.id, name: s.name })),
             onSelect: choosePost,
+            ...(progress === undefined ? {} : progress),
           },
-    [entry, where.stationId, choosePost],
+    [entry, where.stationId, choosePost, progress],
   );
 
   return (

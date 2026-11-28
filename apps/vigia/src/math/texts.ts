@@ -105,6 +105,56 @@ export function smokeStateCaption(usedCount: number, located: boolean): string {
   return `${n} sightings · smoke not located`;
 }
 
+/** What one simulated phone holds, for the reviewer's step line (Req 17.7). */
+export interface PostState {
+  readonly id: string;
+  /** The Station's name, "West post". */
+  readonly name: string;
+  /** The sightings taken on that phone (not received), of every smoke. */
+  readonly sightings: number;
+  /** The sightings waiting in its Inbox. */
+  readonly waiting: number;
+  /** Its open smoke has a position. */
+  readonly located: boolean;
+}
+
+const countOf = (n: number): number => (Number.isFinite(n) && n > 0 ? n : 0);
+
+/**
+ * The reviewer's step line under "You hold the phone at" (Req 17.7; 2026-11-28, both reviewers: a
+ * judge did not know that a post is a phone, nor where a sent sighting went). Worked out from the
+ * phones' state, so that it is right whatever the reviewer did: sight from one post, sight from
+ * another, send one to the other phone, add it there, done. Total over any input.
+ */
+export function reviewerStep(posts: readonly PostState[], currentId: string): string {
+  const here = posts.find((p) => p.id === currentId);
+  const name = (p: PostState | undefined) => `the ${p?.name ?? 'other post'}`;
+  const located = posts.find((p) => p.located);
+  if (located !== undefined) {
+    return located.id === currentId
+      ? 'Done · the smoke is located: Show on map'
+      : `Done · the smoke is located on the phone at ${name(located)}`;
+  }
+  const waiting = posts.find((p) => countOf(p.waiting) > 0);
+  if (waiting !== undefined) {
+    return waiting.id === currentId
+      ? 'Step 4 of 4 · Add the sighting waiting here: the same smoke'
+      : `Step 4 of 4 · Go to ${name(waiting)}: a sighting is waiting there`;
+  }
+  const sighted = posts.filter((p) => countOf(p.sightings) > 0);
+  if (sighted.length === 0) return `Step 1 of 4 · Sight the smoke from ${name(here)}`;
+  if (sighted.length === 1) {
+    const other = posts.find((p) => countOf(p.sightings) === 0 && p.id !== sighted[0]?.id);
+    return sighted[0]?.id === currentId
+      ? `Step 2 of 4 · Sight it from ${name(other)}`
+      : `Step 2 of 4 · Sight the smoke from here, ${name(here)}`;
+  }
+  const other = sighted.find((p) => p.id !== currentId);
+  return countOf(here?.sightings ?? 0) > 0
+    ? `Step 3 of 4 · Send this sighting to the phone at ${name(other)}`
+    : `Step 3 of 4 · Go to ${name(sighted[0])} and send its sighting`;
+}
+
 /** In the first view of a Fix, where the limits note is in full under "Details and limits" (Req 6.12, 16.1). */
 export const COMPASS_ONE_LINE_TEXT = 'Phone compasses are off by several degrees.';
 
@@ -136,6 +186,21 @@ export const SHARE_QR_LABEL = 'Show QR code (someone beside you)';
 export const SHARE_SEND_LABEL = 'Send link (someone far away)';
 export const SHARE_OTHER_LABEL = 'Other ways (no connection)';
 /** The next step after one sighting (Req 22.18, 2026-11-28): two cards, each a title and a line. */
+/**
+ * The question after a second capture (2026-11-28, both reviewers): the capture is not saved until
+ * it is answered, and leaving the question throws it away, so the caption and the control say so.
+ */
+export const QUESTION_CAPTION = 'Not saved yet';
+export const DISCARD_CAPTURE_LABEL = 'Discard this sighting';
+
+/** In the Simulator the second place is the other post, which is another phone (2026-11-28). */
+export const SIM_MOVE_LINE = 'Switches to the phone there';
+/** The same card when the phone in hand has not sighted the smoke itself yet. */
+export const SIM_HERE_LINE = 'This phone has not sighted it yet';
+
+/** The card at the top of the Smoke screen while a sighting waits in the Inbox (2026-11-28). */
+export const WAITING_LINE = 'From another phone. Tap to add it.';
+
 export const NEXT_MOVE_TITLE = 'Move and sight again';
 export const NEXT_MOVE_LINE = 'Walk or drive sideways first';
 export const NEXT_SEND_TITLE = 'Send this sighting';

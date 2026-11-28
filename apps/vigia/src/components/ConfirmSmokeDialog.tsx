@@ -7,7 +7,13 @@
 import { CaptureSummary, Icon, ROLE_VARS, SIZES, type CapturedResult } from '@alidade/ui';
 import { directionText, sigmaHeadlineText } from '../math/fix/format';
 import type { VigiaFailure } from '../result';
-import { BEARING_LABEL, TWO_SMOKES_TEXT, UNCERTAINTY_LABEL } from '../math/texts';
+import {
+  BEARING_LABEL,
+  DISCARD_CAPTURE_LABEL,
+  QUESTION_CAPTION,
+  TWO_SMOKES_TEXT,
+  UNCERTAINTY_LABEL,
+} from '../math/texts';
 import { FailureNotice } from './FailureNotice';
 import { useHeader } from './header-context';
 import { LOOK, SHAPE } from './look';
@@ -63,7 +69,7 @@ export function ConfirmSmokeDialog({
       style={{ ...LOOK.stack, gap: SIZES.gapPx * 1.5 }}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <p style={LOOK.caption}>Sighting captured</p>
+        <p style={LOOK.caption}>{QUESTION_CAPTION}</p>
         <h2 style={{ ...LOOK.title, fontSize: 30, lineHeight: 1.08, letterSpacing: '-1px' }}>
           Is this the same smoke as before?
         </h2>
@@ -137,9 +143,9 @@ export function ConfirmSmokeDialog({
       {bearing === null && (
         <CaptureSummary result={captured} compact sigmaText={sigmaHeadlineText} />
       )}
-      <button type="button" onClick={onBack} style={LOOK.button}>
-        <Icon name="chevron-left" />
-        Back
+      <button type="button" data-part="discard" onClick={onBack} style={LOOK.button}>
+        <Icon name="trash" />
+        {DISCARD_CAPTURE_LABEL}
       </button>
     </section>
   );

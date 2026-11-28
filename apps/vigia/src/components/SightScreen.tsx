@@ -123,8 +123,10 @@ export function SightScreen({
     session.state === 'failed' &&
     session.history.samples.length === 0;
 
-  // The question: a view of its own, in place of the camera.
-  if (captured !== null && smokeOpen) {
+  // The question: a view of its own, in place of the camera, for a capture made in front of the
+  // user only (2026-11-28, the reviewers' P1: the Simulator hands its last capture over again
+  // when the panel reports, and "Move and sight again" opened the question on the old bearing).
+  if (captured !== null && smokeOpen && fresh === captured) {
     return (
       // On a phone the Sight route has no padding (the docked column): the question has its own.
       <section

@@ -14,7 +14,7 @@
 
 import { BODY_FONT_STACK, COLOURS } from '@alidade/ui';
 import { useEffect, useRef, useState } from 'react';
-import { SENT_BACK_TEXT } from './math/texts';
+import { SENT_BACK_TEXT, SIM_HERE_LINE, SIM_MOVE_LINE } from './math/texts';
 import { EmergencyScreen } from './components/EmergencyScreen';
 import {
   EnvironmentProvider,
@@ -31,7 +31,7 @@ import { SightingsScreen } from './components/SightingsScreen';
 import { SightScreen } from './components/SightScreen';
 import { SimulationBanner } from './components/SimulationBanner';
 import { SmokeScreen } from './components/SmokeScreen';
-import { StoreProvider, useVigia, type VigiaStore } from './components/store';
+import { StoreProvider, useVigia, type VigiaSnapshot, type VigiaStore } from './components/store';
 import { TabBar, type TabId } from './components/TabBar';
 import { Header } from './components/art/Header';
 import { HeaderProvider, type HeaderSpec } from './components/header-context';
@@ -64,7 +64,13 @@ type Route =
       readonly line?: string;
     }
   | { readonly kind: 'sight' }
-  | { readonly kind: 'share'; readonly sightingId: string; readonly back: TabId }
+  | {
+      readonly kind: 'share';
+      readonly sightingId: string;
+      readonly back: TabId;
+      /** The sighting's shares when the sheet opened (`shareMark`): Close compares. */
+      readonly mark: string;
+    }
   | { readonly kind: 'inbox'; readonly back: TabId }
   | {
       readonly kind: 'privacy';
@@ -121,6 +127,22 @@ function headerFor(route: Route): HeaderSpec {
   return route.kind === 'tab' ? { variant: 'full' } : { variant: 'none' };
 }
 
+/**
+ * What a sighting's share records are now, as a string to compare: their count and the time of the
+ * last. The "Sent it?" line is shown only when it changed while the sheet was open (2026-11-28, both
+ * reviewers: opening and closing the sheet sent nothing).
+ */
+function shareMark(state: VigiaSnapshot['state'], sightingId: string): string {
+  for (const incident of state.incidents) {
+    const entry = incident.entries.find((e) => e.sighting.sightingId === sightingId);
+    if (entry !== undefined) {
+      const last = entry.shared[entry.shared.length - 1];
+      return `${entry.shared.length}:${last?.atUtcMs ?? ''}:${last?.channel ?? ''}`;
+    }
+  }
+  return '';
+}
+
 function Shell({
   hasDeviceOrientation,
   onModeChange,
@@ -165,6 +187,31 @@ function Shell({
     phoneInHand === undefined || environment.mode !== 'simulation'
       ? undefined
       : phoneInHand.stations.find((s) => s.id === phoneInHand.stationId);
+  // In the Simulator the second place is the other post, another phone (2026-11-28).
+  // The post to go to is the one the shell names, or, when it does not say, the next one; when every
+  // other phone has sighted, sending is the next step and the yellow card is "Send this sighting".
+  const otherPost =
+    post === undefined || phoneInHand === undefined || phoneInHand.nextPost === null
+      ? undefined
+      : (phoneInHand.nextPost ?? phoneInHand.stations.find((s) => s.id !== phoneInHand.stationId));
+  const sendIsNext = post !== undefined && phoneInHand?.nextPost === null;
+  const move =
+    otherPost === undefined || phoneInHand === undefined
+      ? undefined
+      : otherPost.id === phoneInHand.stationId
+        ? {
+            title: `Sight it from here, the ${otherPost.name}`,
+            line: SIM_HERE_LINE,
+            onGo: () => setRoute({ kind: 'sight' }),
+          }
+        : {
+            title: `Sight it from the ${otherPost.name}`,
+            line: SIM_MOVE_LINE,
+            onGo: () => {
+              phoneInHand.onSelect(otherPost.id);
+              setRoute({ kind: 'sight' });
+            },
+          };
   const reviewerPath =
     post !== undefined && snapshot.state.incidents.length === 0 ? (
       <ReviewerPath postName={post.name} />
@@ -187,12 +234,23 @@ function Shell({
       <ShareSheet
         sightingId={route.sightingId}
         onClose={() =>
-          // With one sighting and no position, the Smoke screen says what to wait for (Req 22.18).
-          route.back === 'smoke' && singleSighting
+          // With one sighting and no position, the Smoke screen says what to wait for (Req 22.18),
+          // once something was shared while the sheet was open.
+          route.back === 'smoke' &&
+          singleSighting &&
+          shareMark(snapshot.state, route.sightingId) !== route.mark
             ? setRoute({ kind: 'tab', tab: 'smoke', line: SENT_BACK_TEXT })
             : toTab(route.back)
         }
         onPrivacy={privacy}
+        {...(phoneInHand !== undefined && environment.mode === 'simulation'
+          ? {
+              onGoToPeer: (peerId: string) => {
+                phoneInHand.onSelect(peerId);
+                setRoute({ kind: 'inbox', back: 'smoke' });
+              },
+            }
+          : {})}
       />
     );
   } else if (route.kind === 'inbox') {
@@ -207,25 +265,41 @@ function Shell({
   } else if (route.tab === 'sightings') {
     content = (
       <SightingsScreen
-        onShare={(sightingId) => setRoute({ kind: 'share', sightingId, back: 'sightings' })}
+        onShare={(sightingId) =>
+          setRoute({
+            kind: 'share',
+            sightingId,
+            back: 'sightings',
+            mark: shareMark(snapshot.state, sightingId),
+          })
+        }
         onInbox={inbox}
       />
     );
   } else if (route.tab === 'map') {
     content = <MapScreen overlays={slot} />;
   } else if (route.tab === 'emergency') {
-    content = <EmergencyScreen />;
+    content = <EmergencyScreen onSight={() => setRoute({ kind: 'sight' })} />;
   } else {
     content = (
       <SmokeScreen
         onSight={() => setRoute({ kind: 'sight' })}
         onShowMap={() => toTab('map')}
-        onSend={(sightingId) => setRoute({ kind: 'share', sightingId, back: 'smoke' })}
+        onSend={(sightingId) =>
+          setRoute({
+            kind: 'share',
+            sightingId,
+            back: 'smoke',
+            mark: shareMark(snapshot.state, sightingId),
+          })
+        }
         {...(route.saved === undefined ? {} : { saved: { sightingId: route.saved } })}
         {...(route.line === undefined ? {} : { statusLine: route.line })}
         onInbox={inbox}
         onPrivacy={privacy}
         {...(reviewerPath === null ? {} : { reviewerPath })}
+        {...(move === undefined ? {} : { move })}
+        {...(sendIsNext ? { sendIsNext } : {})}
         modeControl={
           hasDeviceOrientation && onModeChange !== undefined ? (
             <ModeControl mode={environment.mode} onModeChange={onModeChange} />
@@ -253,7 +327,12 @@ function Shell({
         fontFamily: BODY_FONT_STACK,
       }}
     >
-      {header.variant === 'full' && <Header onEmergency={() => toTab('emergency')} />}
+      {header.variant === 'full' && (
+        <Header
+          onEmergency={() => toTab('emergency')}
+          showPill={!(route.kind === 'tab' && route.tab === 'emergency')}
+        />
+      )}
       {environment.mode === 'simulation' && <SimulationBanner />}
       {environment.mode === 'simulation' && phoneInHand !== undefined && (
         <PhoneInHandBar hand={phoneInHand} />

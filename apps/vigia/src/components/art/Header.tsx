@@ -50,9 +50,14 @@ export function AppMark({ sizePx = HEADER.markPx }: { readonly sizePx?: number }
 export interface HeaderProps {
   /** Opens the Emergency tab. */
   readonly onEmergency: () => void;
+  /**
+   * The pill is left out on the Emergency tab itself (2026-11-28, the reviewers: it pointed to the
+   * screen the user was on).
+   */
+  readonly showPill?: boolean;
 }
 
-export function Header({ onEmergency }: HeaderProps) {
+export function Header({ onEmergency, showPill = true }: HeaderProps) {
   return (
     <header
       data-testid="app-header"
@@ -84,32 +89,35 @@ export function Header({ onEmergency }: HeaderProps) {
           Vigia
         </span>
       </span>
-      <button
-        type="button"
-        data-part="fire-pill"
-        onClick={onEmergency}
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 8,
-          flex: '0 0 auto',
-          boxSizing: 'border-box',
-          minHeight: 44,
-          padding: '0 16px',
-          borderRadius: 22,
-          border: `1.5px solid ${ROLE_VARS.ruleStrong}`,
-          background: 'transparent',
-          color: ROLE_VARS.ink,
-          fontFamily: BODY_FONT_STACK,
-          fontSize: 14,
-          fontWeight: 600,
-          whiteSpace: 'nowrap',
-          cursor: 'pointer',
-        }}
-      >
-        <Icon name="call" style={{ width: 16, height: 16 }} />
-        {FIRE_PILL_TEXT}
-      </button>
+      {showPill && (
+        <button
+          type="button"
+          data-part="fire-pill"
+          onClick={onEmergency}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            flex: '0 0 auto',
+            boxSizing: 'border-box',
+            minHeight: 44,
+            padding: '0 16px',
+            borderRadius: 22,
+            border: `1.5px solid ${ROLE_VARS.ruleStrong}`,
+            background: 'transparent',
+            color: ROLE_VARS.ink,
+            fontFamily: BODY_FONT_STACK,
+            fontSize: 14,
+            fontWeight: 600,
+            whiteSpace: 'nowrap',
+            cursor: 'pointer',
+          }}
+        >
+          {/* The Emergency tab's siren, not a handset: the pill opens a text and calls no one (Req 14.5). */}
+          <Icon name="siren" style={{ width: 16, height: 16 }} />
+          {FIRE_PILL_TEXT}
+        </button>
+      )}
     </header>
   );
 }

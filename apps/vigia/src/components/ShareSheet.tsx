@@ -44,6 +44,11 @@ export interface ShareSheetProps {
   readonly sightingId: string;
   readonly onClose: () => void;
   readonly onPrivacy: () => void;
+  /**
+   * In the Simulator, after a send: takes the reviewer to that phone and its Inbox (2026-11-28, both
+   * reviewers: the judge did not know where the sighting went).
+   */
+  readonly onGoToPeer?: (peerId: string) => void;
 }
 
 /** What the browser's share sheet reports when the user closes it: not a failure (decision 2). */
@@ -75,7 +80,7 @@ function HeadlineLast({ text }: { readonly text: string }) {
   );
 }
 
-export function ShareSheet({ sightingId, onClose, onPrivacy }: ShareSheetProps) {
+export function ShareSheet({ sightingId, onClose, onPrivacy, onGoToPeer }: ShareSheetProps) {
   const environment = useEnvironment();
   const store = useStore();
   const { state } = useVigia();
@@ -320,6 +325,17 @@ export function ShareSheet({ sightingId, onClose, onPrivacy }: ShareSheetProps) 
                 Send to {peer.label}
               </button>
               <OutcomeLine outcome={outcomes[`peer:${peer.id}`]} />
+              {onGoToPeer !== undefined && outcomes[`peer:${peer.id}`]?.kind === 'done' && (
+                <button
+                  type="button"
+                  data-primary="true"
+                  onClick={() => onGoToPeer(peer.id)}
+                  style={LOOK.primaryButton}
+                >
+                  <Icon name="inbox" />
+                  Go to {peer.label}
+                </button>
+              )}
             </div>
           ))}
         </div>

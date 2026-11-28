@@ -21,7 +21,15 @@ import { LOOK, SHAPE } from './look';
 import { PrimaryAction } from './PrimaryAction';
 import { useVigia } from './store';
 
-export function EmergencyScreen() {
+export interface EmergencyScreenProps {
+  /**
+   * Opens the Sight screen: with no sighting the screen offers it, so that it is not a dead end
+   * (2026-11-28, both reviewers).
+   */
+  readonly onSight?: () => void;
+}
+
+export function EmergencyScreen({ onSight }: EmergencyScreenProps = {}) {
   const environment = useEnvironment();
   const { open, ownPosition } = useVigia();
   const [includeOwnPosition, setIncludeOwnPosition] = useState(false);
@@ -70,6 +78,12 @@ export function EmergencyScreen() {
       </div>
       {open !== null && !open.assessment.ok && <FailureNotice failure={open.assessment} />}
       {text === null && <p style={LOOK.text}>{checkStatement('none')}</p>}
+      {text === null && onSight !== undefined && (
+        <button type="button" data-primary="true" onClick={onSight} style={LOOK.primaryButton}>
+          <Icon name="crosshair" />
+          Sight the smoke
+        </button>
+      )}
       {text !== null && !text.ok && <FailureNotice failure={text} />}
       {text !== null && text.ok && (
         <>

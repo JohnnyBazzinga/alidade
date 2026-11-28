@@ -122,13 +122,16 @@ export function mountSimulation(options: MountOptions = {}) {
 
   /**
    * From the Smoke screen to the Sight screen: "Sight the smoke", or, with one sighting and no
-   * position, the next step's "Move and sight again" (Req 22.18).
+   * position, the next step's card (Req 22.18): in the Simulator "Sight it from the East post",
+   * which also changes the phone in hand (2026-11-28); the caller chooses the post after.
    */
   const openSight = () =>
     click(
       q.queryByRole('button', { name: 'Sight the smoke' }) !== null
         ? 'Sight the smoke'
-        : 'Move and sight again',
+        : q.queryByRole('button', { name: 'Move and sight again' }) !== null
+          ? 'Move and sight again'
+          : /^Sight it from /,
     );
   const chooseScene = (sceneId: string) =>
     settle(() => fireEvent.change(q.getByLabelText('Scene'), { target: { value: sceneId } }));

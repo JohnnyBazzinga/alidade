@@ -115,12 +115,19 @@ describe('the phone in hand', () => {
     expect(m.sightingState()).toBe('permission');
   });
 
-  it('does not ask the question again for a capture it already gave', async () => {
+  it('does not ask the question again for a capture it already gave (the reviewers\u2019 P1, 2026-11-28)', async () => {
     const m = mountSimulation();
     await m.settle();
     await m.sight('west', 'crosshair', 'new');
+    // The next step's card in the Simulator is the other post, which is another phone.
     await m.openSight();
-    expect(m.sightingState()).toBe('captured');
+    expect(m.getByTestId('sight-screen')).toBeTruthy();
+    expect((m.getByLabelText('You hold the phone at') as HTMLSelectElement).value).toBe('east');
+    await m.ticks(20);
+    expect(m.queryByTestId('confirm-smoke')).toBeNull();
+    // Back at the West post, its old capture, handed over again as the panel reports, asks nothing.
+    await m.chooseStation('west');
+    await m.ticks(20);
     expect(m.queryByTestId('confirm-smoke')).toBeNull();
   });
 

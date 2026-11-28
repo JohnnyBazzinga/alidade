@@ -110,6 +110,7 @@ import {
   countLineText,
   reviewerPathLines,
   sightingGuidance,
+  reviewerStep,
   smokeStateCaption,
 } from './math/texts';
 import { toDeg, fromDeg } from './math/degrees';
@@ -925,6 +926,26 @@ export const HOSTILE_LIST: readonly HostileEntry[] = [
     smokeStateCaption,
     (_args, result) => {
       expect(result).toMatch(/^(\d+ of 2 places|\d+ sightings) · smoke (not )?located$/);
+    },
+  ),
+  hostileEntry(
+    'reviewerStep',
+    fc.tuple(
+      fc.array(
+        fc.record({
+          id: hostileString(),
+          name: hostileString(),
+          sightings: hostileNumber(),
+          waiting: hostileNumber(),
+          located: fc.boolean(),
+        }),
+        { maxLength: 4 },
+      ),
+      hostileString(),
+    ),
+    reviewerStep,
+    (_args, result) => {
+      expect(result).toMatch(/^(?:Step [1-4] of 4|Done) · /);
     },
   ),
   // --- the formatters of the screens (task 13.3) ---

@@ -228,10 +228,14 @@ describe('the question with a smoke open is a view of its own (Req 4.3)', () => 
     expect(s.calls).toEqual([]);
   });
 
-  it('Back leaves without saving the unanswered capture, as before', async () => {
+  it('"Discard this sighting" leaves without saving the unanswered capture, and the question says it is not saved yet (2026-11-28)', async () => {
     const s = mount({ stored: storedWith([postsIncident(['west', 'east'])]) });
     await s.captureOnCrosshair();
-    fireEvent.click(s.getByRole('button', { name: 'Back' }));
+    const dialog = s.getByTestId('confirm-smoke');
+    expect(dialog.textContent).toContain('Not saved yet');
+    expect(dialog.textContent).not.toContain('Sighting captured');
+    expect(within(dialog).queryByRole('button', { name: 'Back' })).toBeNull();
+    fireEvent.click(s.getByRole('button', { name: 'Discard this sighting' }));
     expect(s.calls).toEqual(['back']);
     expect(s.entries()).toBe(2);
   });

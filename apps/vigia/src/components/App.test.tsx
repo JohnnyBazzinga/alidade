@@ -185,12 +185,13 @@ const before = (a: Element, b: Element) =>
 describe('the primary action, above the tabs (task 21.3)', () => {
   const rowOf = (a: ReturnType<typeof mount>) => a.getByTestId('primary-row');
 
-  it('on the Smoke screen: Sight the smoke, after the scrolling part and before the tabs', () => {
+  it('on the Smoke screen with a position: Show on map, after the scrolling part and before the tabs (2026-11-28)', () => {
     const a = mount();
     const row = rowOf(a);
-    const sight = within(row).getByRole('button', { name: 'Sight the smoke' });
-    expect(sight.dataset.primary).toBe('true');
-    expect(a.getByTestId('app-main').contains(sight)).toBe(false);
+    const map = within(row).getByRole('button', { name: 'Show on map' });
+    expect(map.dataset.primary).toBe('true');
+    expect(a.getByTestId('app-main').contains(map)).toBe(false);
+    expect(a.getAllByRole('button', { name: 'Show on map' })).toHaveLength(1);
     expect(row.parentElement).toBe(a.getByTestId('app-shell'));
     expect(before(a.getByTestId('app-main'), row)).toBe(true);
     expect(before(row, a.getByTestId('tab-bar'))).toBe(true);
@@ -200,6 +201,9 @@ describe('the primary action, above the tabs (task 21.3)', () => {
     expect(main.getByRole('button', { name: /Add a sighting someone sent me/ })).toBeTruthy();
     fireEvent.click(a.getByTestId('data-tile'));
     expect(main.getByRole('button', { name: 'Delete everything on this phone' })).toBeTruthy();
+    // "Sight the smoke" is a secondary control in the scrolling part, once.
+    const sight = main.getByRole('button', { name: 'Sight the smoke' });
+    expect(sight.dataset.primary).toBeUndefined();
     expect(a.getAllByRole('button', { name: 'Sight the smoke' })).toHaveLength(1);
   });
 
@@ -228,9 +232,12 @@ describe('the primary action, above the tabs (task 21.3)', () => {
     }
   });
 
-  it('runs the action: Sight the smoke opens the Sight screen', () => {
+  it('runs the actions: Show on map opens the Map tab, Sight the smoke the Sight screen', () => {
     const a = mount();
-    fireEvent.click(within(rowOf(a)).getByRole('button', { name: 'Sight the smoke' }));
+    fireEvent.click(within(rowOf(a)).getByRole('button', { name: 'Show on map' }));
+    expect(a.getByTestId('map-screen')).toBeTruthy();
+    a.tab('Smoke');
+    fireEvent.click(a.getByRole('button', { name: 'Sight the smoke' }));
     expect(a.getByTestId('sight-screen')).toBeTruthy();
   });
 });

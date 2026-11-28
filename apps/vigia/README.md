@@ -27,7 +27,11 @@ reads is visible to everyone who opens the page: nothing in the repository is se
 ## Opening the page
 
 On a laptop with no sensor, open it with `?mode=simulator` to start in Simulation mode (four
-invented scenes, no camera, no network). Without it, a browser that defines
+invented scenes, no camera, no network). Each post of a scene is a simulated phone, chosen under
+the banner ("You hold the phone at"); a line under it gives the step, from the phones' state:
+sight from one post, sight from the other, send one to the other phone, add it there, done. The
+next step's card takes you to the other post's phone, and after a send the sheet offers to go to
+the phone that received it. Without it, a browser that defines
 `DeviceOrientationEvent` starts in device mode, and the Sight screen offers "Try the simulator
 instead" when no sensor reading arrives. The page has no service worker, so it must be opened once
 with a connection; after that the sighting, the position, the Emergency text and the text code work

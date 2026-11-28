@@ -24,6 +24,7 @@ import {
   HOME_TITLE,
   NEXT_MOVE_LINE,
   NEXT_MOVE_TITLE,
+  WAITING_LINE,
   NEXT_SEND_LINE,
   NEXT_SEND_TITLE,
   NOT_CALLING_TEXT,
@@ -58,6 +59,16 @@ export interface SmokeScreenProps {
   readonly modeControl?: ReactNode;
   /** In Simulation mode, with nothing sighted on this phone: the reviewer's path (task 21.5). */
   readonly reviewerPath?: ReactNode;
+  /**
+   * In Simulation mode the second place is the other post, another phone: the first card says so
+   * and goes there (2026-11-28, both reviewers; on a laptop the phone cannot walk sideways).
+   */
+  readonly move?: { readonly title: string; readonly line: string; readonly onGo: () => void };
+  /**
+   * In Simulation mode, when every other phone has sighted: sending is the next step, so "Send this
+   * sighting" is the yellow card and there is no card to go elsewhere (2026-11-28).
+   */
+  readonly sendIsNext?: boolean;
 }
 
 /** The failures of the solve after which the advice is to move sideways (Req 7.5). */
@@ -327,6 +338,8 @@ export function SmokeScreen({
   statusLine,
   modeControl,
   reviewerPath,
+  move,
+  sendIsNext = false,
 }: SmokeScreenProps) {
   const store = useStore();
   const environment = useEnvironment();
@@ -342,6 +355,12 @@ export function SmokeScreen({
       : state.incidents
           .flatMap((i) => i.entries)
           .find((e) => e.sighting.sightingId === saved.sightingId);
+  const usedCount = open !== null && open.assessment.ok ? open.assessment.value.used.length : 0;
+  const located =
+    open !== null &&
+    open.assessment.ok &&
+    open.assessment.value.fix !== null &&
+    open.assessment.value.fix.ok;
   const parts =
     open !== null && open.assessment.ok
       ? resultParts({
@@ -350,15 +369,12 @@ export function SmokeScreen({
           nowUtcMs,
           ownPosition,
           parameters: environment.parameters,
-          onShowMap,
+          // In the action row when it is the primary action, not twice.
+          // (With a position there is no single sighting, so this is `mapIsPrimary` below.)
+          onShowMap:
+            located && !(saved !== undefined && savedEntry !== undefined) ? undefined : onShowMap,
         })
       : null;
-  const usedCount = open !== null && open.assessment.ok ? open.assessment.value.used.length : 0;
-  const located =
-    open !== null &&
-    open.assessment.ok &&
-    open.assessment.value.fix !== null &&
-    open.assessment.value.fix.ok;
   // One used sighting and no position (Req 22.18): the screen shows the two next steps, as cards,
   // however the user got here (a capture, a Close, a tab, a reload), and no fixed action row.
   const single =
@@ -368,13 +384,19 @@ export function SmokeScreen({
   // Right after a capture with more than one sighting, "Send this sighting" is the primary action
   // and this one is secondary.
   const sendIsPrimary = saved !== undefined && savedEntry !== undefined && single === undefined;
+  // With a position, the next thing to do is to see it: "Show on map" is the primary action and
+  // "Sight the smoke" a secondary one (2026-11-28, both reviewers).
+  const mapIsPrimary = located && !sendIsPrimary && onShowMap !== undefined;
+  const sightIsPrimary = !sendIsPrimary && !mapIsPrimary;
+  // A sighting waiting in the Inbox is the next step while only one is used (2026-11-28).
+  const waitingIsPrimary = inbox.length > 0 && single !== undefined;
   const sightButton = (
     <button
       type="button"
-      {...(!sendIsPrimary ? { 'data-primary': 'true' } : {})}
+      {...(sightIsPrimary ? { 'data-primary': 'true' } : {})}
       onClick={onSight}
       style={
-        !sendIsPrimary
+        sightIsPrimary
           ? LOOK.primaryButton
           : { ...LOOK.button, minHeight: 56, fontSize: 17, fontWeight: 800, flex: '0 0 auto' }
       }
@@ -424,8 +446,40 @@ export function SmokeScreen({
     />
   );
 
+  /** Mira's yellow card: the next step among cards. */
+  const yellowCard = {
+    border: 'none',
+    background: ROLE_VARS.primary,
+    color: ROLE_VARS.primaryInk,
+    boxShadow: SHAPE.primaryShadow,
+  } as const;
+  const waitingCard =
+    inbox.length > 0 ? (
+      <button
+        type="button"
+        data-testid="waiting-card"
+        data-choice="true"
+        {...(waitingIsPrimary ? { 'data-primary': 'true' } : {})}
+        aria-label={`${inbox.length} ${inbox.length === 1 ? 'sighting' : 'sightings'} waiting: add`}
+        onClick={onInbox}
+        style={{
+          ...LOOK.optionButton,
+          minHeight: 76,
+          ...(waitingIsPrimary ? yellowCard : {}),
+        }}
+      >
+        <OptionWords
+          icon="inbox"
+          title={`${inbox.length} ${inbox.length === 1 ? 'sighting' : 'sightings'} waiting`}
+          sub={WAITING_LINE}
+          dim={!waitingIsPrimary}
+        />
+      </button>
+    ) : null;
+
   return (
     <section data-testid="smoke-screen" style={LOOK.stack}>
+      {waitingCard}
       {statusLine !== undefined && single === undefined && (
         <div style={LOOK.statusCard('info')}>
           <p data-testid="status-line" style={{ ...LOOK.text, color: ROLE_VARS.infoInk }}>
@@ -494,31 +548,45 @@ export function SmokeScreen({
           )}
           {single !== undefined && (
             <div data-testid="next-step" style={{ ...LOOK.stack, gap: 10 }}>
+              {!sendIsNext && (
+                <button
+                  type="button"
+                  {...(!waitingIsPrimary ? { 'data-primary': 'true' } : {})}
+                  data-choice="true"
+                  aria-label={move?.title ?? NEXT_MOVE_TITLE}
+                  onClick={move?.onGo ?? onSight}
+                  style={{
+                    ...LOOK.optionButton,
+                    minHeight: 84,
+                    ...(!waitingIsPrimary ? yellowCard : {}),
+                  }}
+                >
+                  <OptionWords
+                    icon="crosshair"
+                    title={move?.title ?? NEXT_MOVE_TITLE}
+                    sub={move?.line ?? NEXT_MOVE_LINE}
+                    dim={waitingIsPrimary}
+                  />
+                </button>
+              )}
               <button
                 type="button"
-                data-primary="true"
-                data-choice="true"
-                aria-label={NEXT_MOVE_TITLE}
-                onClick={onSight}
-                style={{
-                  ...LOOK.optionButton,
-                  minHeight: 84,
-                  border: 'none',
-                  background: ROLE_VARS.primary,
-                  color: ROLE_VARS.primaryInk,
-                  boxShadow: SHAPE.primaryShadow,
-                }}
-              >
-                <OptionWords icon="crosshair" title={NEXT_MOVE_TITLE} sub={NEXT_MOVE_LINE} />
-              </button>
-              <button
-                type="button"
+                {...(sendIsNext && !waitingIsPrimary ? { 'data-primary': 'true' } : {})}
                 data-choice="true"
                 aria-label={NEXT_SEND_TITLE}
                 onClick={() => onSend?.(single.sighting.sightingId)}
-                style={{ ...LOOK.optionButton, minHeight: 84 }}
+                style={{
+                  ...LOOK.optionButton,
+                  minHeight: 84,
+                  ...(sendIsNext && !waitingIsPrimary ? yellowCard : {}),
+                }}
               >
-                <OptionWords icon="send" title={NEXT_SEND_TITLE} sub={NEXT_SEND_LINE} dim />
+                <OptionWords
+                  icon="send"
+                  title={NEXT_SEND_TITLE}
+                  sub={NEXT_SEND_LINE}
+                  dim={!(sendIsNext && !waitingIsPrimary)}
+                />
               </button>
               {/* The line of Req 4.12, under the step it is about, so that both steps stay in view. */}
               {statusLine !== undefined && (
@@ -535,7 +603,7 @@ export function SmokeScreen({
             </div>
           )}
           {open.assessment.ok ? parts?.first : <FailureNotice failure={open.assessment} />}
-          {sendIsPrimary && sightButton}
+          {single === undefined && !sightIsPrimary && sightButton}
           <NavRow icon="inbox" onClick={onInbox}>
             Add a sighting someone sent me{inbox.length > 0 ? ` (${inbox.length} waiting)` : ''}
           </NavRow>
@@ -623,6 +691,16 @@ export function SmokeScreen({
             >
               <Icon name="send" />
               Send this sighting
+            </button>
+          ) : mapIsPrimary ? (
+            <button
+              type="button"
+              data-primary="true"
+              onClick={onShowMap}
+              style={LOOK.primaryButton}
+            >
+              <Icon name="map" />
+              Show on map
             </button>
           ) : (
             sightButton

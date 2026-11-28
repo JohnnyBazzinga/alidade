@@ -82,15 +82,15 @@ Counts below were made on 2026-11-28 from the files in this repository.
 
 - **Six specs** in `.kiro/specs/` (`sighting-core`, `skeleton-sensors`, `skeleton-ui`, `vigia`,
   `nonius`, `kiro-tooling`), each with requirements, design and tasks: **91 requirements**
-  (`### Requirement` headings), **864 acceptance criteria** (numbered items under each
-  `#### Acceptance Criteria`), **121 task groups** and **424 sub-tasks** (checkbox lines in
+  (`### Requirement` headings), **865 acceptance criteria** (numbered items under each
+  `#### Acceptance Criteria`), **121 task groups** and **425 sub-tasks** (checkbox lines in
   `tasks.md`, top-level and indented).
 - **Five steering files** in `.kiro/steering/`: `math-conventions`, `product`, `structure`, `tech`,
   `testing`.
 - **164 named properties** in property-based tests (`fast-check`): the distinct `P-n.m` identifiers
   in the 76 `*.property.test.ts` files, counted once per package because numbering restarts in each
   (`grep -ohE "P-[0-9]+\.[0-9]+"`, then `sort -u`).
-- **6 451 tests** pass, 3 skipped, in 7 packages: the sum of the `Tests` lines of `pnpm test`.
+- **6 465 tests** pass, 3 skipped, in 7 packages: the sum of the `Tests` lines of `pnpm test`.
 - **The project agent** `.kiro/agents/alidade.json` loads the five steering files and the MCP
   server, denies reading and writing `notes/`, and denies `git commit`, `git push` and `pkill`. It
   has three hooks that run `tools/kiro-guard`: at session start it prints the branch, the last

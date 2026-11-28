@@ -3,7 +3,7 @@
 // the screens are of and changes it. The Simulation shell owns the choice and hands it to the
 // Simulator panel, so that the next sighting is taken from the post named here.
 
-import { BODY_FONT_STACK, COLOURS, SIZES } from '@alidade/ui';
+import { BODY_FONT_STACK, COLOURS, ROLE_VARS, SIZES } from '@alidade/ui';
 import { BODY_TEXT_PX, LOOK } from './look';
 
 export interface PhoneInHand {
@@ -12,6 +12,17 @@ export interface PhoneInHand {
   /** The posts of the scene, in its order, each a phone. */
   readonly stations: readonly { readonly id: string; readonly name: string }[];
   readonly onSelect: (stationId: string) => void;
+  /**
+   * The reviewer's step, worked out from every phone's state (`reviewerStep`; Req 17.7): under the
+   * post, on every screen, so that the path is never out of sight (2026-11-28, both reviewers).
+   */
+  readonly step?: string;
+  /**
+   * The next post to sight from: this one while its phone has no sighting of its own, else another
+   * post whose phone has none; `null` when every phone has one (then sending is the next step);
+   * left out when the shell does not say.
+   */
+  readonly nextPost?: { readonly id: string; readonly name: string } | null;
 }
 
 export const PHONE_IN_HAND_LABEL = 'You hold the phone at';
@@ -61,6 +72,22 @@ export function PhoneInHandBar({ hand }: { readonly hand: PhoneInHand }) {
           ))}
         </select>
       </label>
+      {hand.step !== undefined && hand.step !== '' && (
+        <p
+          data-testid="reviewer-step"
+          role="status"
+          style={{
+            ...LOOK.caption,
+            margin: `${SIZES.gapPx / 2}px 0 0`,
+            color: ROLE_VARS.ink,
+            textTransform: 'none',
+            letterSpacing: '0.2px',
+            fontSize: 13,
+          }}
+        >
+          {hand.step}
+        </p>
+      )}
     </div>
   );
 }
