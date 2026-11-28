@@ -13,6 +13,7 @@ import {
   type MapPalette,
 } from '../../math/map/map-style';
 import type { ConstantRole, Role, ThemedRole } from './roles';
+import { MIRA_SCENE, type SceneLandscape } from './scene';
 
 export type ThemeId = 'instrument' | 'field' | 'field-night' | 'mira';
 
@@ -59,6 +60,8 @@ export interface Theme {
   };
   /** The map's paints (Req 22.16): the defaults, or Mira's yellow. */
   readonly map: MapPalette;
+  /** The Scene image as a landscape (Req 22.18), or `null` for the dark sky of D37.5. */
+  readonly scene: SceneLandscape | null;
   readonly flags: {
     /** Whether an application draws its header illustration. */
     readonly illustrated: boolean;
@@ -259,6 +262,7 @@ export const instrument: Theme = {
   },
   fonts: SYSTEM_FONTS,
   map: DEFAULT_MAP_PALETTE,
+  scene: null,
   flags: { illustrated: false, elevated: false, cards: false, dial: false },
 };
 
@@ -279,6 +283,7 @@ export const field: Theme = {
   },
   fonts: SYSTEM_FONTS,
   map: DEFAULT_MAP_PALETTE,
+  scene: null,
   flags: { illustrated: true, elevated: true, cards: true, dial: false },
 };
 
@@ -299,6 +304,7 @@ export const fieldNight: Theme = {
   },
   fonts: SYSTEM_FONTS,
   map: DEFAULT_MAP_PALETTE,
+  scene: null,
   flags: { illustrated: true, elevated: false, cards: true, dial: false },
 };
 
@@ -329,6 +335,7 @@ export const mira: Theme = {
     controlWeight: 600,
   },
   map: MIRA_MAP_PALETTE,
+  scene: MIRA_SCENE,
   flags: { illustrated: false, elevated: false, cards: true, dial: true },
 };
 

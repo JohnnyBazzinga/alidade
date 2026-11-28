@@ -130,8 +130,9 @@ control's edge and fill), the fonts, the map's paints and four flags. The packag
 look with rounded cards), **Field night** (its dark counterpart) and **Mira** (an off-white page, a
 green-black ink and one yellow, pills and cards; Vigia). Field and Field night are tested and
 applied by no app today. With Mira's `dial` flag the docked sighting screen draws the same parts as
-a round lens in a ring of compass ticks, one large numeral with a caption, two tiles and a round
-Back (`dialLensSize`, `DIAL_RESERVE_PX`). An application calls `applyTheme(document.documentElement,
+a round lens in a ring of compass ticks that turns as a compass's bezel does, one large numeral
+with a caption, two tiles and a round Back (`dialLensSize`, `DIAL_RESERVE_PX`); the flow layout
+(the Simulator's) is drawn the same way, and its Scene image becomes Mira's landscape. An application calls `applyTheme(document.documentElement,
 theme)` once at its start, and `watchColourScheme(window.matchMedia, (dark) => …)` if it wants a
 night theme. `applyTheme` writes every role as a CSS custom property (`--alidade-<role>`); every
 component writes the role's custom property in its inline styles, so a switch changes every component

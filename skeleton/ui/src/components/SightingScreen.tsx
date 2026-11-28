@@ -30,7 +30,7 @@
 // and the bar fit under an app's banner and Back (Vigia's `sight-first-screen.test.tsx`).
 
 import { wrapPi } from '@alidade/core';
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import type { CameraCalibration } from '../math/camera-calibration';
 import type { ImageFit, ImageLayout, SourceSize } from '../math/image-layout';
 import type { SessionParameters } from '../math/session/parameters';
@@ -56,6 +56,7 @@ import {
   dialLensSize,
   DialReadout,
   DialTiles,
+  DIAL_LENS_MAX_PX,
   DIAL_RESERVE_PX,
 } from './dial';
 import { useActiveTheme } from './theme/apply-theme';
@@ -208,6 +209,19 @@ export function SightingScreen(props: SightingScreenProps) {
   const [otherWays, setOtherWays] = useState(false);
   // Mira's drawing of the docked layout (Req 22.17): the same parts, as a lens, a numeral, tiles.
   const dial = useActiveTheme().flags.dial;
+  // The dial's bezel turns with the live azimuth on a true or magnetic north, and holds the last
+  // one while frozen (Req 22.17): the frozen image is the scene at the Freeze.
+  const bezel = useRef<number | null>(null);
+  if (session.state === 'live') {
+    const az = session.readout?.azimuth;
+    bezel.current =
+      az !== undefined && az.ok && az.value.northReference !== 'relative'
+        ? az.value.azimuthRad
+        : null;
+  } else if (session.state !== 'frozen') {
+    bezel.current = null;
+  }
+  const bezelRad = bezel.current;
   const state = session.state;
   const bearing = session.kind === 'bearing';
   const frozen = state === 'frozen';
@@ -549,7 +563,7 @@ export function SightingScreen(props: SightingScreenProps) {
             {state === 'permission' && props.intro === undefined && limits}
             {state === 'permission' && props.intro}
             {showImage && (
-              <DialLens sizeCss={lensSize} frozen={frozen}>
+              <DialLens sizeCss={lensSize} frozen={frozen} northRad={bezelRad}>
                 {surface}
               </DialLens>
             )}
@@ -688,6 +702,116 @@ export function SightingScreen(props: SightingScreenProps) {
                 },
               })}
         />
+      </div>
+    );
+  }
+
+  // The flow layout in Mira (Req 22.18): the Simulator's and any caller's that does not dock. The
+  // same parts and controls as the flow layout, drawn as the dial draws them: the lens, the numeral,
+  // the north prompt among the content, two tiles (Details; "Other ways to set north", which opens
+  // the known-azimuth form in place), then the controls as pills.
+  if (dial) {
+    const flowLens = `min(calc(100vw - 40px), ${DIAL_LENS_MAX_PX}px)`;
+    const askNorthFlow = bearing && (state === 'live' || frozen);
+    return (
+      <div
+        data-testid="sighting-screen"
+        data-state={state}
+        data-variant="dial"
+        style={{ display: 'flex', flexDirection: 'column', background: COLOURS.bg }}
+      >
+        {state === 'permission' && (
+          <p data-part="intro" style={{ ...text, padding: '12px 0 0', fontSize: 15 }}>
+            {SCREEN_TEXT.permission}
+          </p>
+        )}
+        {state === 'permission' && <LimitsNote />}
+        {state === 'starting' && (
+          <p data-part="hint" style={{ ...text, padding: '12px 0 0', fontSize: 15 }}>
+            {SCREEN_TEXT.starting}
+          </p>
+        )}
+        {showImage && (
+          <DialLens sizeCss={flowLens} frozen={frozen} northRad={bezelRad} margin="4px auto 0">
+            {surface}
+          </DialLens>
+        )}
+        {state === 'live' && (
+          <DialReadout readout={session.readout} kind={session.kind} sidePx={0} />
+        )}
+        {frozen && (
+          <p
+            data-part="hint"
+            style={{
+              margin: 0,
+              padding: '12px 0 0',
+              textAlign: 'center',
+              fontFamily: DISPLAY_FONT_STACK,
+              // The hint that asks for a tap is three sentences: smaller than the one of the dial.
+              fontSize: marking ? 17 : 22,
+              fontWeight: 800,
+              lineHeight: 1.2,
+              letterSpacing: '-0.6px',
+              color: ROLE_VARS.ink,
+            }}
+          >
+            {marking
+              ? `${SCREEN_TEXT.frozenHint} ${mark === null ? SCREEN_TEXT.notMarked : SCREEN_TEXT.marked}`
+              : SCREEN_TEXT.frozenHintNoMark}
+          </p>
+        )}
+        {portrait && (
+          <div style={{ padding: '12px 0 0' }}>
+            <FailureNotice failure={{ reason: 'portrait_required' }} />
+          </div>
+        )}
+        {state === 'captured' && session.captured !== null && (
+          <CaptureSummary result={session.captured} />
+        )}
+        {askNorthFlow && northFirst && <div style={{ padding: '12px 0 0' }}>{yawBar()}</div>}
+        {state === 'failed' && session.failure !== null && (
+          <div style={{ padding: '12px 0 0' }}>
+            <FailureNotice failure={session.failure} />
+          </div>
+        )}
+        {state !== 'failed' && session.notice !== null && (
+          <div style={{ padding: '12px 0 0' }}>
+            <FailureNotice failure={session.notice} />
+          </div>
+        )}
+        {(state === 'live' || frozen) && (
+          <DialTiles
+            sidePx={0}
+            onOtherWays={askNorthFlow ? () => setOtherWays((o) => !o) : null}
+            details={
+              <>
+                {state === 'live' && <DialDetails readout={session.readout} kind={session.kind} />}
+                {bearing && !northFirst && yawBar(true)}
+                <LimitsNote />
+              </>
+            }
+          />
+        )}
+        {askNorthFlow && otherWays && (
+          <section
+            data-part="way"
+            style={{
+              margin: '10px 0 0',
+              padding: '14px 16px',
+              borderRadius: 'var(--alidade-tile-radius, 16px)',
+              border: `1px solid ${ROLE_VARS.rule}`,
+              background: ROLE_VARS.card,
+            }}
+          >
+            <KnownAzimuthForm
+              onSubmit={(from) => {
+                setOtherWays(false);
+                onAction({ kind: 'establishYaw', from });
+              }}
+            />
+          </section>
+        )}
+        <DialBar text={null} controls={controls} sidePx={0} />
       </div>
     );
   }

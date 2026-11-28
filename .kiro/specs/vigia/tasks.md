@@ -837,3 +837,5 @@ _Note of the lead, 2026-11-21._ The ticks of 1.2, 1.7, the mutation checks of 6.
     - _Requirements: 22.16 (a) to (d), 16.2, 14.5_
   - [x] 27.2 The other screens. Tests: `mira-screens.look.test.tsx` (Sightings, Share, the QR view, Emergency, the delete dialog, the privacy page), `ShareSheet.test.tsx` (Mira's order), `PrivacyPage.test.tsx`, `SightingsScreen.test.tsx`, `screens-look.test.tsx` (Mira's least sizes; layers only over a picture), `flow-next-step.test.tsx`, `purity.test.ts` (the two font packages, the new files), `hostile-totality.property.test.ts` (`smokeStateCaption`). Tests: Vigia 2986, 3 skipped.
     - _Requirements: 22.16 (e) to (h), 1.1, 1.7, 11.1_
+  - [x] 27.3 A laptop and the Simulator (2026-11-28; Req 22.17; design D26.9). Tests: `simulation/sight-mira.test.tsx` (the App's column of `480`; the Simulator's Sight screen as the dial, its landscape with the smoke's plume, the numeral, the bezel's north). Code: `App.tsx`, `index.html`.
+    - _Requirements: 22.17_

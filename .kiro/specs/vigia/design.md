@@ -196,6 +196,7 @@ The repository root needs no new dependency. Its `eslint.config.js` gains one bl
   6. *Share and the QR.* `ShareSheet.tsx`: the cards of Req 22.16 (e); a card's name is today's label ("Show QR code (someone beside you)"), its two lines the title and for whom.
   7. *The other screens.* `MapScreen.tsx`, `OverlayPanel.tsx`, `PrivacyPage.tsx`, `EmergencyScreen.tsx`, `InboxSheet.tsx`, `ConfirmSmokeDialog.tsx`: Mira's titles, cards, tiles and pills; `look.ts` holds the styles (`caption`, `cardTitle`, `tile`, `pair`, `darkButton`, `roundButton` added).
   8. *The fonts.* `@fontsource-variable/sora` `5.3.0` and `@fontsource/ibm-plex-mono` `5.3.0` (published 2026-07-19, over the 14 days), dependencies of Vigia alone, imported once in `main.tsx` (Sora's weights, Plex Mono's Latin 500): about `64` kB of fonts, from the page's own host (Req 15). Their licence is the SIL OFL 1.1.
+  9. *A laptop and the Simulator (2026-11-28; Req 22.17).* The App's column is at most `480` (`APP_MAX_WIDTH_PX`) and centred (`margin: 0 auto`), and the page's `body` takes the theme's `bg`, so that on a laptop Vigia is a phone's column in the middle of the page; the Simulator's Sight screen is skeleton-ui's flow layout in the dial (skeleton-ui D37.14), with its landscape and the smoke target's plume (the Smoke column's id is `smoke`).
 
 ## 5. Module layout
 

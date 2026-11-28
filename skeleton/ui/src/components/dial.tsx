@@ -52,8 +52,21 @@ export const CAPTION_STYLE: CSSProperties = {
   color: ROLE_VARS.inkDim,
 };
 
-/** The compass ticks around the lens: every 5° thin, every 30° heavy (decorative). */
-export function DialRing({ sizeCss }: { readonly sizeCss: string }) {
+/**
+ * The compass ticks around the lens: every 5° thin, every 30° heavy. With a north (`northRad`, the
+ * azimuth the camera points at, on a true or magnetic north), the ring turns as a compass's bezel
+ * does, and its north is a yellow tick (Req 22.17 as amended 2026-11-28); with none (a Relative
+ * azimuth, or no reading yet) it stands still and shows no north, because none is known.
+ */
+export function DialRing({
+  sizeCss,
+  northRad = null,
+}: {
+  readonly sizeCss: string;
+  readonly northRad?: number | null;
+}) {
+  const turnDeg =
+    northRad === null || !Number.isFinite(northRad) ? null : -(northRad * 180) / Math.PI;
   return (
     <svg
       data-part="dial-ring"
@@ -69,29 +82,47 @@ export function DialRing({ sizeCss }: { readonly sizeCss: string }) {
         pointerEvents: 'none',
       }}
     >
-      <circle
-        cx="175"
-        cy="175"
-        r="166"
-        style={{
-          fill: 'none',
-          stroke: ROLE_VARS.inkDim,
-          strokeOpacity: 0.55,
-          strokeWidth: 8,
-          strokeDasharray: '1.5 12.986',
-        }}
-      />
-      <circle
-        cx="175"
-        cy="175"
-        r="166"
-        style={{
-          fill: 'none',
-          stroke: ROLE_VARS.ink,
-          strokeWidth: 14,
-          strokeDasharray: '3 83.917',
-        }}
-      />
+      <g
+        data-part="dial-bezel"
+        {...(turnDeg === null ? {} : { 'data-turn-deg': turnDeg.toFixed(1) })}
+        transform={turnDeg === null ? undefined : `rotate(${turnDeg.toFixed(2)} 175 175)`}
+      >
+        <circle
+          cx="175"
+          cy="175"
+          r="166"
+          style={{
+            fill: 'none',
+            stroke: ROLE_VARS.inkDim,
+            strokeOpacity: 0.55,
+            strokeWidth: 8,
+            strokeDasharray: '1.5 12.986',
+          }}
+        />
+        <circle
+          cx="175"
+          cy="175"
+          r="166"
+          style={{
+            fill: 'none',
+            stroke: ROLE_VARS.ink,
+            strokeWidth: 14,
+            strokeDasharray: '3 83.917',
+          }}
+        />
+        {turnDeg !== null && (
+          <g data-part="dial-north">
+            <path
+              d="M175 1V21"
+              style={{ stroke: ROLE_VARS.ink, strokeWidth: 9, strokeLinecap: 'round' }}
+            />
+            <path
+              d="M175 1V21"
+              style={{ stroke: ROLE_VARS.primary, strokeWidth: 5, strokeLinecap: 'round' }}
+            />
+          </g>
+        )}
+      </g>
     </svg>
   );
 }
@@ -145,10 +176,15 @@ export function DialReticle() {
 export function DialLens({
   sizeCss,
   frozen,
+  northRad = null,
+  margin = '14px auto 0',
   children,
 }: {
   readonly sizeCss: string;
   readonly frozen: boolean;
+  /** The azimuth the camera points at, on a true or magnetic north; `null` for none. */
+  readonly northRad?: number | null;
+  readonly margin?: string;
   readonly children: ReactNode;
 }) {
   const insetCss = `calc(${sizeCss} * ${LENS_INSET})`;
@@ -162,10 +198,10 @@ export function DialLens({
         alignSelf: 'center',
         width: sizeCss,
         height: sizeCss,
-        margin: '14px auto 0',
+        margin,
       }}
     >
-      <DialRing sizeCss={sizeCss} />
+      <DialRing sizeCss={sizeCss} northRad={northRad} />
       <div
         data-part="lens"
         style={{
@@ -230,16 +266,19 @@ export const DIAL_NUMERAL_STYLE: CSSProperties = {
 export function DialReadout({
   readout,
   kind,
+  sidePx = 20,
 }: {
   readonly readout: LiveReadout | null;
   readonly kind: 'bearing' | 'altitude';
+  /** The side margin: `20` in the docked column, `0` in a flow that its parent pads. */
+  readonly sidePx?: number;
 }) {
   const column: CSSProperties = {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     gap: 6,
-    padding: '12px 20px 0',
+    padding: `12px ${sidePx}px 0`,
     textAlign: 'center',
   };
   if (readout === null) {
@@ -352,15 +391,18 @@ export function tileStyle(heightPx = 54): CSSProperties {
 export function DialTiles({
   details,
   onOtherWays,
+  sidePx = 20,
 }: {
   readonly details: ReactNode;
   readonly onOtherWays: (() => void) | null;
+  /** The side margin: `20` in the docked column, `0` in a flow that its parent pads. */
+  readonly sidePx?: number;
 }) {
   const [open, setOpen] = useState(false);
   return (
     <div
       data-part="tiles"
-      style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '16px 20px 0' }}
+      style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: `16px ${sidePx}px 0` }}
     >
       <div
         style={{
@@ -472,10 +514,13 @@ export function DialBar({
   text,
   controls,
   back,
+  sidePx = 20,
 }: {
   readonly text: ReactNode;
   readonly controls: readonly ControlSpec[];
   readonly back?: ControlSpec;
+  /** The side margin: `20` in the docked column, `0` in a flow that its parent pads. */
+  readonly sidePx?: number;
 }) {
   const hasText = text !== null && text !== undefined && text !== false;
   const [first, ...rest] = controls;
@@ -489,7 +534,7 @@ export function DialBar({
         display: 'flex',
         flexDirection: 'column',
         gap: 10,
-        padding: '12px 20px 16px',
+        padding: `12px ${sidePx}px 16px`,
         paddingBottom: 'calc(16px + env(safe-area-inset-bottom))',
         background: COLOURS.bg,
       }}

@@ -40,6 +40,9 @@ import { ReviewerPath } from './components/ReviewerPath';
 import { OVERLAYS } from './overlays';
 import { useOverlaySlot } from './overlays/shared/components/OverlayPanel';
 
+/** The App's column at most (Mira's design is drawn at 390; a large phone is 430). */
+export const APP_MAX_WIDTH_PX = 480;
+
 export interface AppProps {
   readonly environment: VigiaEnvironment;
   readonly store: VigiaStore;
@@ -229,6 +232,11 @@ function Shell({
         display: 'flex',
         flexDirection: 'column',
         height: '100dvh',
+        // Mira is a phone's design (Req 22.16): on a wide screen the App is a column of a phone's
+        // width, in the middle of the page, as a reviewer on a laptop sees it.
+        width: '100%',
+        maxWidth: APP_MAX_WIDTH_PX,
+        margin: '0 auto',
         background: COLOURS.bg,
         color: COLOURS.ink,
         fontFamily: BODY_FONT_STACK,

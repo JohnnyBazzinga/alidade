@@ -6,7 +6,7 @@ import { fireEvent, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fakeObserver } from '../test-support/fake-observe';
 import { PARAMETERS, sessionInState } from '../test-support/session-fixtures';
-import { dialLensSize, DIAL_RESERVE_PX } from './dial';
+import { DialLens, dialLensSize, DIAL_RESERVE_PX } from './dial';
 import { SightingScreen } from './SightingScreen';
 import { applyTheme } from './theme/apply-theme';
 import { field, instrument, mira } from './theme/themes';
@@ -99,5 +99,73 @@ describe('the dial (Req 22.17)', () => {
     expect(dialLensSize(DIAL_RESERVE_PX.live)).toBe(
       'min(calc(100vw - 40px), 350px, max(160px, calc(100dvh - 380px)))',
     );
+  });
+
+  it('the bezel turns with a true azimuth and marks north; with a Relative one it stands and marks none', () => {
+    applyTheme(document.documentElement, mira);
+    const live = show('live');
+    const az =
+      live.getByTestId('readout').querySelector('[data-part="azimuth"]')?.textContent ?? '';
+    const bezel = live.container.querySelector<SVGElement>('[data-part="dial-bezel"]');
+    const steadiness = live.getByTestId('readout').querySelector('[data-part="steadiness"]');
+    if ((steadiness?.textContent ?? '').startsWith('Relative')) {
+      expect(bezel?.getAttribute('transform')).toBeNull();
+      expect(live.container.querySelector('[data-part="dial-north"]')).toBeNull();
+    } else {
+      expect(Number(bezel?.dataset.turnDeg)).toBeCloseTo(-Number.parseFloat(az), 0);
+      expect(live.container.querySelector('[data-part="dial-north"]')).not.toBeNull();
+    }
+  });
+
+  it('the bezel of a lens: turned by the azimuth on a north, still without one', () => {
+    const turned = render(
+      <DialLens sizeCss="350px" frozen={false} northRad={Math.PI / 2}>
+        <div />
+      </DialLens>,
+    );
+    const bezel = turned.container.querySelector<SVGElement>('[data-part="dial-bezel"]');
+    expect(bezel?.getAttribute('transform')).toBe('rotate(-90.00 175 175)');
+    expect(turned.container.querySelector('[data-part="dial-north"]')).not.toBeNull();
+    turned.unmount();
+    const still = render(
+      <DialLens sizeCss="350px" frozen={false} northRad={null}>
+        <div />
+      </DialLens>,
+    );
+    expect(
+      still.container.querySelector('[data-part="dial-bezel"]')?.getAttribute('transform'),
+    ).toBeNull();
+    expect(still.container.querySelector('[data-part="dial-north"]')).toBeNull();
+  });
+
+  it('the flow layout (the Simulator) in Mira: the lens, the numeral, the tiles and the pills, the form in place', () => {
+    applyTheme(document.documentElement, mira);
+    const flow = render(
+      <SightingScreen
+        session={sessionInState('live', 'bearing').session}
+        parameters={PARAMETERS}
+        onRequestPermission={vi.fn()}
+        onAction={vi.fn()}
+        sourceSize={{ widthSourcePx: 720, heightSourcePx: 1280 }}
+        fit="cover"
+        calibration={null}
+        tapSigmaPx={Number.NaN}
+        observe={fakeObserver({ widthPx: 390, heightPx: 844 }).observe}
+        renderImage={() => <div />}
+      />,
+    );
+    const screen = flow.getByTestId('sighting-screen');
+    expect(screen.dataset.variant).toBe('dial');
+    expect(screen.dataset.layout).toBeUndefined();
+    expect(screen.querySelector('[data-part="image-box"]')?.getAttribute('data-variant')).toBe(
+      'dial',
+    );
+    expect(flow.getByTestId('readout').dataset.variant).toBe('dial');
+    expect(flow.getByTestId('control-bar').dataset.variant).toBe('dial');
+    const other = flow.queryByRole('button', { name: 'Other ways to set north' });
+    if (other !== null) {
+      fireEvent.click(other);
+      expect(screen.querySelector('[data-part="way"]')).not.toBeNull();
+    }
   });
 });

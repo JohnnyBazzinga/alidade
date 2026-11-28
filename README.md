@@ -78,19 +78,19 @@ asked for: the solver is generic over measurement models, and Core ships only th
 
 ## How it was built with Kiro
 
-Counts below were made on 2026-11-27 from the files in this repository.
+Counts below were made on 2026-11-28 from the files in this repository.
 
 - **Six specs** in `.kiro/specs/` (`sighting-core`, `skeleton-sensors`, `skeleton-ui`, `vigia`,
   `nonius`, `kiro-tooling`), each with requirements, design and tasks: **90 requirements**
-  (`### Requirement` headings), **856 acceptance criteria** (numbered items under each
-  `#### Acceptance Criteria`), **120 task groups** and **417 sub-tasks** (checkbox lines in
+  (`### Requirement` headings), **858 acceptance criteria** (numbered items under each
+  `#### Acceptance Criteria`), **120 task groups** and **419 sub-tasks** (checkbox lines in
   `tasks.md`, top-level and indented).
 - **Five steering files** in `.kiro/steering/`: `math-conventions`, `product`, `structure`, `tech`,
   `testing`.
 - **164 named properties** in property-based tests (`fast-check`): the distinct `P-n.m` identifiers
   in the 76 `*.property.test.ts` files, counted once per package because numbering restarts in each
   (`grep -ohE "P-[0-9]+\.[0-9]+"`, then `sort -u`).
-- **6 425 tests** pass, 3 skipped, in 7 packages: the sum of the `Tests` lines of `pnpm test`.
+- **6 432 tests** pass, 3 skipped, in 7 packages: the sum of the `Tests` lines of `pnpm test`.
 - **The project agent** `.kiro/agents/alidade.json` loads the five steering files and the MCP
   server, denies reading and writing `notes/`, and denies `git commit`, `git push` and `pkill`. It
   has three hooks that run `tools/kiro-guard`: at session start it prints the branch, the last
